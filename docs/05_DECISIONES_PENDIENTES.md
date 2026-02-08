@@ -1,5 +1,13 @@
 # Decisiones Pendientes (Cierre V1)
 
+## Documentos relacionados
+- `README.md`
+- `docs/00_INDICE_DOCUMENTACION_FINAL.md`
+- `docs/01_RESUMEN_EJECUTIVO_FINAL.md`
+- `docs/02_ESPECIFICACION_MOTOR_FINAL.md`
+- `docs/03_ESPECIFICACION_UI_TAURI_FINAL.md`
+- `docs/04_PLAN_PM_IMPLEMENTACION_FINAL.md`
+
 ## Objetivo
 Centralizar las decisiones que aun requieren validacion de producto/arquitectura para evitar ambiguedades durante implementacion.
 
@@ -68,4 +76,3 @@ Cuando se cierre cada decision:
 2. reflejar el cambio en `docs/01_RESUMEN_EJECUTIVO_FINAL.md`,
 3. reflejar el cambio en `docs/02_ESPECIFICACION_MOTOR_FINAL.md` o `docs/03_ESPECIFICACION_UI_TAURI_FINAL.md` segun aplique,
 4. sincronizar fechas y version en `docs/04_PLAN_PM_IMPLEMENTACION_FINAL.md`.
-
