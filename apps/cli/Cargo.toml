@@ -6,6 +6,5 @@ edition = "2021"
 [dependencies]
 anyhow = "1"
 clap = { version = "4.5", features = ["derive"] }
-dedupe_core = { path = "../../crates/core" }
-dedupe_job_runner = { path = "../../crates/job_runner" }
+dedupe_backend = { path = "../../crates/backend" }
 ctrlc = "3"

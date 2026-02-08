@@ -162,6 +162,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "dedupe_backend"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "dedupe_core",
+ "dedupe_job_runner",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
 name = "dedupe_cli"
 version = "0.1.0"
 dependencies = [
