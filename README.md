@@ -73,3 +73,7 @@ GitHub Actions workflows:
 
 and uploads platform installers as workflow artifacts.
 
+Release publishing:
+- Pushing a tag that matches `v*` (example: `v0.1.0`) builds installers and publishes a GitHub Release with attached assets.
+- Manual runs are also supported via `workflow_dispatch` with optional `tag` input.
+
