@@ -137,21 +137,52 @@ impl BackendService {
     }
 
     pub fn try_next_emitted_event(&self) -> Option<EmittedEvent> {
-        self.manager.try_next_event().map(EmittedEvent::from)
+        self.try_next_event().map(EmittedEvent::from)
     }
 
     pub fn next_emitted_event_timeout(&self, timeout: Duration) -> Option<EmittedEvent> {
-        self.manager
-            .next_event_timeout(timeout)
-            .map(EmittedEvent::from)
+        self.next_event_timeout(timeout).map(EmittedEvent::from)
     }
 
     pub fn drain_emitted_events(&self) -> Vec<EmittedEvent> {
-        self.manager
-            .drain_events()
-            .into_iter()
-            .map(EmittedEvent::from)
-            .collect()
+        self.drain_events().into_iter().map(EmittedEvent::from).collect()
+    }
+
+    pub fn next_emitted_events_batch(
+        &self,
+        timeout: Duration,
+        max_events: usize,
+    ) -> Vec<EmittedEvent> {
+        if max_events == 0 {
+            return Vec::new();
+        }
+
+        let mut out = Vec::with_capacity(max_events);
+        let Some(first) = self.next_event_timeout(timeout) else {
+            return out;
+        };
+        out.push(EmittedEvent::from(first));
+
+        while out.len() < max_events {
+            let Some(next) = self.try_next_event() else {
+                break;
+            };
+            out.push(EmittedEvent::from(next));
+        }
+
+        out
+    }
+
+    pub fn try_next_event(&self) -> Option<JobEvent> {
+        self.manager.try_next_event()
+    }
+
+    pub fn next_event_timeout(&self, timeout: Duration) -> Option<JobEvent> {
+        self.manager.next_event_timeout(timeout)
+    }
+
+    pub fn drain_events(&self) -> Vec<JobEvent> {
+        self.manager.drain_events()
     }
 }
 
