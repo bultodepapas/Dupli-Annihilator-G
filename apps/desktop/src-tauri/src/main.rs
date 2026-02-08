@@ -5,6 +5,7 @@ use dedupe_backend::{
     RuntimeState, StartJobRequest, StartJobResponse,
 };
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use std::time::Duration;
 
 struct AppState {
@@ -47,6 +48,26 @@ fn path_exists(path: String) -> bool {
 }
 
 #[tauri::command]
+fn default_output_path() -> String {
+    let home = std::env::var_os("USERPROFILE").or_else(|| std::env::var_os("HOME"));
+    let home = home.map(PathBuf::from);
+    let desktop = home
+        .as_ref()
+        .map(|p| p.join("Desktop"))
+        .filter(|p| p.is_dir());
+
+    let base = if cfg!(target_os = "windows") || cfg!(target_os = "macos") {
+        desktop.or(home)
+    } else {
+        home
+    }
+    .or_else(|| std::env::current_dir().ok())
+    .unwrap_or_else(|| PathBuf::from("."));
+
+    base.join("ready.csv").to_string_lossy().into_owned()
+}
+
+#[tauri::command]
 fn next_events(state: tauri::State<'_, AppState>, req: NextEventsRequest) -> Vec<EmittedEvent> {
     let max_events = req.max_events.clamp(1, 256);
     let timeout_ms = req.timeout_ms.min(5_000);
@@ -67,6 +88,7 @@ fn main() {
             get_app_info,
             get_runtime_state,
             path_exists,
+            default_output_path,
             next_events
         ])
         .run(tauri::generate_context!())

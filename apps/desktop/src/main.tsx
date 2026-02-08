@@ -128,6 +128,14 @@ function statusKey(status: RunStatus): I18nKey {
   }
 }
 
+async function resolveDefaultOutputPath(): Promise<string | null> {
+  try {
+    return await invoke<string>("default_output_path");
+  } catch {
+    return null;
+  }
+}
+
 function App() {
   const [locale, setLocale] = React.useState<Locale>(INITIAL_LOCALE);
   const tr = React.useCallback(
@@ -255,6 +263,14 @@ function App() {
   React.useEffect(() => {
     void invoke<AppInfo>("get_app_info").then(setAppInfo).catch(() => null);
     void syncRuntimeState().catch(() => null);
+    void resolveDefaultOutputPath()
+      .then((path) => {
+        if (!path) {
+          return;
+        }
+        setForm((prev) => (prev.outputPath.trim().length > 0 ? prev : { ...prev, outputPath: path }));
+      })
+      .catch(() => null);
     const timer = window.setInterval(() => {
       void pollEvents();
     }, 300);
@@ -362,7 +378,10 @@ function App() {
 
   const pickOutputFile = async () => {
     try {
-      const selected = await save({});
+      const selected = await save({
+        defaultPath: form.outputPath.trim() || undefined,
+        filters: [{ name: "CSV", extensions: ["csv"] }],
+      });
       if (!selected) {
         return;
       }
