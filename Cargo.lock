@@ -163,7 +163,7 @@ dependencies = [
 
 [[package]]
 name = "dedupe_backend"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "anyhow",
  "dedupe_core",
@@ -175,7 +175,7 @@ dependencies = [
 
 [[package]]
 name = "dedupe_cli"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -185,7 +185,7 @@ dependencies = [
 
 [[package]]
 name = "dedupe_core"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -197,7 +197,7 @@ dependencies = [
 
 [[package]]
 name = "dedupe_job_runner"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "anyhow",
  "dedupe_core",
