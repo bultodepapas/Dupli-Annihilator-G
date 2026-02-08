@@ -23,8 +23,7 @@ pub enum JobState {
     Canceled,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StatsSnapshot {
     pub files: usize,
     pub tokens_seen: u64,
@@ -45,8 +44,7 @@ impl StatsSnapshot {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum JobEvent {
     Started {
