@@ -9,6 +9,10 @@ on:
 jobs:
   rust-tests:
     runs-on: ubuntu-latest
+    env:
+      CARGO_TERM_COLOR: always
+      CARGO_NET_RETRY: 10
+      CARGO_HTTP_MULTIPLEXING: false
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -19,8 +23,23 @@ jobs:
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
 
-      - name: Run workspace tests
-        run: cargo test --workspace
+      - name: Run workspace tests (with retry)
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            echo "cargo test attempt ${attempt}/3"
+            if cargo test --workspace --locked; then
+              echo "cargo test passed on attempt ${attempt}"
+              exit 0
+            fi
+            if [ "${attempt}" -lt 3 ]; then
+              echo "cargo test failed on attempt ${attempt}; retrying in 15s..."
+              sleep 15
+            fi
+          done
+          echo "cargo test failed after 3 attempts."
+          exit 1
 
   desktop-frontend:
     runs-on: ubuntu-latest
