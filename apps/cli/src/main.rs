@@ -1,7 +1,9 @@
 use anyhow::{anyhow, Context, Result};
 use clap::{ArgAction, Parser, ValueEnum};
-use dedupe_core::{Config, DiskAlphabeticalMode, Mode, OutputOrdering};
-use dedupe_job_runner::{JobEvent, JobManager};
+use dedupe_backend::{
+    ApiDiskAlphabeticalMode, ApiMode, ApiOrdering, BackendService, CancelJobRequest,
+    StartJobConfig, StartJobRequest,
+};
 use std::path::PathBuf;
 use std::sync::{
     atomic::{AtomicBool, Ordering as AtomicOrdering},
@@ -73,27 +75,29 @@ struct Cli {
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    let output_separator = if cli.raw_separator {
-        cli.separator.clone()
-    } else {
-        parse_escaped_separator(&cli.separator)
-    };
-
-    let cfg = Config {
-        inputs: cli.inputs,
-        output: cli.output,
-        output_separator,
-        mode: map_mode(cli.mode),
-        ordering: map_ordering(cli.ordering),
-        trim: cli.trim,
-        drop_empty: cli.drop_empty,
-        disk_buckets: cli.disk_buckets,
-        disk_alphabetical_mode: map_disk_mode(cli.disk_alphabetical_mode),
-        disk_run_bytes: cli.disk_run_bytes,
-    };
-
-    let manager = JobManager::new();
-    let job_id = manager.start_job(cfg).context("failed to start job")?;
+    let backend = BackendService::new();
+    let start = backend
+        .start_job(StartJobRequest {
+            config: StartJobConfig {
+                inputs: cli
+                    .inputs
+                    .iter()
+                    .map(|p| p.to_string_lossy().to_string())
+                    .collect(),
+                output: cli.output.to_string_lossy().to_string(),
+                output_separator: cli.separator.clone(),
+                interpret_separator_escapes: !cli.raw_separator,
+                mode: map_mode(cli.mode),
+                ordering: map_ordering(cli.ordering),
+                trim: cli.trim,
+                drop_empty: cli.drop_empty,
+                disk_buckets: cli.disk_buckets,
+                disk_alphabetical_mode: map_disk_mode(cli.disk_alphabetical_mode),
+                disk_run_bytes: cli.disk_run_bytes,
+            },
+        })
+        .map_err(|e| anyhow!("failed to start job [{}]: {}", e.category, e.message))?;
+    let job_id = start.job_id;
 
     let cancel_requested = Arc::new(AtomicBool::new(false));
     {
@@ -107,124 +111,143 @@ fn main() -> Result<()> {
     let mut sent_cancel = false;
     loop {
         if cancel_requested.load(AtomicOrdering::Acquire) && !sent_cancel {
-            sent_cancel = manager.cancel_job(job_id);
+            sent_cancel = backend.cancel_job(CancelJobRequest { job_id }).acknowledged;
             if sent_cancel && !cli.quiet {
                 eprintln!("[signal] cancellation requested");
             }
         }
 
-        let Some(event) = manager.next_event_timeout(Duration::from_millis(200)) else {
+        let Some(event) = backend.next_emitted_event_timeout(Duration::from_millis(200)) else {
             continue;
         };
 
-        match event {
-            JobEvent::Started { .. } => {
+        match event.topic.as_str() {
+            "job://started" => {
                 if !cli.quiet {
                     eprintln!("[job] started id={job_id}");
                 }
             }
-            JobEvent::Stage { stage, .. } => {
+            "job://stage" => {
                 if !cli.quiet {
+                    let stage = event
+                        .payload
+                        .get("stage")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("unknown");
                     eprintln!("[stage] {stage}");
                 }
             }
-            JobEvent::Progress {
-                files_done,
-                files_total,
-                tokens_seen,
-                unique_tokens,
-                duplicates,
-                throughput_tps,
-                elapsed_ms,
-                eta_ms,
-                ..
-            } => {
+            "job://progress" => {
                 if !cli.quiet {
+                    let files_done = event
+                        .payload
+                        .get("files_done")
+                        .and_then(|v| v.as_u64())
+                        .unwrap_or(0);
+                    let files_total = event
+                        .payload
+                        .get("files_total")
+                        .and_then(|v| v.as_u64())
+                        .unwrap_or(0);
+                    let tokens_seen = event
+                        .payload
+                        .get("tokens_seen")
+                        .and_then(|v| v.as_u64())
+                        .unwrap_or(0);
+                    let unique_tokens = event
+                        .payload
+                        .get("unique_tokens")
+                        .and_then(|v| v.as_u64())
+                        .unwrap_or(0);
+                    let duplicates = event
+                        .payload
+                        .get("duplicates")
+                        .and_then(|v| v.as_u64())
+                        .unwrap_or(0);
+                    let throughput_tps = event
+                        .payload
+                        .get("throughput_tps")
+                        .and_then(|v| v.as_u64())
+                        .unwrap_or(0);
+                    let elapsed_ms = event
+                        .payload
+                        .get("elapsed_ms")
+                        .and_then(|v| v.as_u64())
+                        .unwrap_or(0);
+                    let eta_ms = event.payload.get("eta_ms").and_then(|v| v.as_u64());
+
                     eprintln!(
                         "[progress] files={files_done}/{files_total} tokens={tokens_seen} unique={unique_tokens} dup={duplicates} tps={throughput_tps} elapsed_ms={elapsed_ms} eta_ms={}",
                         eta_ms.map(|v| v.to_string()).unwrap_or_else(|| "-".to_string())
                     );
                 }
             }
-            JobEvent::Done { stats, .. } => {
+            "job://done" => {
+                let stats = event.payload.get("stats");
                 println!(
                     "done files={} tokens_seen={} unique={} duplicates={} elapsed_ms={}",
-                    stats.files,
-                    stats.tokens_seen,
-                    stats.unique_tokens,
-                    stats.duplicates,
-                    stats.elapsed_ms
+                    stats
+                        .and_then(|s| s.get("files"))
+                        .and_then(|v| v.as_u64())
+                        .unwrap_or(0),
+                    stats
+                        .and_then(|s| s.get("tokens_seen"))
+                        .and_then(|v| v.as_u64())
+                        .unwrap_or(0),
+                    stats
+                        .and_then(|s| s.get("unique_tokens"))
+                        .and_then(|v| v.as_u64())
+                        .unwrap_or(0),
+                    stats
+                        .and_then(|s| s.get("duplicates"))
+                        .and_then(|v| v.as_u64())
+                        .unwrap_or(0),
+                    stats
+                        .and_then(|s| s.get("elapsed_ms"))
+                        .and_then(|v| v.as_u64())
+                        .unwrap_or(0)
                 );
                 break;
             }
-            JobEvent::Error { message, .. } => {
+            "job://error" => {
+                let message = event
+                    .payload
+                    .get("message")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("unknown error");
                 return Err(anyhow!("engine run failed: {message}"));
             }
-            JobEvent::Canceled { .. } => {
+            "job://canceled" => {
                 return Err(anyhow!("job canceled"));
             }
+            _ => {}
         }
     }
 
     Ok(())
 }
 
-fn map_mode(m: CliMode) -> Mode {
+fn map_mode(m: CliMode) -> ApiMode {
     match m {
-        CliMode::Auto => Mode::Auto,
-        CliMode::Ram => Mode::Ram,
-        CliMode::Disk => Mode::Disk,
+        CliMode::Auto => ApiMode::Auto,
+        CliMode::Ram => ApiMode::Ram,
+        CliMode::Disk => ApiMode::Disk,
     }
 }
 
-fn map_ordering(o: CliOrdering) -> OutputOrdering {
+fn map_ordering(o: CliOrdering) -> ApiOrdering {
     match o {
-        CliOrdering::PreserveFirstSeen => OutputOrdering::PreserveFirstSeen,
-        CliOrdering::Alphabetical => OutputOrdering::Alphabetical,
-        CliOrdering::UnorderedFast => OutputOrdering::UnorderedFast,
+        CliOrdering::PreserveFirstSeen => ApiOrdering::PreserveFirstSeen,
+        CliOrdering::Alphabetical => ApiOrdering::Alphabetical,
+        CliOrdering::UnorderedFast => ApiOrdering::UnorderedFast,
     }
 }
 
-fn map_disk_mode(m: CliDiskAlphabeticalMode) -> DiskAlphabeticalMode {
+fn map_disk_mode(m: CliDiskAlphabeticalMode) -> ApiDiskAlphabeticalMode {
     match m {
-        CliDiskAlphabeticalMode::FastBucketLocal => DiskAlphabeticalMode::FastBucketLocal,
-        CliDiskAlphabeticalMode::GlobalPerfect => DiskAlphabeticalMode::GlobalPerfect,
+        CliDiskAlphabeticalMode::FastBucketLocal => ApiDiskAlphabeticalMode::FastBucketLocal,
+        CliDiskAlphabeticalMode::GlobalPerfect => ApiDiskAlphabeticalMode::GlobalPerfect,
     }
-}
-
-fn parse_escaped_separator(input: &str) -> String {
-    let mut out = String::with_capacity(input.len());
-    let mut chars = input.chars().peekable();
-
-    while let Some(c) = chars.next() {
-        if c != '\\' {
-            out.push(c);
-            continue;
-        }
-
-        match chars.next() {
-            Some('n') => out.push('\n'),
-            Some('t') => out.push('\t'),
-            Some('r') => {
-                if matches!(chars.peek(), Some('n')) {
-                    chars.next();
-                    out.push('\r');
-                    out.push('\n');
-                } else {
-                    out.push('\r');
-                }
-            }
-            Some('f') => out.push('\u{000C}'),
-            Some('\\') => out.push('\\'),
-            Some(other) => {
-                out.push('\\');
-                out.push(other);
-            }
-            None => out.push('\\'),
-        }
-    }
-
-    out
 }
 
 fn parse_size_bytes(raw: &str) -> Result<usize> {
@@ -268,18 +291,7 @@ fn parse_size_bytes(raw: &str) -> Result<usize> {
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_escaped_separator, parse_size_bytes};
-
-    #[test]
-    fn parse_separator_escapes() {
-        assert_eq!(parse_escaped_separator("\\n"), "\n");
-        assert_eq!(parse_escaped_separator(",\\n"), ",\n");
-        assert_eq!(parse_escaped_separator("\\t"), "\t");
-        assert_eq!(parse_escaped_separator("\\r\\n"), "\r\n");
-        assert_eq!(parse_escaped_separator("\\f"), "\u{000C}");
-        assert_eq!(parse_escaped_separator("\\\\"), "\\");
-        assert_eq!(parse_escaped_separator("\\x"), "\\x");
-    }
+    use super::parse_size_bytes;
 
     #[test]
     fn parse_size_units() {
