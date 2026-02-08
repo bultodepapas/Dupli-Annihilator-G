@@ -1,16 +1,24 @@
-# Desktop Shell (Tauri)
+# Desktop App (Tauri + React)
 
-This folder contains the initial Tauri backend shell for `Dupli-Annihilator-G`.
+This folder contains the desktop application for `Dupli-Annihilator-G`:
+- frontend: React + Vite (`apps/desktop`)
+- backend shell: Tauri (`apps/desktop/src-tauri`)
+- processing core: `crates/backend` -> `crates/job_runner` -> `crates/core`
 
-Current status:
-- Rust command bridge implemented in `apps/desktop/src-tauri/src/main.rs`.
-- Commands exposed:
-  - `start_job`
-  - `cancel_job`
-  - `get_app_info`
-  - `next_events` (batched polling for `topic + payload` events)
-- Processing is delegated to `crates/backend` (which wraps `crates/job_runner` and `crates/core`).
+## Commands exposed by Tauri backend
+- `start_job`
+- `cancel_job`
+- `get_app_info`
+- `get_runtime_state`
+- `next_events` (batched polling)
 
-Notes:
-- Frontend UI (React/Vite) is not scaffolded yet.
-- Event delivery currently uses batched polling (`next_events`) to keep integration deterministic.
+## Run in development (Windows)
+1. From repository root, install frontend dependencies:
+   - `npm --prefix apps/desktop install`
+2. Start frontend dev server:
+   - `npm --prefix apps/desktop run dev`
+3. In a second terminal, run desktop app:
+   - `cargo run --manifest-path apps/desktop/src-tauri/Cargo.toml`
+
+## Build frontend bundle
+- `npm --prefix apps/desktop run build`

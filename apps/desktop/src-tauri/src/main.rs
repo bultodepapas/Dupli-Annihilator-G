@@ -52,6 +52,7 @@ fn next_events(state: tauri::State<'_, AppState>, req: NextEventsRequest) -> Vec
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .manage(AppState {
             backend: BackendService::new(),
         })
