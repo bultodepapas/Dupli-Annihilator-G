@@ -166,3 +166,43 @@ fn disk_preserve_first_seen_keeps_exact_unique_set() {
 
     assert_eq!(got, expected);
 }
+
+#[test]
+fn ram_accepts_non_utf8_input_lossy() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let input = dir.path().join("in.bin");
+    let output = dir.path().join("out.txt");
+
+    let bytes = [b'a', b',', 0xFF, b',', b'a', b'\n', 0xFE, b',', b'b'];
+    fs::write(&input, bytes).expect("write input");
+
+    let cfg = make_cfg(
+        input,
+        output.clone(),
+        Mode::Ram,
+        OutputOrdering::PreserveFirstSeen,
+    );
+    run(&cfg, NoProgress).expect("run");
+
+    let out = fs::read_to_string(output).expect("read output");
+    assert_eq!(out, format!("a,\u{FFFD},b"));
+}
+
+#[test]
+fn disk_globalperfect_accepts_non_utf8_input_lossy() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let input = dir.path().join("in.bin");
+    let output = dir.path().join("out.txt");
+
+    let bytes = [b'a', b',', 0xFF, b',', b'a', b'\n', 0xFE, b',', b'b'];
+    fs::write(&input, bytes).expect("write input");
+
+    let mut cfg = make_cfg(input, output.clone(), Mode::Disk, OutputOrdering::Alphabetical);
+    cfg.disk_alphabetical_mode = DiskAlphabeticalMode::GlobalPerfect;
+    cfg.output_separator = "|".to_string();
+
+    run(&cfg, NoProgress).expect("run");
+
+    let out = fs::read_to_string(output).expect("read output");
+    assert_eq!(out, format!("a|b|\u{FFFD}"));
+}

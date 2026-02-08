@@ -6,6 +6,7 @@ pub mod disk_sort;
 pub mod engine;
 pub mod progress;
 pub mod stats;
+pub mod text_line_reader;
 pub mod token_iter;
 pub mod writer;
 

@@ -6,11 +6,12 @@ use crate::{
     disk_sort,
     progress::{ProgressEvent, ProgressSink},
     stats::Stats,
+    text_line_reader::LossyLineReader,
     token_iter::TokenIter,
     writer::OutputWriter,
 };
 use std::fs::File;
-use std::io::{BufRead, BufReader};
+use std::io::BufReader;
 use std::time::Instant;
 
 pub fn run<P: ProgressSink>(config: &Config, progress: P) -> anyhow::Result<Stats> {
@@ -60,12 +61,11 @@ fn run_ram<P: ProgressSink, C: CancelCheck>(
         });
 
         let file = File::open(path)?;
-        let mut reader = BufReader::new(file);
+        let mut reader = LossyLineReader::new(BufReader::new(file));
         let mut line = String::new();
 
         loop {
             ensure_not_canceled(cancel)?;
-            line.clear();
             let n = reader.read_line(&mut line)?;
             if n == 0 {
                 break;

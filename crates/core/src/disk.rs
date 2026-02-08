@@ -4,6 +4,7 @@ use crate::{
     dedupe_ram::RamStore,
     progress::{ProgressEvent, ProgressSink},
     stats::Stats,
+    text_line_reader::LossyLineReader,
     token_iter::TokenIter,
     writer::OutputWriter,
 };
@@ -63,12 +64,11 @@ impl DiskBuckets {
             });
 
             let file = File::open(path)?;
-            let mut reader = BufReader::new(file);
+            let mut reader = LossyLineReader::new(BufReader::new(file));
             let mut line = String::new();
 
             loop {
                 ensure_not_canceled(cancel)?;
-                line.clear();
                 let n = reader.read_line(&mut line)?;
                 if n == 0 {
                     break;
