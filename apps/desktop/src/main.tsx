@@ -919,256 +919,402 @@ function App() {
         </div>
       </header>
 
-      <main className="grid">
-        <section className="card">
-          <h2>{tr("section.inputs")}</h2>
-          <div className="button-row compact">
-            <button className="secondary" disabled={runStatus === "running"} onClick={() => void pickInputFiles()}>
-              {tr("button.add_files")}
-            </button>
-          </div>
-          <label className="field">
-            <span>{tr("field.inputs")}</span>
-            <div
-              className={`drop-zone ${inputsDragActive ? "drop-zone-active" : ""}`}
-              onDragOver={onInputsDragOver}
-              onDragLeave={onInputsDragLeave}
-              onDrop={onInputsDrop}
-            >
-              <textarea
-                value={form.inputsText}
-                onChange={(e) => setForm((f) => ({ ...f, inputsText: e.target.value }))}
-                rows={8}
-                placeholder={tr("placeholder.inputs")}
-              />
-              <div className="drop-hint">{tr("hint.drop_files")}</div>
+      <main className={showSummaryScreen ? "summary-main" : "grid"}>
+        {showSummaryScreen && lastSummary && summaryBadge ? (
+          <section className="summary-shell">
+            <header className="card summary-header">
+              <div>
+                <h2 className="summary-kicker">{tr("summary.mission_report")}</h2>
+                <h3>{tr(summaryTitleKey(lastSummary.status))}</h3>
+                <p className="subtitle">
+                  {tr("summary.subline", {
+                    jobId: lastSummary.jobId,
+                    timestamp: formatIsoLocal(lastSummary.finishedAt),
+                    mode: prettyMode(lastSummary),
+                    ordering: lastSummary.ordering,
+                  })}
+                </p>
+              </div>
+              <div className={`summary-badge ${summaryBadge.cls}`}>{summaryBadge.text}</div>
+            </header>
+
+            <div className="summary-grid">
+              <section className="card summary-card">
+                <h3>{tr("summary.section.key_results")}</h3>
+                <div className="summary-hero-value">{formatInt(lastSummary.uniqueTokens)}</div>
+                <div className="summary-hero-label">{tr("summary.metric.unique_output")}</div>
+                <div className="summary-kpis">
+                  <div>
+                    <strong>{formatInt(lastSummary.tokensSeen)}</strong>
+                    <span>{tr("summary.metric.total_scanned")}</span>
+                  </div>
+                  <div>
+                    <strong>{formatInt(lastSummary.duplicates)}</strong>
+                    <span>{tr("summary.metric.duplicates_removed")}</span>
+                  </div>
+                  <div>
+                    <strong>{formatPct(lastSummary.reductionPct)}</strong>
+                    <span>{tr("summary.metric.reduction")}</span>
+                  </div>
+                  <div>
+                    <strong>{formatPct(lastSummary.uniqPct)}</strong>
+                    <span>{tr("summary.metric.uniq_rate")}</span>
+                  </div>
+                </div>
+                <div className="summary-gauge-wrap">
+                  <div className="summary-gauge-label">{tr("summary.metric.reduction_ratio")}</div>
+                  <div className="bar-wrap">
+                    <div className="bar" style={{ width: `${Math.min(100, Math.max(0, lastSummary.reductionPct))}%` }} />
+                  </div>
+                </div>
+
+                <h4>{tr("summary.section.output")}</h4>
+                <div className="summary-meta-grid">
+                  <div>{tr("summary.metric.output_path")}</div>
+                  <code>{lastSummary.outputPath || "-"}</code>
+                  <div>{tr("summary.metric.output_bytes")}</div>
+                  <div>{formatBytes(lastSummary.outputBytes)}</div>
+                  <div>{tr("summary.metric.separator")}</div>
+                  <div>
+                    <code>{lastSummary.outputSeparatorRaw || "-"}</code> ({lastSummary.outputSeparatorPreview || "-"})
+                  </div>
+                </div>
+              </section>
+
+              <section className="card summary-card">
+                <h3>{tr("summary.section.performance")}</h3>
+                <div className="summary-meta-grid">
+                  <div>{tr("summary.metric.elapsed")}</div>
+                  <div>{formatElapsed(lastSummary.elapsedMs)}</div>
+                  <div>{tr("summary.metric.avg_tps")}</div>
+                  <div>{formatInt(lastSummary.avgThroughputTps)}</div>
+                  <div>{tr("summary.metric.peak_tps")}</div>
+                  <div>{lastSummary.peakThroughputTps ? formatInt(lastSummary.peakThroughputTps) : "-"}</div>
+                  <div>{tr("summary.metric.input_bytes")}</div>
+                  <div>{formatBytes(lastSummary.inputBytesTotal)}</div>
+                  <div>{tr("summary.metric.mode_ordering")}</div>
+                  <div>{prettyMode(lastSummary)} / {lastSummary.ordering}</div>
+                  <div>{tr("summary.metric.normalization")}</div>
+                  <div>
+                    trim={lastSummary.trim ? "on" : "off"} • drop_empty={lastSummary.dropEmpty ? "on" : "off"}
+                  </div>
+                  {lastSummary.diskAlphabeticalMode ? (
+                    <>
+                      <div>{tr("summary.metric.disk_mode")}</div>
+                      <div>{lastSummary.diskAlphabeticalMode}</div>
+                    </>
+                  ) : null}
+                </div>
+
+                <details className="summary-timeline" open={summaryTopStages.length > 0}>
+                  <summary>{tr("summary.section.timeline")}</summary>
+                  {summaryTopStages.length > 0 ? (
+                    <div className="summary-stage-table">
+                      {summaryTopStages.map(([stage, duration]) => (
+                        <div key={stage} className="summary-stage-row summary-stage-top">
+                          <span>{stage}</span>
+                          <strong>{formatElapsed(duration)}</strong>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="summary-empty">{tr("summary.no_stage_data")}</div>
+                  )}
+                  {summaryStageRows.length > 3 ? (
+                    <div className="summary-stage-table">
+                      {summaryStageRows.slice(3).map(([stage, duration]) => (
+                        <div key={stage} className="summary-stage-row">
+                          <span>{stage}</span>
+                          <span>{formatElapsed(duration)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </details>
+
+                <h4>{tr("summary.section.diagnostics")}</h4>
+                {lastSummary.warnings.length > 0 ? (
+                  <div className="warnings">
+                    {lastSummary.warnings.map((warning) => (
+                      <div key={warning}>{warning}</div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="summary-empty">{tr("summary.no_warnings")}</div>
+                )}
+                {lastSummary.errorMessage ? (
+                  <div className="errors">
+                    <div>{lastSummary.errorMessage}</div>
+                  </div>
+                ) : null}
+              </section>
             </div>
-          </label>
-          <label className="field">
-            <span>{tr("field.output")}</span>
-            <input
-              value={form.outputPath}
-              onChange={(e) => setForm((f) => ({ ...f, outputPath: e.target.value }))}
-              placeholder={tr("placeholder.output")}
-            />
-          </label>
-          <div className="button-row compact">
-            <button className="secondary" disabled={runStatus === "running"} onClick={() => void pickOutputFile()}>
-              {tr("button.pick_output")}
-            </button>
-          </div>
-        </section>
 
-        <section className="card">
-          <h2>{tr("section.processing")}</h2>
-          <div className="row">
-            <label className="field" title={tr("tooltip.processing.mode")}>
-              <span title={tr("tooltip.processing.mode")}>{tr("field.mode")}</span>
-              <select
-                title={tr("tooltip.processing.mode")}
-                value={form.mode}
-                onChange={(e) => setForm((f) => ({ ...f, mode: e.target.value as FormState["mode"] }))}
-              >
-                <option value="auto">{tr("option.mode.auto")}</option>
-                <option value="ram">{tr("option.mode.ram")}</option>
-                <option value="disk">{tr("option.mode.disk")}</option>
-              </select>
-            </label>
-            <label className="field" title={tr("tooltip.processing.ordering")}>
-              <span title={tr("tooltip.processing.ordering")}>{tr("field.ordering")}</span>
-              <select
-                title={tr("tooltip.processing.ordering")}
-                value={form.ordering}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, ordering: e.target.value as FormState["ordering"] }))
-                }
-              >
-                <option value="preserve_first_seen">{tr("option.ordering.preserve_first_seen")}</option>
-                <option value="alphabetical">{tr("option.ordering.alphabetical")}</option>
-                <option value="unordered_fast">{tr("option.ordering.unordered_fast")}</option>
-              </select>
-            </label>
-          </div>
-
-          <label className="field" title={tr("tooltip.processing.disk_alphabetical_mode")}>
-            <span title={tr("tooltip.processing.disk_alphabetical_mode")}>
-              {tr("field.disk_alphabetical_mode")}
-            </span>
-            <select
-              title={tr("tooltip.processing.disk_alphabetical_mode")}
-              value={form.diskAlphabeticalMode}
-              onChange={(e) =>
-                setForm((f) => ({
-                  ...f,
-                  diskAlphabeticalMode: e.target.value as FormState["diskAlphabeticalMode"],
-                }))
-              }
-            >
-              <option value="fast_bucket_local">{tr("option.disk_mode.fast_bucket_local")}</option>
-              <option value="global_perfect">{tr("option.disk_mode.global_perfect")}</option>
-            </select>
-          </label>
-
-          <div className="row">
-            <label className="field" title={tr("tooltip.processing.disk_buckets")}>
-              <span title={tr("tooltip.processing.disk_buckets")}>{tr("field.disk_buckets")}</span>
-              <input
-                title={tr("tooltip.processing.disk_buckets")}
-                type="number"
-                min={8}
-                value={form.diskBuckets}
-                onChange={(e) => setForm((f) => ({ ...f, diskBuckets: Number(e.target.value) }))}
-              />
-            </label>
-            <label className="field" title={tr("tooltip.processing.disk_run_bytes")}>
-              <span title={tr("tooltip.processing.disk_run_bytes")}>{tr("field.disk_run_bytes")}</span>
-              <input
-                title={tr("tooltip.processing.disk_run_bytes")}
-                type="number"
-                min={1_000_000}
-                value={form.diskRunBytes}
-                onChange={(e) => setForm((f) => ({ ...f, diskRunBytes: Number(e.target.value) }))}
-              />
-            </label>
-          </div>
-
-          <div className="row flags">
-            <label title={tr("tooltip.processing.trim")}>
-              <input
-                title={tr("tooltip.processing.trim")}
-                type="checkbox"
-                checked={form.trim}
-                onChange={(e) => setForm((f) => ({ ...f, trim: e.target.checked }))}
-              />
-              {tr("flag.trim")}
-            </label>
-            <label title={tr("tooltip.processing.drop_empty")}>
-              <input
-                title={tr("tooltip.processing.drop_empty")}
-                type="checkbox"
-                checked={form.dropEmpty}
-                onChange={(e) => setForm((f) => ({ ...f, dropEmpty: e.target.checked }))}
-              />
-              {tr("flag.drop_empty")}
-            </label>
-          </div>
-        </section>
-
-        <section className="card">
-          <h2>{tr("section.output")}</h2>
-          <label className="field">
-            <span>{tr("field.separator")}</span>
-            <input
-              value={form.separator}
-              onChange={(e) => setForm((f) => ({ ...f, separator: e.target.value }))}
-              placeholder="\\n"
-            />
-          </label>
-          <label className="field">
-            <span>{tr("field.separator_presets")}</span>
-            <div className="preset-row">
-              {SEPARATOR_PRESETS.map((preset) => (
-                <button
-                  key={`${preset.label}:${preset.value}:${preset.raw}`}
-                  className="secondary preset-btn"
-                  type="button"
-                  onClick={() => applySeparatorPreset(preset)}
-                >
-                  {preset.label}
+            <footer className="card summary-footer">
+              <div className="button-row">
+                <button className="secondary" onClick={() => void openSummaryOutput()}>{tr("button.open_output")}</button>
+                <button className="secondary" onClick={() => void openSummaryFolder()}>{tr("button.open_folder")}</button>
+                <button className="secondary" onClick={() => void copySummaryReport()}>{tr("button.copy_report")}</button>
+                <button className="secondary" onClick={() => void exportSummaryJson()}>{tr("button.export_json")}</button>
+                <button className="primary" disabled={!canRun} onClick={() => void startJob()}>{tr("button.run_again")}</button>
+              </div>
+            </footer>
+          </section>
+        ) : (
+          <>
+            <section className="card">
+              <h2>{tr("section.inputs")}</h2>
+              <div className="button-row compact">
+                <button className="secondary" disabled={runStatus === "running"} onClick={() => void pickInputFiles()}>
+                  {tr("button.add_files")}
                 </button>
-              ))}
-            </div>
-          </label>
-          <label className="field">
-            <span>{tr("field.separator_preview")}</span>
-            <pre className="separator-preview">{separatorPreview}</pre>
-            <div className="separator-preview-meta">
-              {tr("meta.effective_separator")}: <code>{escapeControlChars(resolvedSeparator)}</code>
-            </div>
-            <div className="separator-preview-meta">
-              {tr("metric.tokens")}: <code>{separatorPreviewVisible}</code>
-            </div>
-          </label>
-          <label className="field checkbox">
-            <input
-              type="checkbox"
-              checked={form.rawSeparator}
-              onChange={(e) => setForm((f) => ({ ...f, rawSeparator: e.target.checked }))}
-            />
-            <span>{tr("field.raw_separator")}</span>
-          </label>
-          <label className="field checkbox">
-            <input
-              type="checkbox"
-              checked={form.allowOverwrite}
-              onChange={(e) => setForm((f) => ({ ...f, allowOverwrite: e.target.checked }))}
-            />
-            <span>{tr("field.allow_overwrite")}</span>
-          </label>
+              </div>
+              <label className="field">
+                <span>{tr("field.inputs")}</span>
+                <div
+                  className={`drop-zone ${inputsDragActive ? "drop-zone-active" : ""}`}
+                  onDragOver={onInputsDragOver}
+                  onDragLeave={onInputsDragLeave}
+                  onDrop={onInputsDrop}
+                >
+                  <textarea
+                    value={form.inputsText}
+                    onChange={(e) => setForm((f) => ({ ...f, inputsText: e.target.value }))}
+                    rows={8}
+                    placeholder={tr("placeholder.inputs")}
+                  />
+                  <div className="drop-hint">{tr("hint.drop_files")}</div>
+                </div>
+              </label>
+              <label className="field">
+                <span>{tr("field.output")}</span>
+                <input
+                  value={form.outputPath}
+                  onChange={(e) => setForm((f) => ({ ...f, outputPath: e.target.value }))}
+                  placeholder={tr("placeholder.output")}
+                />
+              </label>
+              <div className="button-row compact">
+                <button className="secondary" disabled={runStatus === "running"} onClick={() => void pickOutputFile()}>
+                  {tr("button.pick_output")}
+                </button>
+              </div>
+            </section>
 
-          <div className="button-row">
-            <button className="primary" disabled={!canRun} onClick={() => void startJob()}>
-              {tr(runButtonKey(runStatus))}
-            </button>
-            <button className="danger" disabled={!canCancel} onClick={() => void cancelJob()}>
-              {tr("button.cancel")}
-            </button>
-          </div>
+            <section className="card">
+              <h2>{tr("section.processing")}</h2>
+              <div className="row">
+                <label className="field" title={tr("tooltip.processing.mode")}>
+                  <span title={tr("tooltip.processing.mode")}>{tr("field.mode")}</span>
+                  <select
+                    title={tr("tooltip.processing.mode")}
+                    value={form.mode}
+                    onChange={(e) => setForm((f) => ({ ...f, mode: e.target.value as FormState["mode"] }))}
+                  >
+                    <option value="auto">{tr("option.mode.auto")}</option>
+                    <option value="ram">{tr("option.mode.ram")}</option>
+                    <option value="disk">{tr("option.mode.disk")}</option>
+                  </select>
+                </label>
+                <label className="field" title={tr("tooltip.processing.ordering")}>
+                  <span title={tr("tooltip.processing.ordering")}>{tr("field.ordering")}</span>
+                  <select
+                    title={tr("tooltip.processing.ordering")}
+                    value={form.ordering}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, ordering: e.target.value as FormState["ordering"] }))
+                    }
+                  >
+                    <option value="preserve_first_seen">{tr("option.ordering.preserve_first_seen")}</option>
+                    <option value="alphabetical">{tr("option.ordering.alphabetical")}</option>
+                    <option value="unordered_fast">{tr("option.ordering.unordered_fast")}</option>
+                  </select>
+                </label>
+              </div>
 
-          <div className="meta">
-            <div>
-              {tr("meta.app")}: {appInfo?.appName ?? "-"} {appInfo?.appVersion ?? ""}
-            </div>
-            <div>
-              {tr("meta.backend")}: {appInfo?.backendVersion ?? "-"}
-            </div>
-            <div>
-              {tr("meta.job_id")}: {activeJobId ?? "-"}
-            </div>
-          </div>
-        </section>
+              <label className="field" title={tr("tooltip.processing.disk_alphabetical_mode")}>
+                <span title={tr("tooltip.processing.disk_alphabetical_mode")}>
+                  {tr("field.disk_alphabetical_mode")}
+                </span>
+                <select
+                  title={tr("tooltip.processing.disk_alphabetical_mode")}
+                  value={form.diskAlphabeticalMode}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      diskAlphabeticalMode: e.target.value as FormState["diskAlphabeticalMode"],
+                    }))
+                  }
+                >
+                  <option value="fast_bucket_local">{tr("option.disk_mode.fast_bucket_local")}</option>
+                  <option value="global_perfect">{tr("option.disk_mode.global_perfect")}</option>
+                </select>
+              </label>
+
+              <div className="row">
+                <label className="field" title={tr("tooltip.processing.disk_buckets")}>
+                  <span title={tr("tooltip.processing.disk_buckets")}>{tr("field.disk_buckets")}</span>
+                  <input
+                    title={tr("tooltip.processing.disk_buckets")}
+                    type="number"
+                    min={8}
+                    value={form.diskBuckets}
+                    onChange={(e) => setForm((f) => ({ ...f, diskBuckets: Number(e.target.value) }))}
+                  />
+                </label>
+                <label className="field" title={tr("tooltip.processing.disk_run_bytes")}>
+                  <span title={tr("tooltip.processing.disk_run_bytes")}>{tr("field.disk_run_bytes")}</span>
+                  <input
+                    title={tr("tooltip.processing.disk_run_bytes")}
+                    type="number"
+                    min={1_000_000}
+                    value={form.diskRunBytes}
+                    onChange={(e) => setForm((f) => ({ ...f, diskRunBytes: Number(e.target.value) }))}
+                  />
+                </label>
+              </div>
+
+              <div className="row flags">
+                <label title={tr("tooltip.processing.trim")}>
+                  <input
+                    title={tr("tooltip.processing.trim")}
+                    type="checkbox"
+                    checked={form.trim}
+                    onChange={(e) => setForm((f) => ({ ...f, trim: e.target.checked }))}
+                  />
+                  {tr("flag.trim")}
+                </label>
+                <label title={tr("tooltip.processing.drop_empty")}>
+                  <input
+                    title={tr("tooltip.processing.drop_empty")}
+                    type="checkbox"
+                    checked={form.dropEmpty}
+                    onChange={(e) => setForm((f) => ({ ...f, dropEmpty: e.target.checked }))}
+                  />
+                  {tr("flag.drop_empty")}
+                </label>
+              </div>
+            </section>
+
+            <section className="card">
+              <h2>{tr("section.output")}</h2>
+              <label className="field">
+                <span>{tr("field.separator")}</span>
+                <input
+                  value={form.separator}
+                  onChange={(e) => setForm((f) => ({ ...f, separator: e.target.value }))}
+                  placeholder="\\n"
+                />
+              </label>
+              <label className="field">
+                <span>{tr("field.separator_presets")}</span>
+                <div className="preset-row">
+                  {SEPARATOR_PRESETS.map((preset) => (
+                    <button
+                      key={`${preset.label}:${preset.value}:${preset.raw}`}
+                      className="secondary preset-btn"
+                      type="button"
+                      onClick={() => applySeparatorPreset(preset)}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </label>
+              <label className="field">
+                <span>{tr("field.separator_preview")}</span>
+                <pre className="separator-preview">{separatorPreview}</pre>
+                <div className="separator-preview-meta">
+                  {tr("meta.effective_separator")}: <code>{escapeControlChars(resolvedSeparator)}</code>
+                </div>
+                <div className="separator-preview-meta">
+                  {tr("metric.tokens")}: <code>{separatorPreviewVisible}</code>
+                </div>
+              </label>
+              <label className="field checkbox">
+                <input
+                  type="checkbox"
+                  checked={form.rawSeparator}
+                  onChange={(e) => setForm((f) => ({ ...f, rawSeparator: e.target.checked }))}
+                />
+                <span>{tr("field.raw_separator")}</span>
+              </label>
+              <label className="field checkbox">
+                <input
+                  type="checkbox"
+                  checked={form.allowOverwrite}
+                  onChange={(e) => setForm((f) => ({ ...f, allowOverwrite: e.target.checked }))}
+                />
+                <span>{tr("field.allow_overwrite")}</span>
+              </label>
+
+              <div className="button-row">
+                <button className="primary" disabled={!canRun} onClick={() => void startJob()}>
+                  {tr(runButtonKey(runStatus))}
+                </button>
+                <button className="danger" disabled={!canCancel} onClick={() => void cancelJob()}>
+                  {tr("button.cancel")}
+                </button>
+              </div>
+
+              <div className="meta">
+                <div>
+                  {tr("meta.app")}: {appInfo?.appName ?? "-"} {appInfo?.appVersion ?? ""}
+                </div>
+                <div>
+                  {tr("meta.backend")}: {appInfo?.backendVersion ?? "-"}
+                </div>
+                <div>
+                  {tr("meta.job_id")}: {activeJobId ?? "-"}
+                </div>
+              </div>
+            </section>
+          </>
+        )}
       </main>
 
-      <footer className="telemetry card">
-        <h2>{tr("section.telemetry")}</h2>
-        {validationErrors.length > 0 && runStatus !== "running" ? (
-          <div className="errors">
-            {validationErrors.map((err) => (
-              <div key={err}>{err}</div>
-            ))}
+      {showSummaryScreen ? null : (
+        <footer className="telemetry card">
+          <h2>{tr("section.telemetry")}</h2>
+          {validationErrors.length > 0 && runStatus !== "running" ? (
+            <div className="errors">
+              {validationErrors.map((err) => (
+                <div key={err}>{err}</div>
+              ))}
+            </div>
+          ) : null}
+          <div className="bar-wrap">
+            <div className="bar" style={{ width: `${progressPercent}%` }} />
           </div>
-        ) : null}
-        <div className="bar-wrap">
-          <div className="bar" style={{ width: `${progressPercent}%` }} />
-        </div>
-        <div className="metrics">
-          <div>
-            {tr("metric.stage")}: {progress.stage}
+          <div className="metrics">
+            <div>
+              {tr("metric.stage")}: {progress.stage}
+            </div>
+            <div>
+              {tr("metric.files")}: {progress.filesDone}/{progress.filesTotal}
+            </div>
+            <div>
+              {tr("metric.tokens")}: {progress.tokensSeen}
+            </div>
+            <div>
+              {tr("metric.unique")}: {progress.uniqueTokens}
+            </div>
+            <div>
+              {tr("metric.duplicates")}: {progress.duplicates}
+            </div>
+            <div>
+              {tr("metric.tps")}: {progress.throughputTps}
+            </div>
+            <div>
+              {tr("metric.elapsed_ms")}: {progress.elapsedMs}
+            </div>
+            <div>
+              {tr("metric.eta_ms")}: {progress.etaMs ?? "-"}
+            </div>
           </div>
-          <div>
-            {tr("metric.files")}: {progress.filesDone}/{progress.filesTotal}
-          </div>
-          <div>
-            {tr("metric.tokens")}: {progress.tokensSeen}
-          </div>
-          <div>
-            {tr("metric.unique")}: {progress.uniqueTokens}
-          </div>
-          <div>
-            {tr("metric.duplicates")}: {progress.duplicates}
-          </div>
-          <div>
-            {tr("metric.tps")}: {progress.throughputTps}
-          </div>
-          <div>
-            {tr("metric.elapsed_ms")}: {progress.elapsedMs}
-          </div>
-          <div>
-            {tr("metric.eta_ms")}: {progress.etaMs ?? "-"}
-          </div>
-        </div>
-        <p className="message">{message}</p>
-      </footer>
+          <p className="message">{message}</p>
+        </footer>
+      )}
     </div>
   );
 }
