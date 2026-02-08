@@ -122,3 +122,25 @@ fn cancel_job_emits_canceled_terminal_event() {
     assert!(saw_canceled, "missing canceled event");
     assert!(!manager.is_running(), "manager should be idle after cancel");
 }
+
+#[test]
+fn job_event_topics_and_json_are_stable() {
+    let ev = JobEvent::Progress {
+        job_id: 7,
+        stage: Some("Tokenizing".to_string()),
+        files_done: 1,
+        files_total: 3,
+        progress_ppm: Some(333_333),
+        tokens_seen: 10_000,
+        unique_tokens: 9_000,
+        duplicates: 1_000,
+        throughput_tps: 25_000,
+        elapsed_ms: 500,
+        eta_ms: Some(1_000),
+    };
+
+    assert_eq!(ev.topic(), "job://progress");
+    let v = ev.to_json_value();
+    assert_eq!(v.get("type").and_then(|x| x.as_str()), Some("progress"));
+    assert_eq!(v.get("job_id").and_then(|x| x.as_u64()), Some(7));
+}

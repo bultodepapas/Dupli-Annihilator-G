@@ -3,12 +3,13 @@ use dedupe_core::{
     is_canceled_error, run_with_control, CancellationToken, Config, ProgressEvent, ProgressSink,
     Stats,
 };
+use serde::{Deserialize, Serialize};
 use std::sync::{
     atomic::{AtomicBool, AtomicU64, Ordering},
     mpsc::{self, Receiver, Sender},
     Arc, Mutex,
 };
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 pub type JobId = u64;
 
@@ -23,6 +24,7 @@ pub enum JobState {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize)]
 pub struct StatsSnapshot {
     pub files: usize,
     pub tokens_seen: u64,
@@ -44,6 +46,8 @@ impl StatsSnapshot {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
 pub enum JobEvent {
     Started {
         job_id: JobId,
@@ -57,9 +61,13 @@ pub enum JobEvent {
         stage: Option<String>,
         files_done: usize,
         files_total: usize,
+        progress_ppm: Option<u32>,
         tokens_seen: u64,
         unique_tokens: u64,
         duplicates: u64,
+        throughput_tps: u64,
+        elapsed_ms: u128,
+        eta_ms: Option<u128>,
     },
     Done {
         job_id: JobId,
@@ -72,6 +80,23 @@ pub enum JobEvent {
     Canceled {
         job_id: JobId,
     },
+}
+
+impl JobEvent {
+    pub fn topic(&self) -> &'static str {
+        match self {
+            JobEvent::Started { .. } => "job://started",
+            JobEvent::Stage { .. } => "job://stage",
+            JobEvent::Progress { .. } => "job://progress",
+            JobEvent::Done { .. } => "job://done",
+            JobEvent::Error { .. } => "job://error",
+            JobEvent::Canceled { .. } => "job://canceled",
+        }
+    }
+
+    pub fn to_json_value(&self) -> serde_json::Value {
+        serde_json::to_value(self).unwrap_or_else(|_| serde_json::json!({}))
+    }
 }
 
 #[derive(Debug)]
@@ -232,24 +257,49 @@ struct ProgressSnapshot {
     stage: Option<String>,
     files_done: usize,
     files_total: usize,
+    progress_ppm: Option<u32>,
     tokens_seen: u64,
     unique_tokens: u64,
     duplicates: u64,
+    throughput_tps: u64,
+    elapsed_ms: u128,
+    eta_ms: Option<u128>,
+}
+
+#[derive(Debug)]
+struct BridgeState {
+    snapshot: ProgressSnapshot,
+    started_at: Instant,
+    last_emit_at: Instant,
+    last_tp_sample_at: Instant,
+    last_tp_tokens: u64,
+    ewma_tps: f64,
 }
 
 #[derive(Debug)]
 struct BridgeSink {
     job_id: JobId,
     tx: Sender<JobEvent>,
-    snapshot: Mutex<ProgressSnapshot>,
+    state: Mutex<BridgeState>,
 }
 
 impl BridgeSink {
+    const MIN_PROGRESS_INTERVAL: Duration = Duration::from_millis(125);
+    const EWMA_ALPHA: f64 = 0.25;
+
     fn new(job_id: JobId, tx: Sender<JobEvent>) -> Self {
+        let now = Instant::now();
         Self {
             job_id,
             tx,
-            snapshot: Mutex::new(ProgressSnapshot::default()),
+            state: Mutex::new(BridgeState {
+                snapshot: ProgressSnapshot::default(),
+                started_at: now,
+                last_emit_at: now,
+                last_tp_sample_at: now,
+                last_tp_tokens: 0,
+                ewma_tps: 0.0,
+            }),
         }
     }
 
@@ -259,48 +309,113 @@ impl BridgeSink {
             stage: snapshot.stage.clone(),
             files_done: snapshot.files_done,
             files_total: snapshot.files_total,
+            progress_ppm: snapshot.progress_ppm,
             tokens_seen: snapshot.tokens_seen,
             unique_tokens: snapshot.unique_tokens,
             duplicates: snapshot.duplicates,
+            throughput_tps: snapshot.throughput_tps,
+            elapsed_ms: snapshot.elapsed_ms,
+            eta_ms: snapshot.eta_ms,
         });
+    }
+
+    fn update_derived_metrics(state: &mut BridgeState, now: Instant) {
+        let elapsed = now.duration_since(state.started_at);
+        let elapsed_ms = elapsed.as_millis();
+        state.snapshot.elapsed_ms = elapsed_ms;
+
+        let since_sample = now.duration_since(state.last_tp_sample_at);
+        if since_sample >= Duration::from_millis(200)
+            && state.snapshot.tokens_seen >= state.last_tp_tokens
+        {
+            let delta_tokens = state.snapshot.tokens_seen - state.last_tp_tokens;
+            let sec = since_sample.as_secs_f64();
+            if sec > 0.0 {
+                let inst_tps = delta_tokens as f64 / sec;
+                state.ewma_tps = if state.ewma_tps > 0.0 {
+                    (Self::EWMA_ALPHA * inst_tps) + ((1.0 - Self::EWMA_ALPHA) * state.ewma_tps)
+                } else {
+                    inst_tps
+                };
+            }
+            state.last_tp_tokens = state.snapshot.tokens_seen;
+            state.last_tp_sample_at = now;
+        }
+        state.snapshot.throughput_tps = state.ewma_tps.max(0.0).round() as u64;
+
+        state.snapshot.progress_ppm =
+            Self::estimate_progress_ppm(state.snapshot.files_done, state.snapshot.files_total);
+
+        state.snapshot.eta_ms = if state.snapshot.files_total > 0
+            && state.snapshot.files_done > 0
+            && state.snapshot.files_done < state.snapshot.files_total
+            && elapsed_ms >= 1_000
+        {
+            let files_per_ms = state.snapshot.files_done as f64 / elapsed_ms as f64;
+            if files_per_ms > 0.0 {
+                let remaining = (state.snapshot.files_total - state.snapshot.files_done) as f64;
+                Some((remaining / files_per_ms).round() as u128)
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+    }
+
+    fn estimate_progress_ppm(files_done: usize, files_total: usize) -> Option<u32> {
+        if files_total == 0 {
+            return None;
+        }
+        let ppm = ((files_done as u128) * 1_000_000u128) / (files_total as u128);
+        Some(ppm.min(1_000_000u128) as u32)
     }
 }
 
 impl ProgressSink for BridgeSink {
     fn on_event(&self, event: ProgressEvent) {
-        let mut snapshot = match self.snapshot.lock() {
+        let mut state = match self.state.lock() {
             Ok(lock) => lock,
             Err(_) => return,
         };
+        let now = Instant::now();
+        let mut force_emit = false;
 
         match event {
             ProgressEvent::Stage(stage) => {
-                snapshot.stage = Some(stage.to_string());
+                state.snapshot.stage = Some(stage.to_string());
                 let _ = self.tx.send(JobEvent::Stage {
                     job_id: self.job_id,
                     stage: stage.to_string(),
                 });
+                force_emit = true;
             }
             ProgressEvent::FileStarted { index: _, total } => {
-                snapshot.files_total = total;
+                state.snapshot.files_total = total;
             }
             ProgressEvent::FileFinished { index, total } => {
-                snapshot.files_done = index;
-                snapshot.files_total = total;
+                state.snapshot.files_done = index;
+                state.snapshot.files_total = total;
+                force_emit = true;
             }
             ProgressEvent::TokensSeen(v) => {
-                snapshot.tokens_seen = v;
+                state.snapshot.tokens_seen = v;
             }
             ProgressEvent::UniqueTokens(v) => {
-                snapshot.unique_tokens = v;
+                state.snapshot.unique_tokens = v;
             }
             ProgressEvent::Duplicates(v) => {
-                snapshot.duplicates = v;
+                state.snapshot.duplicates = v;
             }
         }
 
-        let snapshot_copy = snapshot.clone();
-        drop(snapshot);
-        self.emit_progress(&snapshot_copy);
+        let elapsed_since_emit = now.duration_since(state.last_emit_at);
+        if force_emit || elapsed_since_emit >= Self::MIN_PROGRESS_INTERVAL {
+            Self::update_derived_metrics(&mut state, now);
+            let snapshot_copy = state.snapshot.clone();
+            state.last_emit_at = now;
+            drop(state);
+            self.emit_progress(&snapshot_copy);
+        }
     }
 }
