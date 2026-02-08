@@ -41,6 +41,9 @@ struct Cli {
     #[arg(short, long)]
     output: PathBuf,
 
+    #[arg(long, action = ArgAction::SetTrue)]
+    overwrite: bool,
+
     #[arg(long, value_enum, default_value_t = CliMode::Ram)]
     mode: CliMode,
 
@@ -85,6 +88,7 @@ fn main() -> Result<()> {
                     .map(|p| p.to_string_lossy().to_string())
                     .collect(),
                 output: cli.output.to_string_lossy().to_string(),
+                allow_overwrite: cli.overwrite,
                 output_separator: cli.separator.clone(),
                 interpret_separator_escapes: !cli.raw_separator,
                 mode: map_mode(cli.mode),

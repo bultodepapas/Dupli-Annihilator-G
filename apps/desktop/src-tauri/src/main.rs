@@ -42,6 +42,11 @@ fn get_runtime_state(state: tauri::State<'_, AppState>) -> RuntimeState {
 }
 
 #[tauri::command]
+fn path_exists(path: String) -> bool {
+    std::path::Path::new(&path).exists()
+}
+
+#[tauri::command]
 fn next_events(state: tauri::State<'_, AppState>, req: NextEventsRequest) -> Vec<EmittedEvent> {
     let max_events = req.max_events.clamp(1, 256);
     let timeout_ms = req.timeout_ms.min(5_000);
@@ -61,6 +66,7 @@ fn main() {
             cancel_job,
             get_app_info,
             get_runtime_state,
+            path_exists,
             next_events
         ])
         .run(tauri::generate_context!())

@@ -34,6 +34,8 @@ pub enum ApiDiskAlphabeticalMode {
 pub struct StartJobConfig {
     pub inputs: Vec<String>,
     pub output: String,
+    #[serde(default)]
+    pub allow_overwrite: bool,
     #[serde(default = "default_separator")]
     pub output_separator: String,
     #[serde(default)]
@@ -121,11 +123,19 @@ impl BackendService {
     }
 
     pub fn start_job(&self, req: StartJobRequest) -> Result<StartJobResponse, CommandError> {
+        let allow_overwrite = req.config.allow_overwrite;
         let cfg = req
             .config
             .into_core_config()
             .map_err(map_anyhow_to_command_error)?;
         cfg.validate().map_err(map_anyhow_to_command_error)?;
+        if !allow_overwrite && cfg.output.exists() {
+            return Err(CommandError {
+                category: "output_exists".to_string(),
+                message: format!("output file already exists: {}", cfg.output.display()),
+                detail: None,
+            });
+        }
         let job_id = self
             .manager
             .start_job(cfg)

@@ -1,7 +1,7 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { invoke } from "@tauri-apps/api/core";
-import { open, save } from "@tauri-apps/plugin-dialog";
+import { confirm, open, save } from "@tauri-apps/plugin-dialog";
 import "./styles.css";
 
 type AppInfo = {
@@ -37,6 +37,7 @@ type RunStatus = "idle" | "running" | "done" | "error" | "canceled";
 type FormState = {
   inputsText: string;
   outputPath: string;
+  allowOverwrite: boolean;
   separator: string;
   rawSeparator: boolean;
   mode: "auto" | "ram" | "disk";
@@ -51,6 +52,7 @@ type FormState = {
 const DEFAULT_FORM: FormState = {
   inputsText: "",
   outputPath: "",
+  allowOverwrite: false,
   separator: "\\n",
   rawSeparator: false,
   mode: "ram",
@@ -216,11 +218,35 @@ function App() {
       return;
     }
 
+    let allowOverwrite = form.allowOverwrite;
+    try {
+      const exists = await invoke<boolean>("path_exists", { path: form.outputPath.trim() });
+      if (exists && !allowOverwrite) {
+        const shouldOverwrite = await confirm(
+          `Output file already exists:\n${form.outputPath}\n\nDo you want to overwrite it?`,
+          {
+            title: "Confirm overwrite",
+            kind: "warning",
+          },
+        );
+        if (!shouldOverwrite) {
+          setRunStatus("idle");
+          setMessage("Start canceled by user.");
+          return;
+        }
+        allowOverwrite = true;
+      }
+    } catch (err) {
+      setMessage(`Preflight check failed: ${String(err)}`);
+      return;
+    }
+
     const req = {
       req: {
         config: {
           inputs: parsedInputs,
           output: form.outputPath.trim(),
+          allowOverwrite,
           outputSeparator: form.separator,
           interpretSeparatorEscapes: !form.rawSeparator,
           mode: form.mode,
@@ -445,6 +471,14 @@ function App() {
               onChange={(e) => setForm((f) => ({ ...f, rawSeparator: e.target.checked }))}
             />
             <span>Raw separator (do not parse escapes)</span>
+          </label>
+          <label className="field checkbox">
+            <input
+              type="checkbox"
+              checked={form.allowOverwrite}
+              onChange={(e) => setForm((f) => ({ ...f, allowOverwrite: e.target.checked }))}
+            />
+            <span>Allow overwrite without confirmation</span>
           </label>
 
           <div className="button-row">

@@ -10,6 +10,7 @@ fn make_ram_request(input: String, output: String) -> StartJobRequest {
         config: StartJobConfig {
             inputs: vec![input],
             output,
+            allow_overwrite: false,
             output_separator: ",".to_string(),
             interpret_separator_escapes: false,
             mode: ApiMode::Ram,
@@ -28,6 +29,7 @@ fn make_disk_request(input: String, output: String) -> StartJobRequest {
         config: StartJobConfig {
             inputs: vec![input],
             output,
+            allow_overwrite: false,
             output_separator: "\\n".to_string(),
             interpret_separator_escapes: true,
             mode: ApiMode::Disk,
@@ -166,6 +168,7 @@ fn invalid_config_fails_fast_on_start() {
             config: StartJobConfig {
                 inputs: vec![],
                 output: String::new(),
+                allow_overwrite: false,
                 output_separator: "\n".to_string(),
                 interpret_separator_escapes: false,
                 mode: ApiMode::Ram,
@@ -294,4 +297,55 @@ fn emitted_batch_respects_limit() {
     }
 
     assert!(saw_done, "expected done event in emitted batch stream");
+}
+
+#[test]
+fn start_rejects_existing_output_without_overwrite_flag() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let input = dir.path().join("in.txt");
+    let output = dir.path().join("out.txt");
+    fs::write(&input, "a b c").expect("write input");
+    fs::write(&output, "already here").expect("write output");
+
+    let backend = BackendService::new();
+    let err = backend
+        .start_job(make_ram_request(
+            input.to_string_lossy().to_string(),
+            output.to_string_lossy().to_string(),
+        ))
+        .expect_err("should reject existing output");
+    assert_eq!(err.category, "output_exists");
+}
+
+#[test]
+fn start_allows_existing_output_when_overwrite_enabled() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let input = dir.path().join("in.txt");
+    let output = dir.path().join("out.txt");
+    fs::write(&input, "a b a c").expect("write input");
+    fs::write(&output, "already here").expect("write output");
+
+    let mut req = make_ram_request(
+        input.to_string_lossy().to_string(),
+        output.to_string_lossy().to_string(),
+    );
+    req.config.allow_overwrite = true;
+
+    let backend = BackendService::new();
+    backend.start_job(req).expect("start with overwrite");
+
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let mut done = false;
+    while Instant::now() < deadline {
+        if let Some(ev) = backend.next_event_timeout(Duration::from_millis(200)) {
+            if let BackendJobEvent::Done { .. } = ev {
+                done = true;
+                break;
+            }
+        }
+    }
+    assert!(done, "expected done");
+
+    let out = fs::read_to_string(&output).expect("read output");
+    assert_eq!(out, "a,b,c");
 }
