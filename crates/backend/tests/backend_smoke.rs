@@ -1,6 +1,6 @@
 use dedupe_backend::{
-    ApiDiskAlphabeticalMode, ApiMode, ApiOrdering, BackendJobEvent, BackendService, CancelJobRequest,
-    StartJobConfig, StartJobRequest,
+    ApiDiskAlphabeticalMode, ApiMode, ApiOrdering, BackendJobEvent, BackendService,
+    CancelJobRequest, StartJobConfig, StartJobRequest,
 };
 use std::fs;
 use std::time::{Duration, Instant};

@@ -147,7 +147,10 @@ impl BackendService {
     }
 
     pub fn drain_emitted_events(&self) -> Vec<EmittedEvent> {
-        self.drain_events().into_iter().map(EmittedEvent::from).collect()
+        self.drain_events()
+            .into_iter()
+            .map(EmittedEvent::from)
+            .collect()
     }
 
     pub fn next_emitted_events_batch(

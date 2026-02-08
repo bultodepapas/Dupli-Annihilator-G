@@ -1,8 +1,8 @@
 use anyhow::{anyhow, Context, Result};
 use clap::{ArgAction, Parser, ValueEnum};
 use dedupe_backend::{
-    ApiDiskAlphabeticalMode, ApiMode, ApiOrdering, BackendJobEvent, BackendService, CancelJobRequest,
-    StartJobConfig, StartJobRequest,
+    ApiDiskAlphabeticalMode, ApiMode, ApiOrdering, BackendJobEvent, BackendService,
+    CancelJobRequest, StartJobConfig, StartJobRequest,
 };
 use std::path::PathBuf;
 use std::sync::{
@@ -153,7 +153,11 @@ fn main() -> Result<()> {
             BackendJobEvent::Done { stats, .. } => {
                 println!(
                     "done files={} tokens_seen={} unique={} duplicates={} elapsed_ms={}",
-                    stats.files, stats.tokens_seen, stats.unique_tokens, stats.duplicates, stats.elapsed_ms
+                    stats.files,
+                    stats.tokens_seen,
+                    stats.unique_tokens,
+                    stats.duplicates,
+                    stats.elapsed_ms
                 );
                 break;
             }
