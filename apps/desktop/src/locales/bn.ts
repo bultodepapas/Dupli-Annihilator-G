@@ -17,6 +17,8 @@ export const bn: Dictionary = {
   "button.add_files": "ফাইল যোগ করুন",
   "button.pick_output": "আউটপুট বাছাই করুন",
   "button.run": "চালান",
+  "button.run_again": "আবার চালান",
+  "button.retry": "পুনরায় চেষ্টা",
   "button.cancel": "বাতিল করুন",
 
   "field.inputs": "ইনপুট ফাইল (প্রতি লাইনে একটি absolute path)",
@@ -27,9 +29,12 @@ export const bn: Dictionary = {
   "field.disk_buckets": "ডিস্ক বাকেট",
   "field.disk_run_bytes": "ডিস্ক রান বাইটস",
   "field.separator": "বিভাজক",
+  "field.separator_presets": "বিভাজক প্রিসেট",
+  "field.separator_preview": "বিভাজক প্রিভিউ",
   "field.raw_separator": "র' বিভাজক (escape parse করবেন না)",
   "field.allow_overwrite": "কনফার্ম ছাড়া overwrite অনুমতি দিন",
   "field.language": "ভাষা",
+  "hint.drop_files": "Explorer/Finder থেকে ফাইল এখানে ছেড়ে দিন",
   "tooltip.processing.mode": "এক্সিকিউশন কৌশল: auto নিজে বেছে নেয়, ram সবচেয়ে দ্রুত, disk কম মেমরি ব্যবহার করে।",
   "tooltip.processing.ordering": "আউটপুট ফাইলে unique লাইনগুলোর ক্রম কীভাবে হবে।",
   "tooltip.processing.disk_alphabetical_mode":
@@ -54,6 +59,7 @@ export const bn: Dictionary = {
   "meta.app": "app",
   "meta.backend": "backend",
   "meta.job_id": "job_id",
+  "meta.effective_separator": "কার্যকর_বিভাজক",
 
   "metric.stage": "ধাপ",
   "metric.files": "ফাইল",

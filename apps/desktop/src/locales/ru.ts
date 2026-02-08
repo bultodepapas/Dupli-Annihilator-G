@@ -17,6 +17,8 @@ export const ru: Dictionary = {
   "button.add_files": "ДОБАВИТЬ ФАЙЛЫ",
   "button.pick_output": "ВЫБРАТЬ ВЫХОД",
   "button.run": "ЗАПУСТИТЬ",
+  "button.run_again": "ЗАПУСТИТЬ СНОВА",
+  "button.retry": "ПОВТОРИТЬ",
   "button.cancel": "ОТМЕНИТЬ",
 
   "field.inputs": "Входные файлы (один абсолютный путь в строке)",
@@ -27,9 +29,12 @@ export const ru: Dictionary = {
   "field.disk_buckets": "Дисковые бакеты",
   "field.disk_run_bytes": "Байты на дисковый проход",
   "field.separator": "Разделитель",
+  "field.separator_presets": "Шаблоны разделителя",
+  "field.separator_preview": "Предпросмотр разделителя",
   "field.raw_separator": "Сырой разделитель (не обрабатывать escape)",
   "field.allow_overwrite": "Разрешить перезапись без подтверждения",
   "field.language": "Язык",
+  "hint.drop_files": "Перетащите файлы сюда из Explorer/Finder",
   "tooltip.processing.mode":
     "Стратегия выполнения: auto выбирает автоматически, ram самый быстрый, disk использует меньше памяти.",
   "tooltip.processing.ordering": "Как упорядочиваются уникальные строки в выходном файле.",
@@ -55,6 +60,7 @@ export const ru: Dictionary = {
   "meta.app": "app",
   "meta.backend": "backend",
   "meta.job_id": "job_id",
+  "meta.effective_separator": "эффективный_разделитель",
 
   "metric.stage": "этап",
   "metric.files": "файлы",

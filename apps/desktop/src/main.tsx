@@ -81,11 +81,164 @@ function loadInitialLocale(): Locale {
 
 const INITIAL_LOCALE = loadInitialLocale();
 
+const EMPTY_PROGRESS: ProgressSnapshot = {
+  stage: "-",
+  filesDone: 0,
+  filesTotal: 0,
+  tokensSeen: 0,
+  uniqueTokens: 0,
+  duplicates: 0,
+  throughputTps: 0,
+  elapsedMs: 0,
+  etaMs: null,
+};
+
+type SeparatorPreset = {
+  label: string;
+  value: string;
+  raw: boolean;
+};
+
+const SEPARATOR_PRESETS: SeparatorPreset[] = [
+  { label: "\\n", value: "\\n", raw: false },
+  { label: "\\r\\n", value: "\\r\\n", raw: false },
+  { label: "\\t", value: "\\t", raw: false },
+  { label: ",", value: ",", raw: true },
+  { label: ";", value: ";", raw: true },
+  { label: "|", value: "|", raw: true },
+];
+
 function parseInputs(text: string): string[] {
   return text
     .split(/\r?\n/)
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
+}
+
+function parseEscapedSeparator(input: string): string {
+  let out = "";
+  let i = 0;
+
+  while (i < input.length) {
+    const c = input[i];
+    if (c !== "\\") {
+      out += c;
+      i += 1;
+      continue;
+    }
+
+    const next = input[i + 1];
+    if (next === "n") {
+      out += "\n";
+      i += 2;
+      continue;
+    }
+    if (next === "t") {
+      out += "\t";
+      i += 2;
+      continue;
+    }
+    if (next === "f") {
+      out += "\f";
+      i += 2;
+      continue;
+    }
+    if (next === "r") {
+      if (input[i + 2] === "n") {
+        out += "\r\n";
+        i += 3;
+      } else {
+        out += "\r";
+        i += 2;
+      }
+      continue;
+    }
+    if (next === "\\") {
+      out += "\\";
+      i += 2;
+      continue;
+    }
+    if (next === undefined) {
+      out += "\\";
+      i += 1;
+      continue;
+    }
+    out += `\\${next}`;
+    i += 2;
+  }
+
+  return out;
+}
+
+function resolveSeparator(separator: string, raw: boolean): string {
+  return raw ? separator : parseEscapedSeparator(separator);
+}
+
+function escapeControlChars(input: string): string {
+  return input
+    .replace(/\\/g, "\\\\")
+    .replace(/\r/g, "\\r")
+    .replace(/\n/g, "\\n")
+    .replace(/\t/g, "\\t")
+    .replace(/\f/g, "\\f");
+}
+
+function normalizeDroppedPath(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  if (trimmed.startsWith("file://")) {
+    try {
+      const url = new URL(trimmed);
+      const decoded = decodeURIComponent(url.pathname);
+      if (/^\/[a-zA-Z]:/.test(decoded)) {
+        return decoded.slice(1).replace(/\//g, "\\");
+      }
+      return decoded;
+    } catch {
+      return null;
+    }
+  }
+
+  return trimmed;
+}
+
+function extractDroppedPaths(event: React.DragEvent<HTMLElement>): string[] {
+  const out: string[] = [];
+  const files = Array.from(event.dataTransfer.files);
+  for (const file of files) {
+    const candidate = (file as File & { path?: string }).path;
+    if (candidate && candidate.trim().length > 0) {
+      out.push(candidate.trim());
+    }
+  }
+
+  const uriList = event.dataTransfer.getData("text/uri-list");
+  if (uriList) {
+    for (const line of uriList.split(/\r?\n/)) {
+      if (!line || line.startsWith("#")) {
+        continue;
+      }
+      const normalized = normalizeDroppedPath(line);
+      if (normalized) {
+        out.push(normalized);
+      }
+    }
+  }
+
+  const plain = event.dataTransfer.getData("text/plain");
+  if (plain) {
+    for (const line of plain.split(/\r?\n/)) {
+      const normalized = normalizeDroppedPath(line);
+      if (normalized) {
+        out.push(normalized);
+      }
+    }
+  }
+
+  return Array.from(new Set(out));
 }
 
 function validateForm(form: FormState, tr: (key: I18nKey, params?: Record<string, string | number>) => string): string[] {
@@ -128,6 +281,17 @@ function statusKey(status: RunStatus): I18nKey {
   }
 }
 
+function runButtonKey(status: RunStatus): I18nKey {
+  switch (status) {
+    case "done":
+      return "button.run_again";
+    case "error":
+      return "button.retry";
+    default:
+      return "button.run";
+  }
+}
+
 async function resolveDefaultOutputPath(): Promise<string | null> {
   try {
     return await invoke<string>("default_output_path");
@@ -148,24 +312,38 @@ function App() {
   const [runStatus, setRunStatus] = React.useState<RunStatus>("idle");
   const [activeJobId, setActiveJobId] = React.useState<number | null>(null);
   const [message, setMessage] = React.useState<string>(() => t(INITIAL_LOCALE, "message.idle"));
-  const [progress, setProgress] = React.useState<ProgressSnapshot>({
-    stage: "-",
-    filesDone: 0,
-    filesTotal: 0,
-    tokensSeen: 0,
-    uniqueTokens: 0,
-    duplicates: 0,
-    throughputTps: 0,
-    elapsedMs: 0,
-    etaMs: null,
-  });
+  const [progress, setProgress] = React.useState<ProgressSnapshot>(EMPTY_PROGRESS);
+  const [inputsDragActive, setInputsDragActive] = React.useState(false);
 
   const pollingRef = React.useRef(false);
   const parsedInputs = React.useMemo(() => parseInputs(form.inputsText), [form.inputsText]);
   const validationErrors = React.useMemo(() => validateForm(form, tr), [form, tr]);
+  const resolvedSeparator = React.useMemo(
+    () => resolveSeparator(form.separator, form.rawSeparator),
+    [form.separator, form.rawSeparator],
+  );
+  const separatorPreview = React.useMemo(
+    () => ["alpha", "beta", "gamma"].join(resolvedSeparator),
+    [resolvedSeparator],
+  );
+  const separatorPreviewVisible = React.useMemo(
+    () => escapeControlChars(separatorPreview),
+    [separatorPreview],
+  );
 
   const appendMessage = React.useCallback((text: string) => {
     setMessage(text);
+  }, []);
+
+  const mergeInputs = React.useCallback((incoming: string[]) => {
+    if (incoming.length === 0) {
+      return;
+    }
+    setForm((prev) => {
+      const merged = [...parseInputs(prev.inputsText), ...incoming];
+      const deduped = Array.from(new Set(merged));
+      return { ...prev, inputsText: deduped.join("\n") };
+    });
   }, []);
 
   const syncRuntimeState = React.useCallback(async () => {
@@ -328,6 +506,7 @@ function App() {
     try {
       setRunStatus("running");
       setMessage(tr("message.starting"));
+      setProgress(EMPTY_PROGRESS);
       const res = await invoke<{ jobId: number }>("start_job", req);
       setActiveJobId(res.jobId);
     } catch (err) {
@@ -366,14 +545,38 @@ function App() {
       if (list.length === 0) {
         return;
       }
-      setForm((prev) => {
-        const merged = [...parseInputs(prev.inputsText), ...list];
-        const deduped = Array.from(new Set(merged));
-        return { ...prev, inputsText: deduped.join("\n") };
-      });
+      mergeInputs(list);
     } catch (err) {
       appendMessage(tr("message.input_dialog_failed", { detail: String(err) }));
     }
+  };
+
+  const onInputsDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    if (runStatus === "running") {
+      return;
+    }
+    event.dataTransfer.dropEffect = "copy";
+    if (!inputsDragActive) {
+      setInputsDragActive(true);
+    }
+  };
+
+  const onInputsDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
+    const related = event.relatedTarget as Node | null;
+    if (related && event.currentTarget.contains(related)) {
+      return;
+    }
+    setInputsDragActive(false);
+  };
+
+  const onInputsDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    if (runStatus === "running") {
+      return;
+    }
+    setInputsDragActive(false);
+    mergeInputs(extractDroppedPaths(event));
   };
 
   const pickOutputFile = async () => {
@@ -389,6 +592,14 @@ function App() {
     } catch (err) {
       appendMessage(tr("message.output_dialog_failed", { detail: String(err) }));
     }
+  };
+
+  const applySeparatorPreset = (preset: SeparatorPreset) => {
+    setForm((prev) => ({
+      ...prev,
+      separator: preset.value,
+      rawSeparator: preset.raw,
+    }));
   };
 
   const progressPercent =
@@ -426,12 +637,20 @@ function App() {
           </div>
           <label className="field">
             <span>{tr("field.inputs")}</span>
-            <textarea
-              value={form.inputsText}
-              onChange={(e) => setForm((f) => ({ ...f, inputsText: e.target.value }))}
-              rows={8}
-              placeholder={tr("placeholder.inputs")}
-            />
+            <div
+              className={`drop-zone ${inputsDragActive ? "drop-zone-active" : ""}`}
+              onDragOver={onInputsDragOver}
+              onDragLeave={onInputsDragLeave}
+              onDrop={onInputsDrop}
+            >
+              <textarea
+                value={form.inputsText}
+                onChange={(e) => setForm((f) => ({ ...f, inputsText: e.target.value }))}
+                rows={8}
+                placeholder={tr("placeholder.inputs")}
+              />
+              <div className="drop-hint">{tr("hint.drop_files")}</div>
+            </div>
           </label>
           <label className="field">
             <span>{tr("field.output")}</span>
@@ -553,6 +772,31 @@ function App() {
               placeholder="\\n"
             />
           </label>
+          <label className="field">
+            <span>{tr("field.separator_presets")}</span>
+            <div className="preset-row">
+              {SEPARATOR_PRESETS.map((preset) => (
+                <button
+                  key={`${preset.label}:${preset.value}:${preset.raw}`}
+                  className="secondary preset-btn"
+                  type="button"
+                  onClick={() => applySeparatorPreset(preset)}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+          </label>
+          <label className="field">
+            <span>{tr("field.separator_preview")}</span>
+            <pre className="separator-preview">{separatorPreview}</pre>
+            <div className="separator-preview-meta">
+              {tr("meta.effective_separator")}: <code>{escapeControlChars(resolvedSeparator)}</code>
+            </div>
+            <div className="separator-preview-meta">
+              {tr("metric.tokens")}: <code>{separatorPreviewVisible}</code>
+            </div>
+          </label>
           <label className="field checkbox">
             <input
               type="checkbox"
@@ -572,7 +816,7 @@ function App() {
 
           <div className="button-row">
             <button className="primary" disabled={!canRun} onClick={() => void startJob()}>
-              {tr("button.run")}
+              {tr(runButtonKey(runStatus))}
             </button>
             <button className="danger" disabled={!canCancel} onClick={() => void cancelJob()}>
               {tr("button.cancel")}

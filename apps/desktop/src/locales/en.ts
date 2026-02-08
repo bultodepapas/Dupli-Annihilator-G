@@ -15,6 +15,8 @@ export const en = {
   "button.add_files": "ADD FILES",
   "button.pick_output": "PICK OUTPUT",
   "button.run": "RUN",
+  "button.run_again": "RUN AGAIN",
+  "button.retry": "RETRY",
   "button.cancel": "CANCEL",
 
   "field.inputs": "Input files (one absolute path per line)",
@@ -25,9 +27,12 @@ export const en = {
   "field.disk_buckets": "Disk buckets",
   "field.disk_run_bytes": "Disk run bytes",
   "field.separator": "Separator",
+  "field.separator_presets": "Separator presets",
+  "field.separator_preview": "Separator preview",
   "field.raw_separator": "Raw separator (do not parse escapes)",
   "field.allow_overwrite": "Allow overwrite without confirmation",
   "field.language": "Language",
+  "hint.drop_files": "Drop files here from Explorer/Finder",
   "tooltip.processing.mode": "Execution strategy: auto picks for you, ram is fastest, disk uses less memory.",
   "tooltip.processing.ordering": "How unique lines are ordered in the output file.",
   "tooltip.processing.disk_alphabetical_mode":
@@ -52,6 +57,7 @@ export const en = {
   "meta.app": "app",
   "meta.backend": "backend",
   "meta.job_id": "job_id",
+  "meta.effective_separator": "effective_separator",
 
   "metric.stage": "stage",
   "metric.files": "files",

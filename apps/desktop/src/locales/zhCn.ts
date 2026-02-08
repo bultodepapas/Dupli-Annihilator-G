@@ -17,6 +17,8 @@ export const zhCn: Dictionary = {
   "button.add_files": "添加文件",
   "button.pick_output": "选择输出",
   "button.run": "开始",
+  "button.run_again": "再次运行",
+  "button.retry": "重试",
   "button.cancel": "取消",
 
   "field.inputs": "输入文件（每行一个绝对路径）",
@@ -27,9 +29,12 @@ export const zhCn: Dictionary = {
   "field.disk_buckets": "磁盘桶数量",
   "field.disk_run_bytes": "磁盘分段字节数",
   "field.separator": "分隔符",
+  "field.separator_presets": "分隔符预设",
+  "field.separator_preview": "分隔符预览",
   "field.raw_separator": "原始分隔符（不解析转义）",
   "field.allow_overwrite": "允许无确认覆盖",
   "field.language": "语言",
+  "hint.drop_files": "从 Explorer/Finder 拖放文件到这里",
   "tooltip.processing.mode": "执行策略：auto 自动选择，ram 最快，disk 占用内存更少。",
   "tooltip.processing.ordering": "唯一行在输出文件中的排序方式。",
   "tooltip.processing.disk_alphabetical_mode":
@@ -54,6 +59,7 @@ export const zhCn: Dictionary = {
   "meta.app": "应用",
   "meta.backend": "后端",
   "meta.job_id": "任务 ID",
+  "meta.effective_separator": "生效分隔符",
 
   "metric.stage": "阶段",
   "metric.files": "文件",

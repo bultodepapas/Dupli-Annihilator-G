@@ -152,6 +152,28 @@ textarea {
   min-height: 130px;
 }
 
+.drop-zone {
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  padding: 8px;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.drop-zone textarea {
+  margin: 0;
+}
+
+.drop-zone-active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(73, 194, 255, 0.3);
+}
+
+.drop-hint {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
 .checkbox {
   display: flex;
   align-items: center;
@@ -167,6 +189,36 @@ textarea {
 .button-row.compact {
   margin-top: 0;
   margin-bottom: 10px;
+}
+
+.preset-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.preset-btn {
+  min-width: 62px;
+  padding: 7px 10px;
+  letter-spacing: 0;
+}
+
+.separator-preview {
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #0d1530;
+  color: var(--txt);
+  min-height: 52px;
+  padding: 9px 10px;
+  white-space: pre-wrap;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.86rem;
+}
+
+.separator-preview-meta {
+  color: var(--muted);
+  font-size: 0.82rem;
 }
 
 button {

@@ -17,6 +17,8 @@ export const ar: Dictionary = {
   "button.add_files": "إضافة ملفات",
   "button.pick_output": "اختيار المخرج",
   "button.run": "تشغيل",
+  "button.run_again": "تشغيل مرة اخرى",
+  "button.retry": "اعادة المحاولة",
   "button.cancel": "إلغاء",
 
   "field.inputs": "ملفات الإدخال (مسار مطلق واحد في كل سطر)",
@@ -27,9 +29,12 @@ export const ar: Dictionary = {
   "field.disk_buckets": "حاويات القرص",
   "field.disk_run_bytes": "حجم التشغيل على القرص (بايت)",
   "field.separator": "الفاصل",
+  "field.separator_presets": "اعدادات فاصلة مسبقة",
+  "field.separator_preview": "معاينة الفاصل",
   "field.raw_separator": "فاصل خام (دون تحليل محارف الهروب)",
   "field.allow_overwrite": "السماح بالاستبدال دون تأكيد",
   "field.language": "اللغة",
+  "hint.drop_files": "اسحب الملفات هنا من Explorer/Finder",
   "tooltip.processing.mode": "استراتيجية التنفيذ: auto يختار تلقائيا، ram هو الأسرع، وdisk يستهلك ذاكرة أقل.",
   "tooltip.processing.ordering": "طريقة ترتيب الأسطر الفريدة في ملف الإخراج.",
   "tooltip.processing.disk_alphabetical_mode":
@@ -54,6 +59,7 @@ export const ar: Dictionary = {
   "meta.app": "التطبيق",
   "meta.backend": "الخلفية",
   "meta.job_id": "معرف المهمة",
+  "meta.effective_separator": "الفاصل_الفعلي",
 
   "metric.stage": "المرحلة",
   "metric.files": "الملفات",

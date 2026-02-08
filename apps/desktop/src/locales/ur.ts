@@ -17,6 +17,8 @@ export const ur: Dictionary = {
   "button.add_files": "فائلیں شامل کریں",
   "button.pick_output": "آؤٹ پٹ منتخب کریں",
   "button.run": "چلائیں",
+  "button.run_again": "دوبارہ چلائیں",
+  "button.retry": "دوبارہ کوشش",
   "button.cancel": "منسوخ کریں",
 
   "field.inputs": "ان پٹ فائلیں (ہر لائن میں ایک absolute path)",
@@ -27,9 +29,12 @@ export const ur: Dictionary = {
   "field.disk_buckets": "ڈسک بکٹ",
   "field.disk_run_bytes": "ڈسک رن بائٹس",
   "field.separator": "جداکار",
+  "field.separator_presets": "جداکار پری سیٹس",
+  "field.separator_preview": "جداکار پیش نظارہ",
   "field.raw_separator": "را جداکار (escape parse نہ کریں)",
   "field.allow_overwrite": "تصدیق کے بغیر overwrite کی اجازت",
   "field.language": "زبان",
+  "hint.drop_files": "Explorer/Finder سے فائلیں یہاں چھوڑیں",
   "tooltip.processing.mode": "ایگزیکیوشن حکمت عملی: auto خود منتخب کرتا ہے، ram سب سے تیز ہے، disk کم میموری لیتا ہے۔",
   "tooltip.processing.ordering": "آؤٹ پٹ فائل میں unique لائنیں کس ترتیب سے ہوں گی۔",
   "tooltip.processing.disk_alphabetical_mode":
@@ -54,6 +59,7 @@ export const ur: Dictionary = {
   "meta.app": "app",
   "meta.backend": "backend",
   "meta.job_id": "job_id",
+  "meta.effective_separator": "موثر_جداکار",
 
   "metric.stage": "مرحلہ",
   "metric.files": "فائلیں",

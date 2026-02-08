@@ -17,6 +17,8 @@ export const es: Dictionary = {
   "button.add_files": "AGREGAR ARCHIVOS",
   "button.pick_output": "ELEGIR SALIDA",
   "button.run": "EJECUTAR",
+  "button.run_again": "EJECUTAR DE NUEVO",
+  "button.retry": "REINTENTAR",
   "button.cancel": "CANCELAR",
 
   "field.inputs": "Archivos de entrada (una ruta absoluta por linea)",
@@ -27,9 +29,12 @@ export const es: Dictionary = {
   "field.disk_buckets": "Buckets de disco",
   "field.disk_run_bytes": "Bytes por corrida en disco",
   "field.separator": "Separador",
+  "field.separator_presets": "Preajustes de separador",
+  "field.separator_preview": "Vista previa del separador",
   "field.raw_separator": "Separador literal (no interpretar escapes)",
   "field.allow_overwrite": "Permitir sobrescribir sin confirmacion",
   "field.language": "Idioma",
+  "hint.drop_files": "Suelta archivos aqui desde Explorer/Finder",
   "tooltip.processing.mode":
     "Estrategia de ejecucion: auto elige por ti, ram es mas rapido, disk usa menos memoria.",
   "tooltip.processing.ordering": "Como se ordenan las lineas unicas en el archivo de salida.",
@@ -56,6 +61,7 @@ export const es: Dictionary = {
   "meta.app": "app",
   "meta.backend": "backend",
   "meta.job_id": "job_id",
+  "meta.effective_separator": "separador_efectivo",
 
   "metric.stage": "etapa",
   "metric.files": "archivos",

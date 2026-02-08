@@ -1,4 +1,4 @@
-﻿import type { Dictionary } from "./en";
+import type { Dictionary } from "./en";
 
 export const hi: Dictionary = {
   "lang.name": "हिन्दी",
@@ -17,6 +17,8 @@ export const hi: Dictionary = {
   "button.add_files": "फ़ाइलें जोड़ें",
   "button.pick_output": "आउटपुट चुनें",
   "button.run": "चलाएँ",
+  "button.run_again": "फिर चलाएँ",
+  "button.retry": "पुनः प्रयास",
   "button.cancel": "रद्द करें",
 
   "field.inputs": "इनपुट फ़ाइलें (प्रति पंक्ति एक absolute path)",
@@ -27,9 +29,12 @@ export const hi: Dictionary = {
   "field.disk_buckets": "डिस्क बकेट",
   "field.disk_run_bytes": "डिस्क रन बाइट्स",
   "field.separator": "विभाजक",
+  "field.separator_presets": "विभाजक प्रीसेट",
+  "field.separator_preview": "विभाजक पूर्वावलोकन",
   "field.raw_separator": "रॉ विभाजक (escape parse न करें)",
   "field.allow_overwrite": "बिना पुष्टि overwrite की अनुमति",
   "field.language": "भाषा",
+  "hint.drop_files": "Explorer/Finder से फाइलें यहां छोड़ें",
   "tooltip.processing.mode": "एक्ज़ीक्यूशन रणनीति: auto अपने आप चुनता है, ram सबसे तेज है, disk कम मेमोरी लेता है।",
   "tooltip.processing.ordering": "आउटपुट फ़ाइल में unique पंक्तियाँ किस क्रम में रहेंगी।",
   "tooltip.processing.disk_alphabetical_mode":
@@ -54,6 +59,7 @@ export const hi: Dictionary = {
   "meta.app": "app",
   "meta.backend": "backend",
   "meta.job_id": "job_id",
+  "meta.effective_separator": "प्रभावी_विभाजक",
 
   "metric.stage": "stage",
   "metric.files": "files",
