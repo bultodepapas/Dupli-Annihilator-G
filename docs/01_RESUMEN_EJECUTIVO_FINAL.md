@@ -1,74 +1,74 @@
-# Resumen Ejecutivo Final
+# Final Executive Summary
 
-## Documentos relacionados
+## Related Documents
 - `README.md`
 - `docs/00_INDICE_DOCUMENTACION_FINAL.md`
 - `docs/02_ESPECIFICACION_MOTOR_FINAL.md`
 - `docs/03_ESPECIFICACION_UI_TAURI_FINAL.md`
 - `docs/04_PLAN_PM_IMPLEMENTACION_FINAL.md`
-- `docs/05_DECISIONES_PENDIENTES.md`
+- `docs/05_PENDING_DECISIONS.md`
 
-## 1) Vision del producto
-Construir una app de escritorio para unir, depurar duplicados y exportar tokens desde multiples archivos de texto, con enfoque en:
-- alto rendimiento con datasets grandes,
-- comportamiento predecible,
-- UI clara para usuarios tecnicos.
+## 1) Product Vision
+Build a desktop application that merges, deduplicates, and exports tokens from multiple text files, with focus on:
+- high performance for large datasets,
+- deterministic behavior,
+- clear UX for technical users.
 
-## 2) Decisiones funcionales cerradas
-1. Dedupe case-sensitive.
-   `Perro`, `perro` y `PERRO` se consideran tokens distintos.
-2. Soporte Unicode completo.
-   Incluye acentos, caracteres especiales y emojis.
-3. Parsing de entrada robusto para fuentes no controladas.
-   Delimitadores de entrada: whitespace, coma y punto y coma.
-4. Salida por separador arbitrario (string).
-   La salida respeta exactamente el separador elegido por el usuario.
-5. Sin separador extra al final.
-6. Modo DISK y tipo de orden deben ser seleccionables en UI.
-7. Separador por defecto de producto: `"\n"`.
-8. `Mode=Auto` en V1: alias de `Ram` (con tooltip explicito en UI).
-9. Localizacion V1: ingles (`en`) y chino simplificado (`zh-CN`), sin hardcode de textos.
+## 2) Closed Functional Decisions
+1. Deduplication is case-sensitive.
+   `Perro`, `perro`, and `PERRO` are distinct tokens.
+2. Full Unicode support is required.
+   Includes accents, special characters, and emojis.
+3. Input parsing must be robust for uncontrolled source files.
+   Input delimiters: whitespace, comma, and semicolon.
+4. Output uses an arbitrary separator string.
+   The engine must respect the separator exactly as provided.
+5. No trailing separator at the end of output.
+6. DISK mode and output ordering must be user-selectable in the UI.
+7. Product default output separator: `"\n"`.
+8. `Mode=Auto` in V1 is an alias of `Ram` (with explicit UI tooltip).
+9. V1 localization: English (`en`) and Simplified Chinese (`zh-CN`), with no hardcoded UI copy.
 
-## 3) Comportamiento de salida consolidado
-- El motor genera una secuencia de tokens unicos unidos por el separador final.
-- Si el separador contiene salto de linea, habra multiples lineas.
-- Si no contiene salto de linea, la salida normalmente queda en una linea logica.
-- No se insertan saltos adicionales fuera del separador definido.
+## 3) Consolidated Output Behavior
+- The engine emits unique tokens joined by the final output separator.
+- If the separator contains a newline, output spans multiple lines.
+- If the separator does not contain a newline, output is typically one logical line.
+- No additional line breaks are inserted beyond the configured separator.
 
-## 4) Estrategia de producto final
-- Motor en Rust como nucleo reusable.
-- UI desktop con Tauri v2 en una sola pantalla.
-- Telemetria agregada en tiempo real, sin logs por token.
-- ETA aproximada y util, sin sacrificar rendimiento.
+## 4) Final Product Strategy
+- Rust engine as reusable core.
+- Single-screen desktop UI on Tauri v2.
+- Aggregated real-time telemetry, without per-token UI logging.
+- Approximate ETA prioritized for utility and low overhead.
 
-## 5) Matriz de modos y orden (decision final)
+## 5) Final Mode and Ordering Matrix
 - Ordering:
-  - PreserveFirstSeen (default).
-  - Alphabetical.
-  - UnorderedFast.
+  - `PreserveFirstSeen` (default)
+  - `Alphabetical`
+  - `UnorderedFast`
 - Mode:
-  - Ram.
-  - Disk.
-  - Auto (en V1 funciona como alias de Ram).
-- En `Disk + Alphabetical`, submodo:
-  - FastBucketLocal (default recomendado).
-  - GlobalPerfect (mas preciso, mas lento).
+  - `Ram`
+  - `Disk`
+  - `Auto` (V1 behavior: `Ram` alias)
+- For `Disk + Alphabetical`:
+  - `FastBucketLocal` (recommended default)
+  - `GlobalPerfect` (higher precision, lower speed)
 
-## 6) Limite funcional explicitado
-`PreserveFirstSeen` solo garantiza orden global estable en RAM. En DISK no se garantiza orden global de primera aparicion en esta version.
+## 6) Explicit Functional Limit
+`PreserveFirstSeen` guarantees global first-seen order only in RAM mode. In DISK mode, global first-seen order is not guaranteed in V1.
 
-## 7) Defaults recomendados de producto
+## 7) Recommended Product Defaults
 - `mode = Ram`
 - `ordering = PreserveFirstSeen`
 - `disk_buckets = 256`
-- `disk_run_bytes = 256MB` (escalable a 512MB segun hardware)
+- `disk_run_bytes = 256MB` (scalable to 512MB based on hardware)
 - `trim = ON`
 - `drop_empty = ON`
 - `output_separator_default = "\n"`
 
-## 8) Criterios de calidad final
-- Correctitud del dedupe exacto.
-- Fluidez de UI bajo carga.
-- Seguridad por capacidades minimas en Tauri.
-- Accesibilidad minima AA en contraste y navegacion por teclado.
-- Modo de error y cancelacion claros para operacion real.
+## 8) Final Quality Criteria
+- Exact deduplication correctness.
+- UI responsiveness under heavy load.
+- Least-privilege security model in Tauri.
+- Minimum AA accessibility for contrast and keyboard navigation.
+- Clear error and cancellation behavior for real operation.

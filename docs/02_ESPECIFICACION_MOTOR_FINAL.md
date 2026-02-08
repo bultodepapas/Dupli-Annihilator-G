@@ -1,137 +1,137 @@
-# Especificacion del Motor Rust (Final, sin codigo)
+# Rust Engine Specification (Final, No Code)
 
-## Documentos relacionados
+## Related Documents
 - `README.md`
 - `docs/00_INDICE_DOCUMENTACION_FINAL.md`
 - `docs/01_RESUMEN_EJECUTIVO_FINAL.md`
 - `docs/03_ESPECIFICACION_UI_TAURI_FINAL.md`
 - `docs/04_PLAN_PM_IMPLEMENTACION_FINAL.md`
-- `docs/05_DECISIONES_PENDIENTES.md`
+- `docs/05_PENDING_DECISIONS.md`
 
-## 1) Objetivo
-Procesar uno o multiples archivos de texto para extraer tokens, eliminar duplicados y exportar el resultado en un archivo unico con separador configurable, manteniendo rendimiento alto en volumen grande.
+## 1) Objective
+Process one or more text files, extract tokens, remove duplicates, and export a single output file with a configurable separator, while maintaining high performance at large scale.
 
-## 2) Contrato funcional
+## 2) Functional Contract
 
-### 2.1 Entrada
-- Tipo: archivos de texto plano (por ejemplo `.txt`, `.csv` simple y formatos equivalentes en texto).
-- Multiples archivos de entrada soportados.
+### 2.1 Input
+- Type: plain text files (for example `.txt`, simple `.csv`, and equivalent text formats).
+- Multiple input files are supported.
 
-### 2.2 Reglas de tokenizacion
-- Delimitadores de entrada activos por defecto:
-  - whitespace (espacios, tabs, saltos de linea),
-  - coma `,`,
-  - punto y coma `;`.
-- El motor toma solo tokens.
+### 2.2 Tokenization Rules
+- Active input delimiters by default:
+  - whitespace (spaces, tabs, line breaks),
+  - comma `,`,
+  - semicolon `;`.
+- The engine extracts tokens only.
 
-### 2.3 Normalizacion
-- `trim` por token: ON por defecto.
-- descarte de token vacio: ON por defecto.
-- No se aplica lowercase ni folding de case.
+### 2.3 Normalization
+- Per-token `trim`: ON by default.
+- Empty-token drop: ON by default.
+- No lowercase normalization and no case folding.
 
-### 2.4 Dedupe
-- Exacto, case-sensitive y Unicode-safe.
-- Garantia: no aproximaciones ni tecnicas probabilisticas.
+### 2.4 Deduplication
+- Exact, case-sensitive, and Unicode-safe.
+- Guarantee: no probabilistic or approximate techniques.
 
-### 2.5 Salida
-- Tokens unicos unidos por `output_separator` como string arbitrario.
-- Soporta separadores simples y compuestos (ej.: `","`, `", "`, `",\n"`, `"\n"`, `";\n"`, `"\f"`).
-- No agrega separador final.
-- No agrega saltos extra fuera del separador definido.
+### 2.5 Output
+- Unique tokens joined by `output_separator` as an arbitrary string.
+- Supports simple and compound separators (for example `","`, `", "`, `",\n"`, `"\n"`, `";\n"`, `"\f"`).
+- No trailing separator.
+- No extra line breaks outside the configured separator.
 
-## 3) Modos operativos
+## 3) Operating Modes
 
 ### 3.1 Mode
-- `Ram`: cuando el dataset cabe en memoria.
-- `Disk`: para volumen grande con uso de almacenamiento temporal.
-- `Auto`: en V1 funciona como alias de `Ram` (la heuristica automatica real queda para version posterior).
+- `Ram`: for datasets that fit in memory.
+- `Disk`: for large datasets using temporary disk storage.
+- `Auto`: in V1, behaves as an alias of `Ram` (true heuristic mode is deferred).
 
 ### 3.2 Ordering
-- `PreserveFirstSeen`: mantiene primer orden de aparicion (estable en RAM).
-- `Alphabetical`: orden lexicografico determinista por bytes UTF-8.
-- `UnorderedFast`: maxima velocidad sin garantia de orden.
+- `PreserveFirstSeen`: preserves first-seen order (stable in RAM).
+- `Alphabetical`: deterministic lexicographic order by UTF-8 bytes.
+- `UnorderedFast`: maximum speed without order guarantee.
 
-### 3.3 Submodo para `Disk + Alphabetical`
+### 3.3 Submode for `Disk + Alphabetical`
 - `FastBucketLocal`:
-  - recomendado por defecto,
-  - muy rapido,
-  - no garantiza A-Z global perfecto.
+  - default recommendation,
+  - very fast,
+  - does not guarantee globally perfect A-Z ordering.
 - `GlobalPerfect`:
   - external merge sort,
-  - garantiza A-Z global perfecto,
-  - mayor costo de I/O y CPU.
+  - guarantees globally perfect A-Z ordering,
+  - higher I/O and CPU cost.
 
-## 4) Matriz de garantias final
+## 4) Final Guarantees Matrix
 
 ### 4.1 RAM
-| Ordering | Dedupe exacto | Orden de salida | Rendimiento |
+| Ordering | Exact Dedupe | Output Order | Performance |
 | --- | --- | --- | --- |
-| PreserveFirstSeen | Si | Estable global por primera aparicion | Muy alto |
-| Alphabetical | Si | A-Z global perfecto | Alto |
-| UnorderedFast | Si | No garantizado | Maximo |
+| PreserveFirstSeen | Yes | Global stable first-seen order | Very High |
+| Alphabetical | Yes | Globally perfect A-Z | High |
+| UnorderedFast | Yes | Not guaranteed | Maximum |
 
 ### 4.2 DISK
-| Ordering | Variante | Dedupe exacto | Orden de salida | Rendimiento |
+| Ordering | Variant | Exact Dedupe | Output Order | Performance |
 | --- | --- | --- | --- | --- |
-| UnorderedFast | N/A | Si | No garantizado | Muy alto |
-| Alphabetical | FastBucketLocal | Si | Orden por bucket, no global perfecto | Muy alto |
-| Alphabetical | GlobalPerfect | Si | A-Z global perfecto | Medio/alto |
-| PreserveFirstSeen | N/A | Si | No garantizado globalmente en DISK | Alto |
+| UnorderedFast | N/A | Yes | Not guaranteed | Very High |
+| Alphabetical | FastBucketLocal | Yes | Bucket-local ordering, not globally perfect | Very High |
+| Alphabetical | GlobalPerfect | Yes | Globally perfect A-Z | Medium/High |
+| PreserveFirstSeen | N/A | Yes | Not globally guaranteed in DISK mode | High |
 
-## 5) Arquitectura final (alto nivel)
-- Repositorio en workspace.
-- `crates/core` como motor reusable y testeable.
-- Integraciones esperadas:
-  - UI desktop Tauri,
-  - posible CLI,
-  - benchmarks y pruebas.
+## 5) Final Architecture (High Level)
+- Workspace-based repository.
+- `crates/core` as reusable and testable engine.
+- Expected integrations:
+  - Tauri desktop UI,
+  - optional CLI,
+  - tests and benchmarks.
 
-### 5.1 Responsabilidades modulares (sin implementacion)
-- Config: contrato de ejecucion.
-- Tokenizacion: parser streaming con delimitadores definidos.
-- Dedupe RAM: ejecucion rapida con orden segun modo.
-- Dedupe DISK: buckets y/o orden global por merge sort externo.
-- Writer: salida streaming y separador final.
-- Progress/Stats: telemetria agregada para UI.
-- Engine: orquestacion integral del job.
+### 5.1 Modular Responsibilities (No Implementation)
+- Config: execution contract.
+- Tokenization: streaming parser with fixed delimiters.
+- RAM dedupe: fast execution with ordering-dependent behavior.
+- DISK dedupe: hash buckets and/or global order through external merge sort.
+- Writer: streaming output with configured separator.
+- Progress/Stats: aggregated telemetry for UI consumption.
+- Engine: end-to-end job orchestration.
 
-## 6) Principios de rendimiento confirmados
-- Streaming en lectura y escritura.
-- Reducir allocations en rutas calientes.
-- Dedupe con estructuras hash de alto rendimiento.
-- Separar trabajo pesado del frontend.
-- Evitar computo o eventos de granularidad por token hacia UI.
+## 6) Confirmed Performance Principles
+- Streaming reads and writes.
+- Minimize allocations in hot paths.
+- Use high-performance hash structures for dedupe.
+- Keep heavy processing out of the frontend.
+- Avoid per-token UI event granularity.
 
-## 7) Observabilidad requerida
-- Progreso global best-effort.
-- Etapa actual.
-- Contadores operativos:
-  - tokens vistos,
-  - unicos,
-  - duplicados,
+## 7) Required Observability
+- Best-effort global progress.
+- Current stage.
+- Operational counters:
+  - seen tokens,
+  - unique tokens,
+  - duplicates,
   - throughput,
-  - elapsed,
-  - ETA aproximada cuando sea confiable.
+  - elapsed time,
+  - approximate ETA when reliable.
 
-## 8) Limites y notas de correctitud
-1. Orden alfabetico es determinista por bytes UTF-8, no collation por locale humano.
-2. `trim` Unicode-aware prioriza correctitud.
-3. `PreserveFirstSeen` global en DISK no esta garantizado en esta version.
-4. En `GlobalPerfect`, rendimiento depende de disco y tamano de runs.
+## 8) Limits and Correctness Notes
+1. Alphabetical order is deterministic by UTF-8 bytes, not locale-aware human collation.
+2. Unicode-aware `trim` prioritizes correctness.
+3. Global `PreserveFirstSeen` in DISK mode is not guaranteed in V1.
+4. `GlobalPerfect` performance depends on storage throughput and run sizing.
 
-## 9) Defaults operativos recomendados
+## 9) Recommended Operational Defaults
 - `mode = Ram`
 - `mode_auto_behavior_v1 = RamAlias`
 - `ordering = PreserveFirstSeen`
-- `disk_alphabetical_mode = FastBucketLocal` cuando aplica
+- `disk_alphabetical_mode = FastBucketLocal` when applicable
 - `disk_buckets = 256`
-- `disk_run_bytes = 256MB` (ajustable a 512MB segun hardware)
+- `disk_run_bytes = 256MB` (adjustable to 512MB according to hardware)
 - `trim = true`
 - `drop_empty = true`
 - `output_separator_default = "\n"`
 
-## 10) Evolucion prevista (sin romper V1)
-1. Auto mode con heuristica real por muestreo.
-2. Optimizacion de merge para menos allocs.
-3. Multi-pass merge para casos extremos de runs.
-4. Refinamiento de estimacion ETA en modos DISK grandes.
+## 10) Planned Evolution (Without Breaking V1)
+1. True heuristic `Auto` mode based on sampling.
+2. Merge-path allocation optimization.
+3. Multi-pass merge for extreme run counts.
+4. ETA estimation refinement in large DISK workflows.
