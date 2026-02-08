@@ -1,5 +1,5 @@
 use dedupe_backend::{
-    ApiDiskAlphabeticalMode, ApiMode, ApiOrdering, BackendService, CancelJobRequest,
+    ApiDiskAlphabeticalMode, ApiMode, ApiOrdering, BackendJobEvent, BackendService, CancelJobRequest,
     StartJobConfig, StartJobRequest,
 };
 use std::fs;
@@ -156,4 +156,68 @@ fn get_app_info_is_available() {
     assert_eq!(info.app_name, "Dupli-Annihilator-G");
     assert!(!info.app_version.is_empty());
     assert!(!info.backend_version.is_empty());
+}
+
+#[test]
+fn typed_event_stream_exposes_done_event() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let input = dir.path().join("in.txt");
+    let output = dir.path().join("out.txt");
+    fs::write(&input, "a a b c").expect("write input");
+
+    let backend = BackendService::new();
+    let start = backend
+        .start_job(make_ram_request(
+            input.to_string_lossy().to_string(),
+            output.to_string_lossy().to_string(),
+        ))
+        .expect("start");
+
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let mut saw_done = false;
+    while Instant::now() < deadline {
+        let Some(ev) = backend.next_event_timeout(Duration::from_millis(200)) else {
+            continue;
+        };
+        if let BackendJobEvent::Done { job_id, .. } = ev {
+            assert_eq!(job_id, start.job_id);
+            saw_done = true;
+            break;
+        }
+    }
+
+    assert!(saw_done, "expected typed done event");
+}
+
+#[test]
+fn emitted_batch_respects_limit() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let input = dir.path().join("in.txt");
+    let output = dir.path().join("out.txt");
+    fs::write(&input, "x y z x y z").expect("write input");
+
+    let backend = BackendService::new();
+    backend
+        .start_job(make_ram_request(
+            input.to_string_lossy().to_string(),
+            output.to_string_lossy().to_string(),
+        ))
+        .expect("start");
+
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let mut saw_done = false;
+    while Instant::now() < deadline {
+        let batch = backend.next_emitted_events_batch(Duration::from_millis(200), 2);
+        assert!(batch.len() <= 2, "batch exceeded max_events");
+        if batch.is_empty() {
+            continue;
+        }
+
+        if batch.iter().any(|ev| ev.topic == "job://done") {
+            saw_done = true;
+            break;
+        }
+    }
+
+    assert!(saw_done, "expected done event in emitted batch stream");
 }
