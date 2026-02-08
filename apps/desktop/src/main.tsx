@@ -2,6 +2,7 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import { invoke } from "@tauri-apps/api/core";
 import { confirm, open, save } from "@tauri-apps/plugin-dialog";
+import { isSupportedLocale, type I18nKey, type Locale, supportedLocales, t } from "./i18n";
 import "./styles.css";
 
 type AppInfo = {
@@ -64,6 +65,22 @@ const DEFAULT_FORM: FormState = {
   diskRunBytes: 256 * 1024 * 1024,
 };
 
+const LOCALE_STORAGE_KEY = "dupli.locale";
+
+function loadInitialLocale(): Locale {
+  try {
+    const raw = window.localStorage.getItem(LOCALE_STORAGE_KEY);
+    if (raw && isSupportedLocale(raw)) {
+      return raw;
+    }
+  } catch {
+    // Ignore unavailable localStorage.
+  }
+  return "en";
+}
+
+const INITIAL_LOCALE = loadInitialLocale();
+
 function parseInputs(text: string): string[] {
   return text
     .split(/\r?\n/)
@@ -71,35 +88,58 @@ function parseInputs(text: string): string[] {
     .filter((s) => s.length > 0);
 }
 
-function validateForm(form: FormState): string[] {
+function validateForm(form: FormState, tr: (key: I18nKey, params?: Record<string, string | number>) => string): string[] {
   const errors: string[] = [];
   const inputs = parseInputs(form.inputsText);
   if (inputs.length === 0) {
-    errors.push("At least one input file is required.");
+    errors.push(tr("validation.inputs_required"));
   }
   if (form.outputPath.trim().length === 0) {
-    errors.push("Output file path is required.");
+    errors.push(tr("validation.output_required"));
   }
   if (form.separator.length === 0) {
-    errors.push("Separator cannot be empty.");
+    errors.push(tr("validation.separator_required"));
   }
   if (form.mode === "disk") {
     if (!Number.isFinite(form.diskBuckets) || form.diskBuckets < 8) {
-      errors.push("Disk buckets must be >= 8.");
+      errors.push(tr("validation.disk_buckets_min"));
     }
     if (!Number.isFinite(form.diskRunBytes) || form.diskRunBytes < 1_000_000) {
-      errors.push("Disk run bytes must be >= 1,000,000.");
+      errors.push(tr("validation.disk_run_bytes_min"));
     }
   }
   return errors;
 }
 
+function statusKey(status: RunStatus): I18nKey {
+  switch (status) {
+    case "idle":
+      return "status.idle";
+    case "running":
+      return "status.running";
+    case "done":
+      return "status.done";
+    case "error":
+      return "status.error";
+    case "canceled":
+      return "status.canceled";
+    default:
+      return "status.idle";
+  }
+}
+
 function App() {
+  const [locale, setLocale] = React.useState<Locale>(INITIAL_LOCALE);
+  const tr = React.useCallback(
+    (key: I18nKey, params?: Record<string, string | number>) => t(locale, key, params),
+    [locale],
+  );
+
   const [form, setForm] = React.useState<FormState>(DEFAULT_FORM);
   const [appInfo, setAppInfo] = React.useState<AppInfo | null>(null);
   const [runStatus, setRunStatus] = React.useState<RunStatus>("idle");
   const [activeJobId, setActiveJobId] = React.useState<number | null>(null);
-  const [message, setMessage] = React.useState<string>("Idle");
+  const [message, setMessage] = React.useState<string>(() => t(INITIAL_LOCALE, "message.idle"));
   const [progress, setProgress] = React.useState<ProgressSnapshot>({
     stage: "-",
     filesDone: 0,
@@ -114,7 +154,7 @@ function App() {
 
   const pollingRef = React.useRef(false);
   const parsedInputs = React.useMemo(() => parseInputs(form.inputsText), [form.inputsText]);
-  const validationErrors = React.useMemo(() => validateForm(form), [form]);
+  const validationErrors = React.useMemo(() => validateForm(form, tr), [form, tr]);
 
   const appendMessage = React.useCallback((text: string) => {
     setMessage(text);
@@ -125,6 +165,14 @@ function App() {
     setRunStatus(state.isRunning ? "running" : "idle");
     setActiveJobId(state.activeJobId ?? null);
   }, []);
+
+  React.useEffect(() => {
+    try {
+      window.localStorage.setItem(LOCALE_STORAGE_KEY, locale);
+    } catch {
+      // Ignore unavailable localStorage.
+    }
+  }, [locale]);
 
   const pollEvents = React.useCallback(async () => {
     if (pollingRef.current) {
@@ -147,7 +195,7 @@ function App() {
             if (Number.isFinite(id) && id > 0) {
               setActiveJobId(id);
             }
-            appendMessage("Job started");
+            appendMessage(tr("message.job_started"));
             break;
           }
           case "job://stage": {
@@ -176,19 +224,23 @@ function App() {
           case "job://done": {
             setRunStatus("done");
             setActiveJobId(null);
-            appendMessage("Done");
+            appendMessage(tr("message.done"));
             break;
           }
           case "job://error": {
             setRunStatus("error");
             setActiveJobId(null);
-            appendMessage(`Error: ${String(ev.payload.message ?? "unknown error")}`);
+            appendMessage(
+              tr("message.error", {
+                detail: String(ev.payload.message ?? tr("fallback.unknown_error")),
+              }),
+            );
             break;
           }
           case "job://canceled": {
             setRunStatus("canceled");
             setActiveJobId(null);
-            appendMessage("Canceled");
+            appendMessage(tr("message.canceled"));
             break;
           }
           default:
@@ -198,7 +250,7 @@ function App() {
     } finally {
       pollingRef.current = false;
     }
-  }, [appendMessage]);
+  }, [appendMessage, tr]);
 
   React.useEffect(() => {
     void invoke<AppInfo>("get_app_info").then(setAppInfo).catch(() => null);
@@ -214,7 +266,7 @@ function App() {
 
   const startJob = async () => {
     if (validationErrors.length > 0) {
-      setMessage(`Cannot start: ${validationErrors[0]}`);
+      setMessage(tr("message.cannot_start", { detail: validationErrors[0] }));
       return;
     }
 
@@ -222,22 +274,19 @@ function App() {
     try {
       const exists = await invoke<boolean>("path_exists", { path: form.outputPath.trim() });
       if (exists && !allowOverwrite) {
-        const shouldOverwrite = await confirm(
-          `Output file already exists:\n${form.outputPath}\n\nDo you want to overwrite it?`,
-          {
-            title: "Confirm overwrite",
-            kind: "warning",
-          },
-        );
+        const shouldOverwrite = await confirm(tr("confirm.overwrite.body", { path: form.outputPath }), {
+          title: tr("confirm.overwrite.title"),
+          kind: "warning",
+        });
         if (!shouldOverwrite) {
           setRunStatus("idle");
-          setMessage("Start canceled by user.");
+          setMessage(tr("message.start_canceled_by_user"));
           return;
         }
         allowOverwrite = true;
       }
     } catch (err) {
-      setMessage(`Preflight check failed: ${String(err)}`);
+      setMessage(tr("message.preflight_failed", { detail: String(err) }));
       return;
     }
 
@@ -262,13 +311,13 @@ function App() {
 
     try {
       setRunStatus("running");
-      setMessage("Starting job...");
+      setMessage(tr("message.starting"));
       const res = await invoke<{ jobId: number }>("start_job", req);
       setActiveJobId(res.jobId);
     } catch (err) {
       setRunStatus("error");
       setActiveJobId(null);
-      setMessage(`Start failed: ${String(err)}`);
+      setMessage(tr("message.start_failed", { detail: String(err) }));
     }
   };
 
@@ -281,10 +330,10 @@ function App() {
         req: { jobId: activeJobId },
       });
       if (res.acknowledged) {
-        appendMessage("Cancellation requested");
+        appendMessage(tr("message.cancel_requested"));
       }
     } catch (err) {
-      appendMessage(`Cancel failed: ${String(err)}`);
+      appendMessage(tr("message.cancel_failed", { detail: String(err) }));
     }
   };
 
@@ -307,7 +356,7 @@ function App() {
         return { ...prev, inputsText: deduped.join("\n") };
       });
     } catch (err) {
-      appendMessage(`Input dialog failed: ${String(err)}`);
+      appendMessage(tr("message.input_dialog_failed", { detail: String(err) }));
     }
   };
 
@@ -319,7 +368,7 @@ function App() {
       }
       setForm((prev) => ({ ...prev, outputPath: selected }));
     } catch (err) {
-      appendMessage(`Output dialog failed: ${String(err)}`);
+      appendMessage(tr("message.output_dialog_failed", { detail: String(err) }));
     }
   };
 
@@ -331,74 +380,86 @@ function App() {
       <header className="topbar">
         <div>
           <h1>Dupli-Annihilator-G</h1>
-          <p className="subtitle">Tauri Desktop Control Panel</p>
+          <p className="subtitle">{tr("app.subtitle")}</p>
         </div>
-        <div className={`status-chip status-${runStatus}`}>{runStatus.toUpperCase()}</div>
+        <div className="topbar-actions">
+          <label className="lang-control">
+            <span>{tr("field.language")}</span>
+            <select value={locale} onChange={(e) => setLocale(e.target.value as Locale)}>
+              {supportedLocales.map((loc) => (
+                <option key={loc} value={loc}>
+                  {t(loc, "lang.name")}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className={`status-chip status-${runStatus}`}>{tr(statusKey(runStatus))}</div>
+        </div>
       </header>
 
       <main className="grid">
         <section className="card">
-          <h2>Inputs</h2>
+          <h2>{tr("section.inputs")}</h2>
           <div className="button-row compact">
             <button className="secondary" disabled={runStatus === "running"} onClick={() => void pickInputFiles()}>
-              ADD FILES
+              {tr("button.add_files")}
             </button>
           </div>
           <label className="field">
-            <span>Input files (one absolute path per line)</span>
+            <span>{tr("field.inputs")}</span>
             <textarea
               value={form.inputsText}
               onChange={(e) => setForm((f) => ({ ...f, inputsText: e.target.value }))}
               rows={8}
-              placeholder={"C:\\data\\in1.txt\nC:\\data\\in2.txt"}
+              placeholder={tr("placeholder.inputs")}
             />
           </label>
           <label className="field">
-            <span>Output file path</span>
+            <span>{tr("field.output")}</span>
             <input
               value={form.outputPath}
               onChange={(e) => setForm((f) => ({ ...f, outputPath: e.target.value }))}
-              placeholder={"C:\\data\\out.txt"}
+              placeholder={tr("placeholder.output")}
             />
           </label>
           <div className="button-row compact">
             <button className="secondary" disabled={runStatus === "running"} onClick={() => void pickOutputFile()}>
-              PICK OUTPUT
+              {tr("button.pick_output")}
             </button>
           </div>
         </section>
 
         <section className="card">
-          <h2>Processing</h2>
+          <h2>{tr("section.processing")}</h2>
           <div className="row">
             <label className="field">
-              <span>Mode</span>
+              <span>{tr("field.mode")}</span>
               <select
                 value={form.mode}
                 onChange={(e) => setForm((f) => ({ ...f, mode: e.target.value as FormState["mode"] }))}
               >
-                <option value="auto">auto</option>
-                <option value="ram">ram</option>
-                <option value="disk">disk</option>
+                <option value="auto">{tr("option.mode.auto")}</option>
+                <option value="ram">{tr("option.mode.ram")}</option>
+                <option value="disk">{tr("option.mode.disk")}</option>
               </select>
             </label>
             <label className="field">
-              <span>Ordering</span>
+              <span>{tr("field.ordering")}</span>
               <select
                 value={form.ordering}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, ordering: e.target.value as FormState["ordering"] }))
                 }
               >
-                <option value="preserve_first_seen">preserve_first_seen</option>
-                <option value="alphabetical">alphabetical</option>
-                <option value="unordered_fast">unordered_fast</option>
+                <option value="preserve_first_seen">{tr("option.ordering.preserve_first_seen")}</option>
+                <option value="alphabetical">{tr("option.ordering.alphabetical")}</option>
+                <option value="unordered_fast">{tr("option.ordering.unordered_fast")}</option>
               </select>
             </label>
           </div>
 
           <label className="field">
-            <span>Disk alphabetical mode</span>
+            <span>{tr("field.disk_alphabetical_mode")}</span>
             <select
               value={form.diskAlphabeticalMode}
               onChange={(e) =>
@@ -408,14 +469,14 @@ function App() {
                 }))
               }
             >
-              <option value="fast_bucket_local">fast_bucket_local</option>
-              <option value="global_perfect">global_perfect</option>
+              <option value="fast_bucket_local">{tr("option.disk_mode.fast_bucket_local")}</option>
+              <option value="global_perfect">{tr("option.disk_mode.global_perfect")}</option>
             </select>
           </label>
 
           <div className="row">
             <label className="field">
-              <span>Disk buckets</span>
+              <span>{tr("field.disk_buckets")}</span>
               <input
                 type="number"
                 min={8}
@@ -424,7 +485,7 @@ function App() {
               />
             </label>
             <label className="field">
-              <span>Disk run bytes</span>
+              <span>{tr("field.disk_run_bytes")}</span>
               <input
                 type="number"
                 min={1_000_000}
@@ -441,7 +502,7 @@ function App() {
                 checked={form.trim}
                 onChange={(e) => setForm((f) => ({ ...f, trim: e.target.checked }))}
               />
-              trim
+              {tr("flag.trim")}
             </label>
             <label>
               <input
@@ -449,15 +510,15 @@ function App() {
                 checked={form.dropEmpty}
                 onChange={(e) => setForm((f) => ({ ...f, dropEmpty: e.target.checked }))}
               />
-              drop_empty
+              {tr("flag.drop_empty")}
             </label>
           </div>
         </section>
 
         <section className="card">
-          <h2>Output</h2>
+          <h2>{tr("section.output")}</h2>
           <label className="field">
-            <span>Separator</span>
+            <span>{tr("field.separator")}</span>
             <input
               value={form.separator}
               onChange={(e) => setForm((f) => ({ ...f, separator: e.target.value }))}
@@ -470,7 +531,7 @@ function App() {
               checked={form.rawSeparator}
               onChange={(e) => setForm((f) => ({ ...f, rawSeparator: e.target.checked }))}
             />
-            <span>Raw separator (do not parse escapes)</span>
+            <span>{tr("field.raw_separator")}</span>
           </label>
           <label className="field checkbox">
             <input
@@ -478,30 +539,34 @@ function App() {
               checked={form.allowOverwrite}
               onChange={(e) => setForm((f) => ({ ...f, allowOverwrite: e.target.checked }))}
             />
-            <span>Allow overwrite without confirmation</span>
+            <span>{tr("field.allow_overwrite")}</span>
           </label>
 
           <div className="button-row">
             <button className="primary" disabled={!canRun} onClick={() => void startJob()}>
-              RUN
+              {tr("button.run")}
             </button>
             <button className="danger" disabled={!canCancel} onClick={() => void cancelJob()}>
-              CANCEL
+              {tr("button.cancel")}
             </button>
           </div>
 
           <div className="meta">
             <div>
-              app: {appInfo?.appName ?? "-"} {appInfo?.appVersion ?? ""}
+              {tr("meta.app")}: {appInfo?.appName ?? "-"} {appInfo?.appVersion ?? ""}
             </div>
-            <div>backend: {appInfo?.backendVersion ?? "-"}</div>
-            <div>job_id: {activeJobId ?? "-"}</div>
+            <div>
+              {tr("meta.backend")}: {appInfo?.backendVersion ?? "-"}
+            </div>
+            <div>
+              {tr("meta.job_id")}: {activeJobId ?? "-"}
+            </div>
           </div>
         </section>
       </main>
 
       <footer className="telemetry card">
-        <h2>Telemetry</h2>
+        <h2>{tr("section.telemetry")}</h2>
         {validationErrors.length > 0 && runStatus !== "running" ? (
           <div className="errors">
             {validationErrors.map((err) => (
@@ -513,16 +578,30 @@ function App() {
           <div className="bar" style={{ width: `${progressPercent}%` }} />
         </div>
         <div className="metrics">
-          <div>stage: {progress.stage}</div>
           <div>
-            files: {progress.filesDone}/{progress.filesTotal}
+            {tr("metric.stage")}: {progress.stage}
           </div>
-          <div>tokens: {progress.tokensSeen}</div>
-          <div>unique: {progress.uniqueTokens}</div>
-          <div>duplicates: {progress.duplicates}</div>
-          <div>tps: {progress.throughputTps}</div>
-          <div>elapsed_ms: {progress.elapsedMs}</div>
-          <div>eta_ms: {progress.etaMs ?? "-"}</div>
+          <div>
+            {tr("metric.files")}: {progress.filesDone}/{progress.filesTotal}
+          </div>
+          <div>
+            {tr("metric.tokens")}: {progress.tokensSeen}
+          </div>
+          <div>
+            {tr("metric.unique")}: {progress.uniqueTokens}
+          </div>
+          <div>
+            {tr("metric.duplicates")}: {progress.duplicates}
+          </div>
+          <div>
+            {tr("metric.tps")}: {progress.throughputTps}
+          </div>
+          <div>
+            {tr("metric.elapsed_ms")}: {progress.elapsedMs}
+          </div>
+          <div>
+            {tr("metric.eta_ms")}: {progress.etaMs ?? "-"}
+          </div>
         </div>
         <p className="message">{message}</p>
       </footer>

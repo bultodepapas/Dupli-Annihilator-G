@@ -1,0 +1,87 @@
+export const en = {
+  "lang.name": "English",
+  "app.subtitle": "Tauri Desktop Control Panel",
+  "status.idle": "IDLE",
+  "status.running": "RUNNING",
+  "status.done": "DONE",
+  "status.error": "ERROR",
+  "status.canceled": "CANCELED",
+
+  "section.inputs": "Inputs",
+  "section.processing": "Processing",
+  "section.output": "Output",
+  "section.telemetry": "Telemetry",
+
+  "button.add_files": "ADD FILES",
+  "button.pick_output": "PICK OUTPUT",
+  "button.run": "RUN",
+  "button.cancel": "CANCEL",
+
+  "field.inputs": "Input files (one absolute path per line)",
+  "field.output": "Output file path",
+  "field.mode": "Mode",
+  "field.ordering": "Ordering",
+  "field.disk_alphabetical_mode": "Disk alphabetical mode",
+  "field.disk_buckets": "Disk buckets",
+  "field.disk_run_bytes": "Disk run bytes",
+  "field.separator": "Separator",
+  "field.raw_separator": "Raw separator (do not parse escapes)",
+  "field.allow_overwrite": "Allow overwrite without confirmation",
+  "field.language": "Language",
+
+  "option.mode.auto": "auto",
+  "option.mode.ram": "ram",
+  "option.mode.disk": "disk",
+  "option.ordering.preserve_first_seen": "preserve_first_seen",
+  "option.ordering.alphabetical": "alphabetical",
+  "option.ordering.unordered_fast": "unordered_fast",
+  "option.disk_mode.fast_bucket_local": "fast_bucket_local",
+  "option.disk_mode.global_perfect": "global_perfect",
+
+  "flag.trim": "trim",
+  "flag.drop_empty": "drop_empty",
+
+  "meta.app": "app",
+  "meta.backend": "backend",
+  "meta.job_id": "job_id",
+
+  "metric.stage": "stage",
+  "metric.files": "files",
+  "metric.tokens": "tokens",
+  "metric.unique": "unique",
+  "metric.duplicates": "duplicates",
+  "metric.tps": "tps",
+  "metric.elapsed_ms": "elapsed_ms",
+  "metric.eta_ms": "eta_ms",
+
+  "message.idle": "Idle",
+  "message.job_started": "Job started",
+  "message.done": "Done",
+  "message.canceled": "Canceled",
+  "message.error": "Error: {detail}",
+  "message.cannot_start": "Cannot start: {detail}",
+  "message.starting": "Starting job...",
+  "message.start_failed": "Start failed: {detail}",
+  "message.cancel_requested": "Cancellation requested",
+  "message.cancel_failed": "Cancel failed: {detail}",
+  "message.preflight_failed": "Preflight check failed: {detail}",
+  "message.start_canceled_by_user": "Start canceled by user.",
+  "message.input_dialog_failed": "Input dialog failed: {detail}",
+  "message.output_dialog_failed": "Output dialog failed: {detail}",
+
+  "confirm.overwrite.title": "Confirm overwrite",
+  "confirm.overwrite.body": "Output file already exists:\n{path}\n\nDo you want to overwrite it?",
+
+  "validation.inputs_required": "At least one input file is required.",
+  "validation.output_required": "Output file path is required.",
+  "validation.separator_required": "Separator cannot be empty.",
+  "validation.disk_buckets_min": "Disk buckets must be >= 8.",
+  "validation.disk_run_bytes_min": "Disk run bytes must be >= 1,000,000.",
+
+  "placeholder.inputs": "C:\\data\\in1.txt\\nC:\\data\\in2.txt",
+  "placeholder.output": "C:\\data\\out.txt",
+  "fallback.unknown_error": "unknown error",
+} as const;
+
+export type TranslationKey = keyof typeof en;
+export type Dictionary = Record<TranslationKey, string>;
