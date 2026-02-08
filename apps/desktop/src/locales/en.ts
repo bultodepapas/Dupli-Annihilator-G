@@ -28,6 +28,14 @@ export const en = {
   "field.raw_separator": "Raw separator (do not parse escapes)",
   "field.allow_overwrite": "Allow overwrite without confirmation",
   "field.language": "Language",
+  "tooltip.processing.mode": "Execution strategy: auto picks for you, ram is fastest, disk uses less memory.",
+  "tooltip.processing.ordering": "How unique lines are ordered in the output file.",
+  "tooltip.processing.disk_alphabetical_mode":
+    "Disk alphabetical algorithm: fast_bucket_local is faster, global_perfect is strict global sorting.",
+  "tooltip.processing.disk_buckets": "Number of disk buckets. More buckets reduce per-bucket memory use.",
+  "tooltip.processing.disk_run_bytes": "Target size in bytes for each disk sorting run.",
+  "tooltip.processing.trim": "Trim leading/trailing spaces on each line before deduplication.",
+  "tooltip.processing.drop_empty": "Skip empty lines (after trim, if enabled).",
 
   "option.mode.auto": "auto",
   "option.mode.ram": "ram",

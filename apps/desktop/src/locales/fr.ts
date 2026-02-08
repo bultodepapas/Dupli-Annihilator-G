@@ -1,0 +1,96 @@
+import type { Dictionary } from "./en";
+
+export const fr: Dictionary = {
+  "lang.name": "Francais",
+  "app.subtitle": "Panneau de controle desktop Tauri",
+  "status.idle": "INACTIF",
+  "status.running": "EN COURS",
+  "status.done": "TERMINE",
+  "status.error": "ERREUR",
+  "status.canceled": "ANNULE",
+
+  "section.inputs": "Entrees",
+  "section.processing": "Traitement",
+  "section.output": "Sortie",
+  "section.telemetry": "Telemetrie",
+
+  "button.add_files": "AJOUTER DES FICHIERS",
+  "button.pick_output": "CHOISIR LA SORTIE",
+  "button.run": "LANCER",
+  "button.cancel": "ANNULER",
+
+  "field.inputs": "Fichiers d'entree (un chemin absolu par ligne)",
+  "field.output": "Chemin du fichier de sortie",
+  "field.mode": "Mode",
+  "field.ordering": "Ordre",
+  "field.disk_alphabetical_mode": "Mode alphabetique disque",
+  "field.disk_buckets": "Buckets disque",
+  "field.disk_run_bytes": "Octets par run disque",
+  "field.separator": "Separateur",
+  "field.raw_separator": "Separateur brut (ne pas interpreter les echappements)",
+  "field.allow_overwrite": "Autoriser l'ecrasement sans confirmation",
+  "field.language": "Langue",
+  "tooltip.processing.mode":
+    "Strategie d'execution : auto choisit pour vous, ram est le plus rapide, disk utilise moins de memoire.",
+  "tooltip.processing.ordering": "Comment les lignes uniques sont ordonnees dans le fichier de sortie.",
+  "tooltip.processing.disk_alphabetical_mode":
+    "Algorithme alphabetique disque : fast_bucket_local est plus rapide, global_perfect applique un tri global strict.",
+  "tooltip.processing.disk_buckets":
+    "Nombre de buckets disque. Plus de buckets reduit la memoire utilisee par bucket.",
+  "tooltip.processing.disk_run_bytes": "Taille cible en octets pour chaque run de tri disque.",
+  "tooltip.processing.trim": "Supprimer les espaces au debut et a la fin de chaque ligne avant la deduplication.",
+  "tooltip.processing.drop_empty": "Ignorer les lignes vides (apres trim, si active).",
+
+  "option.mode.auto": "auto",
+  "option.mode.ram": "ram",
+  "option.mode.disk": "disk",
+  "option.ordering.preserve_first_seen": "preserve_first_seen",
+  "option.ordering.alphabetical": "alphabetical",
+  "option.ordering.unordered_fast": "unordered_fast",
+  "option.disk_mode.fast_bucket_local": "fast_bucket_local",
+  "option.disk_mode.global_perfect": "global_perfect",
+
+  "flag.trim": "trim",
+  "flag.drop_empty": "drop_empty",
+
+  "meta.app": "app",
+  "meta.backend": "backend",
+  "meta.job_id": "job_id",
+
+  "metric.stage": "etape",
+  "metric.files": "fichiers",
+  "metric.tokens": "tokens",
+  "metric.unique": "uniques",
+  "metric.duplicates": "doublons",
+  "metric.tps": "tps",
+  "metric.elapsed_ms": "ms_ecoulees",
+  "metric.eta_ms": "ms_estimes",
+
+  "message.idle": "Inactif",
+  "message.job_started": "Tache demarree",
+  "message.done": "Termine",
+  "message.canceled": "Annule",
+  "message.error": "Erreur : {detail}",
+  "message.cannot_start": "Demarrage impossible : {detail}",
+  "message.starting": "Demarrage de la tache...",
+  "message.start_failed": "Echec du demarrage : {detail}",
+  "message.cancel_requested": "Annulation demandee",
+  "message.cancel_failed": "Echec de l'annulation : {detail}",
+  "message.preflight_failed": "Echec de la verification prealable : {detail}",
+  "message.start_canceled_by_user": "Demarrage annule par l'utilisateur.",
+  "message.input_dialog_failed": "Echec de la boite de dialogue d'entree : {detail}",
+  "message.output_dialog_failed": "Echec de la boite de dialogue de sortie : {detail}",
+
+  "confirm.overwrite.title": "Confirmer l'ecrasement",
+  "confirm.overwrite.body": "Le fichier de sortie existe deja :\n{path}\n\nVoulez-vous l'ecraser ?",
+
+  "validation.inputs_required": "Au moins un fichier d'entree est requis.",
+  "validation.output_required": "Le chemin du fichier de sortie est requis.",
+  "validation.separator_required": "Le separateur ne peut pas etre vide.",
+  "validation.disk_buckets_min": "Les buckets disque doivent etre >= 8.",
+  "validation.disk_run_bytes_min": "Les octets par run disque doivent etre >= 1,000,000.",
+
+  "placeholder.inputs": "C:\\data\\in1.txt\\nC:\\data\\in2.txt",
+  "placeholder.output": "C:\\data\\out.txt",
+  "fallback.unknown_error": "erreur inconnue",
+};

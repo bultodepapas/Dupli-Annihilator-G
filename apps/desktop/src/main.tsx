@@ -451,9 +451,10 @@ function App() {
         <section className="card">
           <h2>{tr("section.processing")}</h2>
           <div className="row">
-            <label className="field">
-              <span>{tr("field.mode")}</span>
+            <label className="field" title={tr("tooltip.processing.mode")}>
+              <span title={tr("tooltip.processing.mode")}>{tr("field.mode")}</span>
               <select
+                title={tr("tooltip.processing.mode")}
                 value={form.mode}
                 onChange={(e) => setForm((f) => ({ ...f, mode: e.target.value as FormState["mode"] }))}
               >
@@ -462,9 +463,10 @@ function App() {
                 <option value="disk">{tr("option.mode.disk")}</option>
               </select>
             </label>
-            <label className="field">
-              <span>{tr("field.ordering")}</span>
+            <label className="field" title={tr("tooltip.processing.ordering")}>
+              <span title={tr("tooltip.processing.ordering")}>{tr("field.ordering")}</span>
               <select
+                title={tr("tooltip.processing.ordering")}
                 value={form.ordering}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, ordering: e.target.value as FormState["ordering"] }))
@@ -477,9 +479,12 @@ function App() {
             </label>
           </div>
 
-          <label className="field">
-            <span>{tr("field.disk_alphabetical_mode")}</span>
+          <label className="field" title={tr("tooltip.processing.disk_alphabetical_mode")}>
+            <span title={tr("tooltip.processing.disk_alphabetical_mode")}>
+              {tr("field.disk_alphabetical_mode")}
+            </span>
             <select
+              title={tr("tooltip.processing.disk_alphabetical_mode")}
               value={form.diskAlphabeticalMode}
               onChange={(e) =>
                 setForm((f) => ({
@@ -494,18 +499,20 @@ function App() {
           </label>
 
           <div className="row">
-            <label className="field">
-              <span>{tr("field.disk_buckets")}</span>
+            <label className="field" title={tr("tooltip.processing.disk_buckets")}>
+              <span title={tr("tooltip.processing.disk_buckets")}>{tr("field.disk_buckets")}</span>
               <input
+                title={tr("tooltip.processing.disk_buckets")}
                 type="number"
                 min={8}
                 value={form.diskBuckets}
                 onChange={(e) => setForm((f) => ({ ...f, diskBuckets: Number(e.target.value) }))}
               />
             </label>
-            <label className="field">
-              <span>{tr("field.disk_run_bytes")}</span>
+            <label className="field" title={tr("tooltip.processing.disk_run_bytes")}>
+              <span title={tr("tooltip.processing.disk_run_bytes")}>{tr("field.disk_run_bytes")}</span>
               <input
+                title={tr("tooltip.processing.disk_run_bytes")}
                 type="number"
                 min={1_000_000}
                 value={form.diskRunBytes}
@@ -515,16 +522,18 @@ function App() {
           </div>
 
           <div className="row flags">
-            <label>
+            <label title={tr("tooltip.processing.trim")}>
               <input
+                title={tr("tooltip.processing.trim")}
                 type="checkbox"
                 checked={form.trim}
                 onChange={(e) => setForm((f) => ({ ...f, trim: e.target.checked }))}
               />
               {tr("flag.trim")}
             </label>
-            <label>
+            <label title={tr("tooltip.processing.drop_empty")}>
               <input
+                title={tr("tooltip.processing.drop_empty")}
                 type="checkbox"
                 checked={form.dropEmpty}
                 onChange={(e) => setForm((f) => ({ ...f, dropEmpty: e.target.checked }))}
