@@ -6,6 +6,7 @@ This repository contains the final, structured product documentation, organized 
 
 ## Documentation Baseline Metadata
 - Baseline version: `V1.0`
+- Current document-set version: `V1.1.2`
 - Baseline date: `2026-02-08`
 - Governance model: controlled documents with traceable decision workflow
 - Control reference: `docs/06_DOCUMENT_CONTROL.md`

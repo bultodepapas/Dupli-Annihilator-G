@@ -32,6 +32,7 @@ This package consolidates and structures the final conclusions from `ideaV0.01.m
 
 ## Baseline Metadata
 - Baseline version: `V1.0`
+- Current document-set version: `V1.1.2`
 - Baseline date: `2026-02-08`
 - Principal author: `Giuseppe Rojas`
 

@@ -16,6 +16,7 @@ This control policy applies to:
 
 ## 3) Baseline Record
 - Documentation baseline version: `V1.0`
+- Current controlled version: `V1.1.2`
 - Effective baseline date: `2026-02-08`
 - Principal author: `Giuseppe Rojas`
 - Baseline status: `Approved for V1 execution`
@@ -47,6 +48,7 @@ Version example:
 | V1.0.0 | 2026-02-08 | MAJOR | Initial finalized documentation baseline in English with linked specs. | Product + Tech Leads |
 | V1.1.0 | 2026-02-08 | MINOR | Senior-level expansion of engine, UI/Tauri, PM, executive summary, and decision governance. | Product + Tech Leads |
 | V1.1.1 | 2026-02-08 | PATCH | Added formal document control, ownership matrix, and governance workflow. | PMO/Delivery |
+| V1.1.2 | 2026-02-08 | PATCH | Final logic and cross-link consistency audit; unified version metadata across baseline docs. | PMO/Delivery |
 
 ## 7) Approval Workflow
 Any change tagged as `MAJOR` or `MINOR` requires:
