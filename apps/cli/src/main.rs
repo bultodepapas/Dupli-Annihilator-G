@@ -1,10 +1,13 @@
 use anyhow::{anyhow, Context, Result};
 use clap::{ArgAction, Parser, ValueEnum};
-use dedupe_core::{
-    run, Config, DiskAlphabeticalMode, Mode, NoProgress, OutputOrdering, ProgressEvent,
-    ProgressSink,
-};
+use dedupe_core::{Config, DiskAlphabeticalMode, Mode, OutputOrdering};
+use dedupe_job_runner::{JobEvent, JobManager};
 use std::path::PathBuf;
+use std::sync::{
+    atomic::{AtomicBool, Ordering as AtomicOrdering},
+    Arc,
+};
+use std::time::Duration;
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
 enum CliMode {
@@ -67,32 +70,6 @@ struct Cli {
     quiet: bool,
 }
 
-#[derive(Debug, Default, Clone, Copy)]
-struct ConsoleProgress {
-    quiet: bool,
-}
-
-impl ProgressSink for ConsoleProgress {
-    fn on_event(&self, event: ProgressEvent) {
-        if self.quiet {
-            return;
-        }
-
-        match event {
-            ProgressEvent::Stage(stage) => eprintln!("[stage] {stage}"),
-            ProgressEvent::FileStarted { index, total } => {
-                eprintln!("[file] start {index}/{total}")
-            }
-            ProgressEvent::FileFinished { index, total } => {
-                eprintln!("[file] done {index}/{total}")
-            }
-            ProgressEvent::TokensSeen(v) => eprintln!("[progress] tokens_seen={v}"),
-            ProgressEvent::UniqueTokens(v) => eprintln!("[progress] unique_tokens={v}"),
-            ProgressEvent::Duplicates(v) => eprintln!("[progress] duplicates={v}"),
-        }
-    }
-}
-
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
@@ -115,26 +92,78 @@ fn main() -> Result<()> {
         disk_run_bytes: cli.disk_run_bytes,
     };
 
-    if cli.quiet {
-        let stats = run(&cfg, NoProgress).context("engine run failed")?;
-        println!(
-            "done files={} tokens_seen={} unique={} duplicates={} elapsed_ms={}",
-            stats.files,
-            stats.tokens_seen,
-            stats.unique_tokens,
-            stats.duplicates,
-            stats.elapsed.as_millis()
-        );
-    } else {
-        let stats = run(&cfg, ConsoleProgress { quiet: false }).context("engine run failed")?;
-        println!(
-            "done files={} tokens_seen={} unique={} duplicates={} elapsed_ms={}",
-            stats.files,
-            stats.tokens_seen,
-            stats.unique_tokens,
-            stats.duplicates,
-            stats.elapsed.as_millis()
-        );
+    let manager = JobManager::new();
+    let job_id = manager.start_job(cfg).context("failed to start job")?;
+
+    let cancel_requested = Arc::new(AtomicBool::new(false));
+    {
+        let cancel_requested = Arc::clone(&cancel_requested);
+        ctrlc::set_handler(move || {
+            cancel_requested.store(true, AtomicOrdering::Release);
+        })
+        .context("failed to install Ctrl+C handler")?;
+    }
+
+    let mut sent_cancel = false;
+    loop {
+        if cancel_requested.load(AtomicOrdering::Acquire) && !sent_cancel {
+            sent_cancel = manager.cancel_job(job_id);
+            if sent_cancel && !cli.quiet {
+                eprintln!("[signal] cancellation requested");
+            }
+        }
+
+        let Some(event) = manager.next_event_timeout(Duration::from_millis(200)) else {
+            continue;
+        };
+
+        match event {
+            JobEvent::Started { .. } => {
+                if !cli.quiet {
+                    eprintln!("[job] started id={job_id}");
+                }
+            }
+            JobEvent::Stage { stage, .. } => {
+                if !cli.quiet {
+                    eprintln!("[stage] {stage}");
+                }
+            }
+            JobEvent::Progress {
+                files_done,
+                files_total,
+                tokens_seen,
+                unique_tokens,
+                duplicates,
+                throughput_tps,
+                elapsed_ms,
+                eta_ms,
+                ..
+            } => {
+                if !cli.quiet {
+                    eprintln!(
+                        "[progress] files={files_done}/{files_total} tokens={tokens_seen} unique={unique_tokens} dup={duplicates} tps={throughput_tps} elapsed_ms={elapsed_ms} eta_ms={}",
+                        eta_ms.map(|v| v.to_string()).unwrap_or_else(|| "-".to_string())
+                    );
+                }
+            }
+            JobEvent::Done { stats, .. } => {
+                println!(
+                    "done files={} tokens_seen={} unique={} duplicates={} elapsed_ms={}",
+                    stats.files,
+                    stats.tokens_seen,
+                    stats.unique_tokens,
+                    stats.duplicates,
+                    stats.elapsed_ms
+                );
+                break;
+            }
+            JobEvent::Error { message, .. } => {
+                return Err(anyhow!("engine run failed: {message}"));
+            }
+            JobEvent::Canceled { .. } => {
+                return Err(anyhow!("job canceled"));
+            }
+        }
     }
 
     Ok(())
