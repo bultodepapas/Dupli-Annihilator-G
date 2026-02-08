@@ -1,4 +1,5 @@
 use crate::{
+    cancel::{ensure_not_canceled, CancelCheck},
     config::Config,
     progress::{ProgressEvent, ProgressSink},
     stats::Stats,
@@ -21,26 +22,29 @@ pub fn external_sort_global<P: ProgressSink>(
     progress: &P,
     stats: &mut Stats,
     temp_dir: &Path,
+    cancel: &impl CancelCheck,
 ) -> anyhow::Result<()> {
     progress.on_event(ProgressEvent::Stage("GeneratingRuns"));
-    let runs = generate_runs(config, progress, stats, temp_dir)?;
+    let runs = generate_runs(config, progress, stats, temp_dir, cancel)?;
 
     progress.on_event(ProgressEvent::Stage("MergingRuns"));
-    merge_runs_to_output(config, stats, &runs)?;
+    merge_runs_to_output(config, stats, &runs, cancel)?;
     Ok(())
 }
 
-fn generate_runs<P: ProgressSink>(
+fn generate_runs<P: ProgressSink, C: CancelCheck>(
     config: &Config,
     progress: &P,
     stats: &mut Stats,
     temp_dir: &Path,
+    cancel: &C,
 ) -> anyhow::Result<Vec<RunFile>> {
     let mut runs = Vec::new();
     let mut buf = Vec::<String>::new();
     let mut bytes_acc: usize = 0;
 
     for (idx, path) in config.inputs.iter().enumerate() {
+        ensure_not_canceled(cancel)?;
         progress.on_event(ProgressEvent::FileStarted {
             index: idx + 1,
             total: config.inputs.len(),
@@ -51,6 +55,7 @@ fn generate_runs<P: ProgressSink>(
         let mut line = String::new();
 
         loop {
+            ensure_not_canceled(cancel)?;
             line.clear();
             let n = reader.read_line(&mut line)?;
             if n == 0 {
@@ -59,6 +64,9 @@ fn generate_runs<P: ProgressSink>(
 
             for raw in TokenIter::new(&line) {
                 stats.tokens_seen += 1;
+                if stats.tokens_seen % 8_192 == 0 {
+                    ensure_not_canceled(cancel)?;
+                }
                 if stats.tokens_seen % 100_000 == 0 {
                     progress.on_event(ProgressEvent::TokensSeen(stats.tokens_seen));
                 }
@@ -124,7 +132,12 @@ fn flush_run(
     Ok(())
 }
 
-fn merge_runs_to_output(config: &Config, stats: &mut Stats, runs: &[RunFile]) -> anyhow::Result<()> {
+fn merge_runs_to_output<C: CancelCheck>(
+    config: &Config,
+    stats: &mut Stats,
+    runs: &[RunFile],
+    cancel: &C,
+) -> anyhow::Result<()> {
     let mut readers = Vec::with_capacity(runs.len());
     for run in runs {
         readers.push(BufReader::new(File::open(&run.path)?));
@@ -142,8 +155,13 @@ fn merge_runs_to_output(config: &Config, stats: &mut Stats, runs: &[RunFile]) ->
 
     let mut out = OutputWriter::create(&config.output, config.output_separator.clone())?;
     let mut last_written: Option<String> = None;
+    let mut merged: u64 = 0;
 
     while let Some(Reverse((token, run_id))) = heap.pop() {
+        merged += 1;
+        if merged % 8_192 == 0 {
+            ensure_not_canceled(cancel)?;
+        }
         if last_written.as_deref() != Some(token.as_str()) {
             out.write_token(&token)?;
             stats.unique_tokens += 1;

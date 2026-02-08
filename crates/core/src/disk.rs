@@ -1,4 +1,5 @@
 use crate::{
+    cancel::{ensure_not_canceled, CancelCheck},
     config::{Config, OutputOrdering},
     dedupe_ram::RamStore,
     progress::{ProgressEvent, ProgressSink},
@@ -45,15 +46,17 @@ impl DiskBuckets {
         (hasher.finish() as usize) % n
     }
 
-    pub fn partition_inputs<P: ProgressSink>(
+    pub fn partition_inputs<P: ProgressSink, C: CancelCheck>(
         &mut self,
         config: &Config,
         progress: &P,
         stats: &mut Stats,
+        cancel: &C,
     ) -> anyhow::Result<()> {
         progress.on_event(ProgressEvent::Stage("PartitioningBuckets"));
 
         for (idx, path) in config.inputs.iter().enumerate() {
+            ensure_not_canceled(cancel)?;
             progress.on_event(ProgressEvent::FileStarted {
                 index: idx + 1,
                 total: config.inputs.len(),
@@ -64,6 +67,7 @@ impl DiskBuckets {
             let mut line = String::new();
 
             loop {
+                ensure_not_canceled(cancel)?;
                 line.clear();
                 let n = reader.read_line(&mut line)?;
                 if n == 0 {
@@ -72,6 +76,9 @@ impl DiskBuckets {
 
                 for raw in TokenIter::new(&line) {
                     stats.tokens_seen += 1;
+                    if stats.tokens_seen % 8_192 == 0 {
+                        ensure_not_canceled(cancel)?;
+                    }
                     if stats.tokens_seen % 100_000 == 0 {
                         progress.on_event(ProgressEvent::TokensSeen(stats.tokens_seen));
                     }
@@ -104,16 +111,18 @@ impl DiskBuckets {
         Ok(())
     }
 
-    pub fn reduce_to_output<P: ProgressSink>(
+    pub fn reduce_to_output<P: ProgressSink, C: CancelCheck>(
         &self,
         config: &Config,
         progress: &P,
         stats: &mut Stats,
+        cancel: &C,
     ) -> anyhow::Result<()> {
         progress.on_event(ProgressEvent::Stage("ReducingBuckets"));
         let mut out = OutputWriter::create(&config.output, config.output_separator.clone())?;
 
         for (i, path) in self.bucket_paths.iter().enumerate() {
+            ensure_not_canceled(cancel)?;
             progress.on_event(ProgressEvent::FileStarted {
                 index: i + 1,
                 total: self.bucket_paths.len(),
@@ -129,7 +138,12 @@ impl DiskBuckets {
                 }
             };
 
+            let mut bucket_tokens: u64 = 0;
             for line in reader.lines() {
+                bucket_tokens += 1;
+                if bucket_tokens % 8_192 == 0 {
+                    ensure_not_canceled(cancel)?;
+                }
                 let mut token = line?;
                 if config.trim {
                     token = token.trim().to_string();
@@ -157,6 +171,7 @@ impl DiskBuckets {
             }
 
             for token in tokens {
+                ensure_not_canceled(cancel)?;
                 out.write_token(&token)?;
             }
 

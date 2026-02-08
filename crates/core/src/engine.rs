@@ -1,4 +1,5 @@
 use crate::{
+    cancel::{ensure_not_canceled, CancelCheck, NoCancel},
     config::{Config, DiskAlphabeticalMode, Mode, OutputOrdering},
     dedupe_ram::RamStore,
     disk::DiskBuckets,
@@ -13,16 +14,29 @@ use std::io::{BufRead, BufReader};
 use std::time::Instant;
 
 pub fn run<P: ProgressSink>(config: &Config, progress: P) -> anyhow::Result<Stats> {
+    run_with_control(config, progress, NoCancel)
+}
+
+pub fn run_with_control<P: ProgressSink, C: CancelCheck>(
+    config: &Config,
+    progress: P,
+    cancel: C,
+) -> anyhow::Result<Stats> {
     config.validate()?;
+    ensure_not_canceled(&cancel)?;
 
     match config.mode {
-        Mode::Ram => run_ram(config, &progress),
-        Mode::Disk => run_disk(config, &progress),
-        Mode::Auto => run_ram(config, &progress),
+        Mode::Ram => run_ram(config, &progress, &cancel),
+        Mode::Disk => run_disk(config, &progress, &cancel),
+        Mode::Auto => run_ram(config, &progress, &cancel),
     }
 }
 
-fn run_ram<P: ProgressSink>(config: &Config, progress: &P) -> anyhow::Result<Stats> {
+fn run_ram<P: ProgressSink, C: CancelCheck>(
+    config: &Config,
+    progress: &P,
+    cancel: &C,
+) -> anyhow::Result<Stats> {
     let started = Instant::now();
     progress.on_event(ProgressEvent::Stage("Tokenizing"));
 
@@ -39,6 +53,7 @@ fn run_ram<P: ProgressSink>(config: &Config, progress: &P) -> anyhow::Result<Sta
     };
 
     for (idx, path) in config.inputs.iter().enumerate() {
+        ensure_not_canceled(cancel)?;
         progress.on_event(ProgressEvent::FileStarted {
             index: idx + 1,
             total: config.inputs.len(),
@@ -49,6 +64,7 @@ fn run_ram<P: ProgressSink>(config: &Config, progress: &P) -> anyhow::Result<Sta
         let mut line = String::new();
 
         loop {
+            ensure_not_canceled(cancel)?;
             line.clear();
             let n = reader.read_line(&mut line)?;
             if n == 0 {
@@ -57,6 +73,9 @@ fn run_ram<P: ProgressSink>(config: &Config, progress: &P) -> anyhow::Result<Sta
 
             for raw in TokenIter::new(&line) {
                 stats.tokens_seen += 1;
+                if stats.tokens_seen % 8_192 == 0 {
+                    ensure_not_canceled(cancel)?;
+                }
                 if stats.tokens_seen % 100_000 == 0 {
                     progress.on_event(ProgressEvent::TokensSeen(stats.tokens_seen));
                 }
@@ -89,15 +108,18 @@ fn run_ram<P: ProgressSink>(config: &Config, progress: &P) -> anyhow::Result<Sta
         });
     }
 
+    ensure_not_canceled(cancel)?;
     let mut tokens = store.into_tokens();
     if matches!(config.ordering, OutputOrdering::Alphabetical) {
         progress.on_event(ProgressEvent::Stage("Sorting"));
         tokens.sort_unstable();
     }
 
+    ensure_not_canceled(cancel)?;
     progress.on_event(ProgressEvent::Stage("WritingOutput"));
     let mut out = OutputWriter::create(&config.output, config.output_separator.clone())?;
     for token in tokens {
+        ensure_not_canceled(cancel)?;
         out.write_token(&token)?;
     }
     out.finish()?;
@@ -107,7 +129,11 @@ fn run_ram<P: ProgressSink>(config: &Config, progress: &P) -> anyhow::Result<Sta
     Ok(stats)
 }
 
-fn run_disk<P: ProgressSink>(config: &Config, progress: &P) -> anyhow::Result<Stats> {
+fn run_disk<P: ProgressSink, C: CancelCheck>(
+    config: &Config,
+    progress: &P,
+    cancel: &C,
+) -> anyhow::Result<Stats> {
     let started = Instant::now();
     let mut stats = Stats {
         files: config.inputs.len(),
@@ -118,18 +144,18 @@ fn run_disk<P: ProgressSink>(config: &Config, progress: &P) -> anyhow::Result<St
         match config.disk_alphabetical_mode {
             DiskAlphabeticalMode::FastBucketLocal => {
                 let mut buckets = DiskBuckets::new(config.disk_buckets)?;
-                buckets.partition_inputs(config, progress, &mut stats)?;
-                buckets.reduce_to_output(config, progress, &mut stats)?;
+                buckets.partition_inputs(config, progress, &mut stats, cancel)?;
+                buckets.reduce_to_output(config, progress, &mut stats, cancel)?;
             }
             DiskAlphabeticalMode::GlobalPerfect => {
                 let temp = tempfile::tempdir()?;
-                disk_sort::external_sort_global(config, progress, &mut stats, temp.path())?;
+                disk_sort::external_sort_global(config, progress, &mut stats, temp.path(), cancel)?;
             }
         }
     } else {
         let mut buckets = DiskBuckets::new(config.disk_buckets)?;
-        buckets.partition_inputs(config, progress, &mut stats)?;
-        buckets.reduce_to_output(config, progress, &mut stats)?;
+        buckets.partition_inputs(config, progress, &mut stats, cancel)?;
+        buckets.reduce_to_output(config, progress, &mut stats, cancel)?;
     }
 
     progress.on_event(ProgressEvent::Stage("Finalizing"));
