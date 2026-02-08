@@ -7,6 +7,7 @@ use dedupe_backend::{
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::time::Duration;
+use std::{fs, process::Command};
 
 struct AppState {
     backend: BackendService,
@@ -17,6 +18,19 @@ struct AppState {
 struct NextEventsRequest {
     max_events: usize,
     timeout_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct OpenPathRequest {
+    path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ExportSummaryJsonRequest {
+    path: String,
+    content: String,
 }
 
 #[tauri::command]
@@ -76,6 +90,43 @@ fn next_events(state: tauri::State<'_, AppState>, req: NextEventsRequest) -> Vec
         .next_emitted_events_batch(Duration::from_millis(timeout_ms), max_events)
 }
 
+#[tauri::command]
+fn open_output(req: OpenPathRequest) -> Result<(), String> {
+    open_path_with_default_app(&req.path)
+}
+
+#[tauri::command]
+fn open_output_folder(req: OpenPathRequest) -> Result<(), String> {
+    let path = PathBuf::from(req.path);
+    let Some(parent) = path.parent() else {
+        return Err("output path has no parent directory".to_string());
+    };
+    open_path_with_default_app(&parent.to_string_lossy())
+}
+
+#[tauri::command]
+fn export_summary_json(req: ExportSummaryJsonRequest) -> Result<(), String> {
+    fs::write(&req.path, req.content)
+        .map_err(|e| format!("failed to write summary JSON '{}': {e}", req.path))
+}
+
+fn open_path_with_default_app(path: &str) -> Result<(), String> {
+    let status = if cfg!(target_os = "windows") {
+        Command::new("cmd").args(["/C", "start", "", path]).status()
+    } else if cfg!(target_os = "macos") {
+        Command::new("open").arg(path).status()
+    } else {
+        Command::new("xdg-open").arg(path).status()
+    }
+    .map_err(|e| format!("failed to open path '{}': {e}", path))?;
+
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!("open command failed for '{}': exit={status}", path))
+    }
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -89,7 +140,10 @@ fn main() {
             get_runtime_state,
             path_exists,
             default_output_path,
-            next_events
+            next_events,
+            open_output,
+            open_output_folder,
+            export_summary_json
         ])
         .run(tauri::generate_context!())
         .expect("failed to run tauri app");

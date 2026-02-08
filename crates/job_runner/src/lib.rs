@@ -224,7 +224,7 @@ impl JobManager {
             let started_at = Utc::now();
             let input_bytes_total = sum_existing_input_bytes(&config);
             let sink = Arc::new(BridgeSink::new(job_id, tx.clone()));
-            let result = run_with_control(&config, Arc::clone(&sink), cancel.clone());
+            let result = run_with_control(&config, SharedSink(Arc::clone(&sink)), cancel.clone());
             let finished_at = Utc::now();
             let bridge = sink.finalize_report();
             let output_bytes = file_len_or_zero(&config.output);
@@ -257,6 +257,13 @@ impl JobManager {
                 }
             };
 
+            done.store(true, Ordering::Release);
+            if let Ok(mut current) = inner.active.lock() {
+                if current.as_ref().map(|job| job.id) == Some(job_id) {
+                    *current = None;
+                }
+            }
+
             let summary = build_run_summary(
                 job_id,
                 status,
@@ -270,13 +277,6 @@ impl JobManager {
                 error_message,
             );
             let _ = tx.send(JobEvent::Summary { job_id, summary });
-
-            done.store(true, Ordering::Release);
-            if let Ok(mut current) = inner.active.lock() {
-                if current.as_ref().map(|job| job.id) == Some(job_id) {
-                    *current = None;
-                }
-            }
         });
 
         Ok(job_id)
@@ -383,6 +383,9 @@ struct BridgeSink {
     tx: Sender<JobEvent>,
     state: Mutex<BridgeState>,
 }
+
+#[derive(Debug, Clone)]
+struct SharedSink(Arc<BridgeSink>);
 
 impl BridgeSink {
     const MIN_PROGRESS_INTERVAL: Duration = Duration::from_millis(125);
@@ -566,9 +569,9 @@ impl ProgressSink for BridgeSink {
     }
 }
 
-impl ProgressSink for Arc<BridgeSink> {
+impl ProgressSink for SharedSink {
     fn on_event(&self, event: ProgressEvent) {
-        ProgressSink::on_event(self.as_ref(), event);
+        ProgressSink::on_event(self.0.as_ref(), event);
     }
 }
 
@@ -586,7 +589,7 @@ fn build_run_summary(
 ) -> RunSummary {
     let reduction_pct = ratio_pct(stats.duplicates, stats.tokens_seen);
     let uniq_pct = ratio_pct(stats.unique_tokens, stats.tokens_seen);
-    let elapsed_sec = (stats.elapsed_ms as f64) / 1000.0;
+    let elapsed_sec = (stats.elapsed_ms.max(1) as f64) / 1000.0;
     let avg_throughput_tps = if elapsed_sec > 0.0 {
         ((stats.tokens_seen as f64) / elapsed_sec).round() as u64
     } else {
