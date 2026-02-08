@@ -2,10 +2,10 @@
 
 ## Related Documents
 - `README.md`
-- `docs/00_INDICE_DOCUMENTACION_FINAL.md`
-- `docs/01_RESUMEN_EJECUTIVO_FINAL.md`
-- `docs/03_ESPECIFICACION_UI_TAURI_FINAL.md`
-- `docs/04_PLAN_PM_IMPLEMENTACION_FINAL.md`
+- `docs/00_FINAL_DOCUMENTATION_INDEX.md`
+- `docs/01_FINAL_EXECUTIVE_SUMMARY.md`
+- `docs/03_FINAL_UI_TAURI_SPECIFICATION.md`
+- `docs/04_FINAL_PM_IMPLEMENTATION_PLAN.md`
 - `docs/05_PENDING_DECISIONS.md`
 
 ## 1) Objective
@@ -135,3 +135,4 @@ Process one or more text files, extract tokens, remove duplicates, and export a 
 2. Merge-path allocation optimization.
 3. Multi-pass merge for extreme run counts.
 4. ETA estimation refinement in large DISK workflows.
+

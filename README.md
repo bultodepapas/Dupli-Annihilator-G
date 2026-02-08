@@ -5,11 +5,11 @@
 This repository contains the final, structured product documentation, organized by domain (product, engine, UI, and delivery plan), with no source code included.
 
 ## Recommended Reading Order
-1. `docs/00_INDICE_DOCUMENTACION_FINAL.md`
-2. `docs/01_RESUMEN_EJECUTIVO_FINAL.md`
-3. `docs/02_ESPECIFICACION_MOTOR_FINAL.md`
-4. `docs/03_ESPECIFICACION_UI_TAURI_FINAL.md`
-5. `docs/04_PLAN_PM_IMPLEMENTACION_FINAL.md`
+1. `docs/00_FINAL_DOCUMENTATION_INDEX.md`
+2. `docs/01_FINAL_EXECUTIVE_SUMMARY.md`
+3. `docs/02_FINAL_ENGINE_SPECIFICATION.md`
+4. `docs/03_FINAL_UI_TAURI_SPECIFICATION.md`
+5. `docs/04_FINAL_PM_IMPLEMENTATION_PLAN.md`
 6. `docs/05_PENDING_DECISIONS.md`
 
 ## Current Status
@@ -27,7 +27,8 @@ This repository contains the final, structured product documentation, organized 
 
 ## Documentation Maintenance Rule
 If a product decision changes, update `docs/05_PENDING_DECISIONS.md` first, then sync:
-- `docs/01_RESUMEN_EJECUTIVO_FINAL.md`
-- `docs/02_ESPECIFICACION_MOTOR_FINAL.md`
-- `docs/03_ESPECIFICACION_UI_TAURI_FINAL.md`
-- `docs/04_PLAN_PM_IMPLEMENTACION_FINAL.md`
+- `docs/01_FINAL_EXECUTIVE_SUMMARY.md`
+- `docs/02_FINAL_ENGINE_SPECIFICATION.md`
+- `docs/03_FINAL_UI_TAURI_SPECIFICATION.md`
+- `docs/04_FINAL_PM_IMPLEMENTATION_PLAN.md`
+

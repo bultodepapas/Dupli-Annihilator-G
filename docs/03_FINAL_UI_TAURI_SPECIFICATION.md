@@ -2,10 +2,10 @@
 
 ## Related Documents
 - `README.md`
-- `docs/00_INDICE_DOCUMENTACION_FINAL.md`
-- `docs/01_RESUMEN_EJECUTIVO_FINAL.md`
-- `docs/02_ESPECIFICACION_MOTOR_FINAL.md`
-- `docs/04_PLAN_PM_IMPLEMENTACION_FINAL.md`
+- `docs/00_FINAL_DOCUMENTATION_INDEX.md`
+- `docs/01_FINAL_EXECUTIVE_SUMMARY.md`
+- `docs/02_FINAL_ENGINE_SPECIFICATION.md`
+- `docs/04_FINAL_PM_IMPLEMENTATION_PLAN.md`
 - `docs/05_PENDING_DECISIONS.md`
 
 ## 1) Desktop Application Objective
@@ -191,3 +191,4 @@ A single-screen desktop experience that enables users to:
 6. UI remains fluid under load with updates <= 10Hz.
 7. Contrast and focus visibility are compliant.
 8. Runtime language switch `en` <-> `zh-CN` works without app restart.
+

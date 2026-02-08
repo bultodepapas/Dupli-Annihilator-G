@@ -1,68 +1,69 @@
-# Decisiones V1 (Cerradas)
+# V1 Decision Log (Status Tracker)
 
-## Documentos relacionados
+## Related Documents
 - `README.md`
-- `docs/00_INDICE_DOCUMENTACION_FINAL.md`
-- `docs/01_RESUMEN_EJECUTIVO_FINAL.md`
-- `docs/02_ESPECIFICACION_MOTOR_FINAL.md`
-- `docs/03_ESPECIFICACION_UI_TAURI_FINAL.md`
-- `docs/04_PLAN_PM_IMPLEMENTACION_FINAL.md`
+- `docs/00_FINAL_DOCUMENTATION_INDEX.md`
+- `docs/01_FINAL_EXECUTIVE_SUMMARY.md`
+- `docs/02_FINAL_ENGINE_SPECIFICATION.md`
+- `docs/03_FINAL_UI_TAURI_SPECIFICATION.md`
+- `docs/04_FINAL_PM_IMPLEMENTATION_PLAN.md`
 
-## Objetivo
-Registrar las decisiones de producto cerradas para V1 y mantener consistencia entre documentacion funcional, tecnica y de ejecucion.
+## Objective
+Maintain a traceable, authoritative log of V1 product decisions and ensure alignment across functional, technical, and delivery documentation.
 
-## D-01 Separador por defecto
-- Estado: `CERRADA`
-- Decision final:
-  `"\n"` como separador por defecto.
-- Impacto:
-  salida legible para datasets, validacion QA mas simple y menor ambiguedad en ejemplos.
+## D-01 Default Output Separator
+- Status: `CLOSED`
+- Final decision:
+  `"\n"` is the default output separator.
+- Impact:
+  Dataset-oriented readability, simpler QA validation, and lower ambiguity in examples.
 
-## D-02 Definicion de `Mode=Auto` en V1
-- Estado: `CERRADA`
-- Decision final:
-  `Auto` se comporta como alias explicito de `Ram` en V1.
-- Requisito de UI:
-  tooltip obligatorio indicando que la heuristica automatica real queda para version posterior.
-- Impacto:
-  evita sobre-ingenieria temprana y reduce riesgo de comportamiento no determinista.
+## D-02 `Mode=Auto` in V1
+- Status: `CLOSED`
+- Final decision:
+  `Auto` behaves as an explicit alias of `Ram` in V1.
+- UI requirement:
+  Mandatory tooltip stating that true heuristic auto-selection is deferred.
+- Impact:
+  Avoids early over-engineering and prevents non-deterministic behavior expectations.
 
-## D-03 Politica UI para `PreserveFirstSeen` en DISK
-- Estado: `CERRADA`
-- Decision final:
-  se permite seleccion en DISK, con advertencia fuerte + tooltip visible.
-- Mensaje minimo:
-  en DISK no se garantiza orden global de primera aparicion en esta version.
-- Impacto:
-  transparencia funcional sin bloquear casos de uso avanzados.
+## D-03 `PreserveFirstSeen` Policy in DISK Mode
+- Status: `CLOSED`
+- Final decision:
+  Keep selectable in DISK mode with strong warning + visible tooltip.
+- Minimum message:
+  Global first-seen order is not guaranteed in DISK mode for V1.
+- Impact:
+  Preserves transparency without blocking advanced usage.
 
-## D-04 Idioma de interfaz V1
-- Estado: `CERRADA`
-- Decision final:
-  soporte en V1 para ingles (`en`) y chino simplificado (`zh-CN`).
-- Requisito de arquitectura:
-  i18n por claves, sin textos hardcodeados en componentes.
-- Requisito de escalabilidad:
-  estructura preparada para agregar idiomas futuros sin refactor grande.
-- Impacto:
-  base internacional desde V1 con deuda tecnica de localizacion controlada.
+## D-04 V1 UI Languages
+- Status: `CLOSED`
+- Final decision:
+  V1 supports English (`en`) and Simplified Chinese (`zh-CN`).
+- Architecture requirement:
+  Key-based i18n with no hardcoded component text.
+- Scalability requirement:
+  Localization structure must allow adding future languages without major refactor.
+- Impact:
+  International-ready baseline in V1 with controlled localization debt.
 
-## D-05 SLOs de rendimiento de aceptacion
-- Estado: `CERRADA`
-- Decision final:
-  se adoptan SLOs iniciales de V1 para QA en entorno controlado.
-- SLOs V1 recomendados:
-  1. UI: no congelamiento percibido durante ejecucion; actualizacion de progreso entre 4 y 10 Hz.
-  2. ETA: mostrar ETA aproximada cuando exista base confiable; en caso contrario mostrar `-`.
-  3. RAM mode: limite objetivo de memoria pico <= 75% de RAM libre al inicio del job.
-  4. DISK mode: uso de memoria acotado y estable, priorizando spill a disco.
-  5. Performance base: registrar throughput y tiempos por dataset de referencia para controlar regresiones por release.
-- Nota:
-  los valores numericos finos por tamano de dataset se calibran en el primer ciclo de benchmarks del equipo.
+## D-05 V1 Performance SLOs for Acceptance
+- Status: `CLOSED`
+- Final decision:
+  Adopt initial V1 SLOs for controlled QA environments.
+- V1 SLO baseline:
+  1. UI: no perceived freeze during execution; progress updates between 4 and 10Hz.
+  2. ETA: show approximate ETA only when reliability is sufficient; otherwise show `-`.
+  3. RAM mode: target peak memory <= 75% of free RAM at job start.
+  4. DISK mode: bounded and stable memory profile with disk spill prioritization.
+  5. Performance baseline: record throughput and elapsed time by reference dataset to detect regressions per release.
+- Note:
+  Fine-grained numeric targets by dataset size are calibrated in the first benchmark cycle.
 
-## Politica de mantenimiento
-Si se cambia una decision cerrada:
-1. actualizar esta misma entrada con motivo y fecha,
-2. sincronizar `docs/01_RESUMEN_EJECUTIVO_FINAL.md`,
-3. sincronizar `docs/02_ESPECIFICACION_MOTOR_FINAL.md` y/o `docs/03_ESPECIFICACION_UI_TAURI_FINAL.md`,
-4. actualizar impacto de plan en `docs/04_PLAN_PM_IMPLEMENTACION_FINAL.md`.
+## Maintenance Policy
+If a closed decision changes:
+1. Update this entry with reason and date.
+2. Sync `docs/01_FINAL_EXECUTIVE_SUMMARY.md`.
+3. Sync `docs/02_FINAL_ENGINE_SPECIFICATION.md` and/or `docs/03_FINAL_UI_TAURI_SPECIFICATION.md`.
+4. Sync delivery impact in `docs/04_FINAL_PM_IMPLEMENTATION_PLAN.md`.
+

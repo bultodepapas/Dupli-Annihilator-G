@@ -2,10 +2,10 @@
 
 ## Related Documents
 - `README.md`
-- `docs/00_INDICE_DOCUMENTACION_FINAL.md`
-- `docs/02_ESPECIFICACION_MOTOR_FINAL.md`
-- `docs/03_ESPECIFICACION_UI_TAURI_FINAL.md`
-- `docs/04_PLAN_PM_IMPLEMENTACION_FINAL.md`
+- `docs/00_FINAL_DOCUMENTATION_INDEX.md`
+- `docs/02_FINAL_ENGINE_SPECIFICATION.md`
+- `docs/03_FINAL_UI_TAURI_SPECIFICATION.md`
+- `docs/04_FINAL_PM_IMPLEMENTATION_PLAN.md`
 - `docs/05_PENDING_DECISIONS.md`
 
 ## 1) Product Vision
@@ -72,3 +72,4 @@ Build a desktop application that merges, deduplicates, and exports tokens from m
 - Least-privilege security model in Tauri.
 - Minimum AA accessibility for contrast and keyboard navigation.
 - Clear error and cancellation behavior for real operation.
+

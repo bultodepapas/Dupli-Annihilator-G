@@ -2,10 +2,10 @@
 
 ## Related Documents
 - `README.md`
-- `docs/00_INDICE_DOCUMENTACION_FINAL.md`
-- `docs/01_RESUMEN_EJECUTIVO_FINAL.md`
-- `docs/02_ESPECIFICACION_MOTOR_FINAL.md`
-- `docs/03_ESPECIFICACION_UI_TAURI_FINAL.md`
+- `docs/00_FINAL_DOCUMENTATION_INDEX.md`
+- `docs/01_FINAL_EXECUTIVE_SUMMARY.md`
+- `docs/02_FINAL_ENGINE_SPECIFICATION.md`
+- `docs/03_FINAL_UI_TAURI_SPECIFICATION.md`
 - `docs/05_PENDING_DECISIONS.md`
 
 ## 1) Plan Objective
@@ -118,3 +118,4 @@ Any change to parsing rules, ordering guarantees, or IPC contracts must include:
 
 ## 8) Closure Recommendation
 Use this documentation set as the single source of truth for the team, and track future adjustments through versioned annexes instead of rewriting historical decisions without traceability.
+
