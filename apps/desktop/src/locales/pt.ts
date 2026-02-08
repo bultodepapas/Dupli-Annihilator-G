@@ -1,0 +1,96 @@
+import type { Dictionary } from "./en";
+
+export const pt: Dictionary = {
+  "lang.name": "Portugues",
+  "app.subtitle": "Painel de Controle Desktop Tauri",
+  "status.idle": "OCIOSO",
+  "status.running": "EM EXECUCAO",
+  "status.done": "CONCLUIDO",
+  "status.error": "ERRO",
+  "status.canceled": "CANCELADO",
+
+  "section.inputs": "Entradas",
+  "section.processing": "Processamento",
+  "section.output": "Saida",
+  "section.telemetry": "Telemetria",
+
+  "button.add_files": "ADICIONAR ARQUIVOS",
+  "button.pick_output": "ESCOLHER SAIDA",
+  "button.run": "EXECUTAR",
+  "button.cancel": "CANCELAR",
+
+  "field.inputs": "Arquivos de entrada (um caminho absoluto por linha)",
+  "field.output": "Caminho do arquivo de saida",
+  "field.mode": "Modo",
+  "field.ordering": "Ordenacao",
+  "field.disk_alphabetical_mode": "Modo alfabetico em disco",
+  "field.disk_buckets": "Buckets de disco",
+  "field.disk_run_bytes": "Bytes por execucao em disco",
+  "field.separator": "Separador",
+  "field.raw_separator": "Separador bruto (nao interpretar escapes)",
+  "field.allow_overwrite": "Permitir sobrescrever sem confirmacao",
+  "field.language": "Idioma",
+  "tooltip.processing.mode":
+    "Estrategia de execucao: auto escolhe por voce, ram e mais rapido, disk usa menos memoria.",
+  "tooltip.processing.ordering": "Como as linhas unicas sao ordenadas no arquivo de saida.",
+  "tooltip.processing.disk_alphabetical_mode":
+    "Algoritmo alfabetico em disco: fast_bucket_local e mais rapido, global_perfect aplica ordenacao global estrita.",
+  "tooltip.processing.disk_buckets":
+    "Numero de buckets em disco. Mais buckets reduzem o uso de memoria por bucket.",
+  "tooltip.processing.disk_run_bytes": "Tamanho alvo em bytes para cada execucao de ordenacao em disco.",
+  "tooltip.processing.trim": "Remover espacos no inicio e no fim de cada linha antes da deduplicacao.",
+  "tooltip.processing.drop_empty": "Ignorar linhas vazias (apos trim, se habilitado).",
+
+  "option.mode.auto": "automatico",
+  "option.mode.ram": "memoria",
+  "option.mode.disk": "disco",
+  "option.ordering.preserve_first_seen": "preservar primeira ocorrencia",
+  "option.ordering.alphabetical": "alfabetica",
+  "option.ordering.unordered_fast": "sem ordem (rapido)",
+  "option.disk_mode.fast_bucket_local": "bucket local rapido",
+  "option.disk_mode.global_perfect": "global perfeito",
+
+  "flag.trim": "trim",
+  "flag.drop_empty": "drop_empty",
+
+  "meta.app": "app",
+  "meta.backend": "backend",
+  "meta.job_id": "job_id",
+
+  "metric.stage": "etapa",
+  "metric.files": "arquivos",
+  "metric.tokens": "tokens",
+  "metric.unique": "unicos",
+  "metric.duplicates": "duplicados",
+  "metric.tps": "tps",
+  "metric.elapsed_ms": "ms_decorridos",
+  "metric.eta_ms": "ms_estimados",
+
+  "message.idle": "Ocioso",
+  "message.job_started": "Tarefa iniciada",
+  "message.done": "Concluido",
+  "message.canceled": "Cancelado",
+  "message.error": "Erro: {detail}",
+  "message.cannot_start": "Nao foi possivel iniciar: {detail}",
+  "message.starting": "Iniciando tarefa...",
+  "message.start_failed": "Falha ao iniciar: {detail}",
+  "message.cancel_requested": "Cancelamento solicitado",
+  "message.cancel_failed": "Falha ao cancelar: {detail}",
+  "message.preflight_failed": "Falha na verificacao pre-flight: {detail}",
+  "message.start_canceled_by_user": "Inicio cancelado pelo usuario.",
+  "message.input_dialog_failed": "Falha no dialogo de entrada: {detail}",
+  "message.output_dialog_failed": "Falha no dialogo de saida: {detail}",
+
+  "confirm.overwrite.title": "Confirmar sobrescrita",
+  "confirm.overwrite.body": "O arquivo de saida ja existe:\n{path}\n\nDeseja sobrescrever?",
+
+  "validation.inputs_required": "E necessario ao menos um arquivo de entrada.",
+  "validation.output_required": "O caminho do arquivo de saida e obrigatorio.",
+  "validation.separator_required": "O separador nao pode estar vazio.",
+  "validation.disk_buckets_min": "Os buckets de disco devem ser >= 8.",
+  "validation.disk_run_bytes_min": "Os bytes por execucao em disco devem ser >= 1,000,000.",
+
+  "placeholder.inputs": "C:\\data\\in1.txt\\nC:\\data\\in2.txt",
+  "placeholder.output": "C:\\data\\out.txt",
+  "fallback.unknown_error": "erro desconhecido",
+};
