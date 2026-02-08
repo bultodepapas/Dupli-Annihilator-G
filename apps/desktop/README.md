@@ -29,6 +29,10 @@ This folder contains the desktop application for `Dupli-Annihilator-G`.
   - status chips (`IDLE`, `RUNNING`, `DONE`, `ERROR`, `CANCELED`)
   - action states (`RUN`, `RUN AGAIN`, `RETRY`, `CANCEL`)
   - progress and metrics (files, tokens, unique, duplicates, throughput, elapsed, ETA)
+  - terminal `MISSION REPORT` screen with:
+    - key results (`unique`, `duplicates`, `reduction`, output details)
+    - diagnostics (`warnings`, stage timeline, mode/order context)
+    - actions (`OPEN OUTPUT`, `OPEN FOLDER`, `COPY REPORT`, `EXPORT JSON`, `RUN AGAIN`)
 
 ## Localization
 

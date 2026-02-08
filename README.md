@@ -20,6 +20,8 @@ If you just want to use the app:
 - Choose RAM, DISK, or AUTO execution mode.
 - Configure output separator (`\n`, `\t`, custom separator, raw separator).
 - Monitor progress, throughput, elapsed time, and ETA in real time.
+- Review a final `MISSION REPORT` screen with key results, diagnostics, and timeline.
+- Open output/folder, copy report, export JSON summary, and run again with same settings.
 - Cancel and retry safely.
 
 ## How The Output Works
@@ -121,6 +123,6 @@ GitHub Actions workflows:
 and uploads platform installers as workflow artifacts.
 
 Release publishing:
-- Pushing a tag that matches `v*` (example: `v0.1.0`) builds installers and publishes a GitHub Release with attached assets.
+- Pushing a tag that matches `v*` (example: `v1.3.0`) builds installers and publishes a GitHub Release with attached assets.
 - Manual runs are also supported via `workflow_dispatch` with optional `tag` input.
 
