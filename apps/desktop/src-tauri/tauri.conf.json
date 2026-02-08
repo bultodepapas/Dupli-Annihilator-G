@@ -4,8 +4,8 @@
   "version": "1.2.0",
   "identifier": "com.giuseppe.rojas.dupliannihilatorg",
   "build": {
-    "beforeBuildCommand": "npm --prefix .. run build",
-    "beforeDevCommand": "npm --prefix .. run dev",
+    "beforeBuildCommand": "npm run build",
+    "beforeDevCommand": "npm run dev",
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420"
   },
@@ -21,6 +21,13 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all"
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
   }
 }

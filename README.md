@@ -40,7 +40,8 @@ Run desktop UI in dev mode:
 ```bash
 npm ci --prefix apps/desktop
 cargo install tauri-cli --version "^2.0" --locked
-cargo tauri dev --manifest-path apps/desktop/src-tauri/Cargo.toml
+cd apps/desktop/src-tauri
+cargo tauri dev --ci
 ```
 
 ## Build Installers
@@ -49,7 +50,8 @@ Windows (run on Windows):
 ```bash
 npm ci --prefix apps/desktop
 cargo install tauri-cli --version "^2.0" --locked
-cargo tauri build --manifest-path apps/desktop/src-tauri/Cargo.toml
+cd apps/desktop/src-tauri
+cargo tauri build --ci --no-sign
 ```
 Artifacts are generated under `apps/desktop/src-tauri/target/release/bundle` (for example `.exe` and `.msi`).
 
@@ -57,7 +59,8 @@ macOS (run on macOS):
 ```bash
 npm ci --prefix apps/desktop
 cargo install tauri-cli --version "^2.0" --locked
-cargo tauri build --manifest-path apps/desktop/src-tauri/Cargo.toml
+cd apps/desktop/src-tauri
+cargo tauri build --ci --no-sign
 ```
 Artifacts are generated under `apps/desktop/src-tauri/target/release/bundle` (for example `.dmg`/`.app` bundles).
 

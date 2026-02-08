@@ -24,7 +24,8 @@ This folder contains the desktop application for `Dupli-Annihilator-G`:
 1. From repository root, install frontend dependencies:
    - `npm --prefix apps/desktop install`
 2. Run desktop app in Tauri dev mode:
-   - `cargo tauri dev --manifest-path apps/desktop/src-tauri/Cargo.toml`
+   - `cd apps/desktop/src-tauri`
+   - `cargo tauri dev --ci`
 
 ## Build frontend bundle
 - `npm --prefix apps/desktop run build`
