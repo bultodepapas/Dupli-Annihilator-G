@@ -54,7 +54,10 @@ impl Default for Config {
 impl Config {
     pub fn validate(&self) -> anyhow::Result<()> {
         anyhow::ensure!(!self.inputs.is_empty(), "no input files provided");
-        anyhow::ensure!(!self.output.as_os_str().is_empty(), "output path is required");
+        anyhow::ensure!(
+            !self.output.as_os_str().is_empty(),
+            "output path is required"
+        );
         anyhow::ensure!(
             !self.output_separator.is_empty(),
             "output separator cannot be empty"
@@ -62,10 +65,7 @@ impl Config {
 
         if matches!(self.mode, Mode::Disk) {
             anyhow::ensure!(self.disk_buckets >= 8, "disk_buckets too small");
-            anyhow::ensure!(
-                self.disk_run_bytes >= 1_000_000,
-                "disk_run_bytes too small"
-            );
+            anyhow::ensure!(self.disk_run_bytes >= 1_000_000, "disk_run_bytes too small");
         }
 
         Ok(())

@@ -1,0 +1,11 @@
+[package]
+name = "dedupe_job_runner"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1"
+dedupe_core = { path = "../core" }
+
+[dev-dependencies]
+tempfile = "3"

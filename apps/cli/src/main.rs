@@ -1,7 +1,8 @@
 use anyhow::{anyhow, Context, Result};
 use clap::{ArgAction, Parser, ValueEnum};
 use dedupe_core::{
-    run, Config, DiskAlphabeticalMode, Mode, NoProgress, OutputOrdering, ProgressEvent, ProgressSink,
+    run, Config, DiskAlphabeticalMode, Mode, NoProgress, OutputOrdering, ProgressEvent,
+    ProgressSink,
 };
 use std::path::PathBuf;
 

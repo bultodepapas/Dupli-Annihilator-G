@@ -31,7 +31,12 @@ fn ram_preserve_first_seen_is_case_sensitive() {
 
     fs::write(&input, "b,a,a;B\nb ; c, c, perro, Perro, PERRO").expect("write input");
 
-    let cfg = make_cfg(input, output.clone(), Mode::Ram, OutputOrdering::PreserveFirstSeen);
+    let cfg = make_cfg(
+        input,
+        output.clone(),
+        Mode::Ram,
+        OutputOrdering::PreserveFirstSeen,
+    );
     let stats = run(&cfg, NoProgress).expect("run");
 
     let out = fs::read_to_string(output).expect("read output");
@@ -47,7 +52,12 @@ fn ram_alphabetical_uses_utf8_byte_order() {
 
     fs::write(&input, "b,a,B,c").expect("write input");
 
-    let cfg = make_cfg(input, output.clone(), Mode::Ram, OutputOrdering::Alphabetical);
+    let cfg = make_cfg(
+        input,
+        output.clone(),
+        Mode::Ram,
+        OutputOrdering::Alphabetical,
+    );
     run(&cfg, NoProgress).expect("run");
 
     let out = fs::read_to_string(output).expect("read output");
@@ -69,7 +79,12 @@ fn auto_mode_behaves_like_ram_in_v1() {
         Mode::Ram,
         OutputOrdering::PreserveFirstSeen,
     );
-    let auto_cfg = make_cfg(input, out_auto.clone(), Mode::Auto, OutputOrdering::PreserveFirstSeen);
+    let auto_cfg = make_cfg(
+        input,
+        out_auto.clone(),
+        Mode::Auto,
+        OutputOrdering::PreserveFirstSeen,
+    );
 
     run(&ram_cfg, NoProgress).expect("run ram");
     run(&auto_cfg, NoProgress).expect("run auto");
@@ -90,7 +105,12 @@ fn disk_globalperfect_produces_global_alphabetical_order() {
     content.push_str("delta beta epsilon\n");
     fs::write(&input, content).expect("write input");
 
-    let mut cfg = make_cfg(input, output.clone(), Mode::Disk, OutputOrdering::Alphabetical);
+    let mut cfg = make_cfg(
+        input,
+        output.clone(),
+        Mode::Disk,
+        OutputOrdering::Alphabetical,
+    );
     cfg.disk_alphabetical_mode = DiskAlphabeticalMode::GlobalPerfect;
     cfg.output_separator = "|".to_string();
 
@@ -107,7 +127,12 @@ fn separator_is_applied_without_trailing_separator() {
 
     fs::write(&input, "a b c a").expect("write input");
 
-    let mut cfg = make_cfg(input, output.clone(), Mode::Ram, OutputOrdering::PreserveFirstSeen);
+    let mut cfg = make_cfg(
+        input,
+        output.clone(),
+        Mode::Ram,
+        OutputOrdering::PreserveFirstSeen,
+    );
     cfg.output_separator = ",\n".to_string();
 
     run(&cfg, NoProgress).expect("run");
@@ -124,7 +149,12 @@ fn disk_preserve_first_seen_keeps_exact_unique_set() {
 
     fs::write(&input, "uno dos tres dos uno cuatro\ncuatro cinco cinco").expect("write input");
 
-    let cfg = make_cfg(input, output.clone(), Mode::Disk, OutputOrdering::PreserveFirstSeen);
+    let cfg = make_cfg(
+        input,
+        output.clone(),
+        Mode::Disk,
+        OutputOrdering::PreserveFirstSeen,
+    );
     run(&cfg, NoProgress).expect("run");
 
     let out = fs::read_to_string(output).expect("read output");
