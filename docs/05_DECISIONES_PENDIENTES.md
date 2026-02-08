@@ -1,4 +1,4 @@
-# Decisiones Pendientes (Cierre V1)
+# Decisiones V1 (Cerradas)
 
 ## Documentos relacionados
 - `README.md`
@@ -9,70 +9,60 @@
 - `docs/04_PLAN_PM_IMPLEMENTACION_FINAL.md`
 
 ## Objetivo
-Centralizar las decisiones que aun requieren validacion de producto/arquitectura para evitar ambiguedades durante implementacion.
+Registrar las decisiones de producto cerradas para V1 y mantener consistencia entre documentacion funcional, tecnica y de ejecucion.
 
 ## D-01 Separador por defecto
-- Contexto:
-  El separador es configurable, pero falta fijar default de producto.
-- Opciones:
-  - `"\n"` (dataset-friendly, legible por linea),
-  - `" "` (salida lineal continua).
-- Recomendacion:
-  `"\n"`.
+- Estado: `CERRADA`
+- Decision final:
+  `"\n"` como separador por defecto.
 - Impacto:
-  UX inicial, ejemplos, QA y documentacion.
+  salida legible para datasets, validacion QA mas simple y menor ambiguedad en ejemplos.
 
 ## D-02 Definicion de `Mode=Auto` en V1
-- Contexto:
-  En el origen aparece como heuristica futura y tambien como opcion visible.
-- Opciones:
-  - Auto como alias de RAM en V1,
-  - Auto con heuristica minima por metadatos de entrada,
-  - no exponer Auto hasta V1.1.
-- Recomendacion:
-  Alias de RAM en V1 con tooltip explicito.
+- Estado: `CERRADA`
+- Decision final:
+  `Auto` se comporta como alias explicito de `Ram` en V1.
+- Requisito de UI:
+  tooltip obligatorio indicando que la heuristica automatica real queda para version posterior.
 - Impacto:
-  Complejidad tecnica, expectativa de usuario y soporte.
+  evita sobre-ingenieria temprana y reduce riesgo de comportamiento no determinista.
 
 ## D-03 Politica UI para `PreserveFirstSeen` en DISK
-- Contexto:
-  En DISK no se garantiza orden global de primera aparicion en esta version.
-- Opciones:
-  - permitir seleccion con advertencia clara,
-  - bloquear seleccion en DISK,
-  - remapear automaticamente a `FastBucketLocal`.
-- Recomendacion:
-  Permitir con advertencia fuerte + tooltip.
+- Estado: `CERRADA`
+- Decision final:
+  se permite seleccion en DISK, con advertencia fuerte + tooltip visible.
+- Mensaje minimo:
+  en DISK no se garantiza orden global de primera aparicion en esta version.
 - Impacto:
-  Correctitud percibida, transparencia y riesgo de malinterpretacion.
+  transparencia funcional sin bloquear casos de uso avanzados.
 
 ## D-04 Idioma de interfaz V1
-- Contexto:
-  La documentacion base esta en espanol y parte del copy de UI esta en ingles.
-- Opciones:
-  - Espanol,
-  - Ingles,
-  - bilingue.
-- Recomendacion:
-  Ingles tecnico en UI + glosario interno en espanol (si el equipo es mixto).
+- Estado: `CERRADA`
+- Decision final:
+  soporte en V1 para ingles (`en`) y chino simplificado (`zh-CN`).
+- Requisito de arquitectura:
+  i18n por claves, sin textos hardcodeados en componentes.
+- Requisito de escalabilidad:
+  estructura preparada para agregar idiomas futuros sin refactor grande.
 - Impacto:
-  Consistencia de copy, soporte y onboarding.
+  base internacional desde V1 con deuda tecnica de localizacion controlada.
 
 ## D-05 SLOs de rendimiento de aceptacion
-- Contexto:
-  Hay direccion tecnica de performance, pero faltan umbrales formales de aprobado/rechazado.
-- Definir:
-  - tiempo maximo objetivo por tamano de input,
-  - limite de memoria aceptable por modo,
-  - frecuencia minima de actualizacion de progreso sin congelamiento UI.
-- Recomendacion:
-  Fijar SLOs por entorno de prueba controlado antes de QA final.
-- Impacto:
-  QA objetivo, release readiness y comparabilidad de builds.
+- Estado: `CERRADA`
+- Decision final:
+  se adoptan SLOs iniciales de V1 para QA en entorno controlado.
+- SLOs V1 recomendados:
+  1. UI: no congelamiento percibido durante ejecucion; actualizacion de progreso entre 4 y 10 Hz.
+  2. ETA: mostrar ETA aproximada cuando exista base confiable; en caso contrario mostrar `-`.
+  3. RAM mode: limite objetivo de memoria pico <= 75% de RAM libre al inicio del job.
+  4. DISK mode: uso de memoria acotado y estable, priorizando spill a disco.
+  5. Performance base: registrar throughput y tiempos por dataset de referencia para controlar regresiones por release.
+- Nota:
+  los valores numericos finos por tamano de dataset se calibran en el primer ciclo de benchmarks del equipo.
 
-## Registro de decisiones
-Cuando se cierre cada decision:
-1. marcarla como `CERRADA` en este archivo,
-2. reflejar el cambio en `docs/01_RESUMEN_EJECUTIVO_FINAL.md`,
-3. reflejar el cambio en `docs/02_ESPECIFICACION_MOTOR_FINAL.md` o `docs/03_ESPECIFICACION_UI_TAURI_FINAL.md` segun aplique,
-4. sincronizar fechas y version en `docs/04_PLAN_PM_IMPLEMENTACION_FINAL.md`.
+## Politica de mantenimiento
+Si se cambia una decision cerrada:
+1. actualizar esta misma entrada con motivo y fecha,
+2. sincronizar `docs/01_RESUMEN_EJECUTIVO_FINAL.md`,
+3. sincronizar `docs/02_ESPECIFICACION_MOTOR_FINAL.md` y/o `docs/03_ESPECIFICACION_UI_TAURI_FINAL.md`,
+4. actualizar impacto de plan en `docs/04_PLAN_PM_IMPLEMENTACION_FINAL.md`.

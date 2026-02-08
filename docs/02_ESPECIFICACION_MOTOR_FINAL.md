@@ -44,7 +44,7 @@ Procesar uno o multiples archivos de texto para extraer tokens, eliminar duplica
 ### 3.1 Mode
 - `Ram`: cuando el dataset cabe en memoria.
 - `Disk`: para volumen grande con uso de almacenamiento temporal.
-- `Auto`: seleccion automatizada (en la version consolidada se trata como estrategia conservadora cercana a RAM por defecto, con evolucion prevista).
+- `Auto`: en V1 funciona como alias de `Ram` (la heuristica automatica real queda para version posterior).
 
 ### 3.2 Ordering
 - `PreserveFirstSeen`: mantiene primer orden de aparicion (estable en RAM).
@@ -121,12 +121,14 @@ Procesar uno o multiples archivos de texto para extraer tokens, eliminar duplica
 
 ## 9) Defaults operativos recomendados
 - `mode = Ram`
+- `mode_auto_behavior_v1 = RamAlias`
 - `ordering = PreserveFirstSeen`
 - `disk_alphabetical_mode = FastBucketLocal` cuando aplica
 - `disk_buckets = 256`
 - `disk_run_bytes = 256MB` (ajustable a 512MB segun hardware)
 - `trim = true`
 - `drop_empty = true`
+- `output_separator_default = "\n"`
 
 ## 10) Evolucion prevista (sin romper V1)
 1. Auto mode con heuristica real por muestreo.

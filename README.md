@@ -13,28 +13,15 @@ Este repositorio contiene la documentacion final organizada del producto, separa
 ## Estado actual
 - Documentacion separada y relacionada.
 - Definiciones funcionales principales cerradas.
-- Pendientes puntuales listados para decision de producto/equipo.
+- Decisiones V1 cerradas y registradas.
 
-## Decisiones que faltan para cerrar alcance V1
-1. Definir separador por defecto del producto:
-   - opcion A: `"\n"` (recomendada para datasets),
-   - opcion B: `" "` (alineada a lectura continua).
-2. Definir comportamiento final de `Mode=Auto` en V1:
-   - opcion A: alias explicito de `Ram`,
-   - opcion B: heuristica minima por tamano de entrada,
-   - opcion C: postergar heuristica y ocultar `Auto` en UI inicial.
-3. Definir politica de `PreserveFirstSeen` en DISK en UI:
-   - opcion A: permitir con advertencia fuerte,
-   - opcion B: deshabilitar seleccion en DISK,
-   - opcion C: remapear automatico a opcion soportada.
-4. Definir idioma de interfaz inicial:
-   - opcion A: Espanol,
-   - opcion B: Ingles,
-   - opcion C: bilingue desde V1.
-5. Definir objetivos de rendimiento de aceptacion (SLO internos):
-   - tiempo objetivo por tamano de entrada,
-   - limite maximo de uso de RAM por modo,
-   - fluidez minima UI durante ejecucion.
+## Decisiones V1 cerradas
+1. Separador por defecto: `"\n"`.
+2. `Mode=Auto`: alias explicito de `Ram` en V1.
+3. `PreserveFirstSeen` en DISK: permitido con advertencia clara en UI.
+4. Idiomas UI V1: ingles (`en`) y chino simplificado (`zh-CN`).
+5. i18n escalable: sin hardcode de textos, todo por claves.
+6. SLOs V1: UI fluida (4-10Hz), ETA aproximada cuando aplique, memoria controlada por modo y baseline de performance por dataset.
 
 ## Convencion de mantenimiento documental
 - Si cambia una decision de producto, actualizar primero `docs/05_DECISIONES_PENDIENTES.md` y luego reflejar en:
@@ -42,4 +29,3 @@ Este repositorio contiene la documentacion final organizada del producto, separa
   - `docs/02_ESPECIFICACION_MOTOR_FINAL.md`,
   - `docs/03_ESPECIFICACION_UI_TAURI_FINAL.md`,
   - `docs/04_PLAN_PM_IMPLEMENTACION_FINAL.md`.
-

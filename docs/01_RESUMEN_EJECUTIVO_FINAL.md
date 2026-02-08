@@ -25,6 +25,9 @@ Construir una app de escritorio para unir, depurar duplicados y exportar tokens 
    La salida respeta exactamente el separador elegido por el usuario.
 5. Sin separador extra al final.
 6. Modo DISK y tipo de orden deben ser seleccionables en UI.
+7. Separador por defecto de producto: `"\n"`.
+8. `Mode=Auto` en V1: alias de `Ram` (con tooltip explicito en UI).
+9. Localizacion V1: ingles (`en`) y chino simplificado (`zh-CN`), sin hardcode de textos.
 
 ## 3) Comportamiento de salida consolidado
 - El motor genera una secuencia de tokens unicos unidos por el separador final.
@@ -46,7 +49,7 @@ Construir una app de escritorio para unir, depurar duplicados y exportar tokens 
 - Mode:
   - Ram.
   - Disk.
-  - Auto (en esta version, orientado a comportamiento tipo RAM por defecto).
+  - Auto (en V1 funciona como alias de Ram).
 - En `Disk + Alphabetical`, submodo:
   - FastBucketLocal (default recomendado).
   - GlobalPerfect (mas preciso, mas lento).
@@ -61,7 +64,7 @@ Construir una app de escritorio para unir, depurar duplicados y exportar tokens 
 - `disk_run_bytes = 256MB` (escalable a 512MB segun hardware)
 - `trim = ON`
 - `drop_empty = ON`
-- Separador por defecto: definir por producto (`"\n"` recomendado en documentos finales previos, pero configurable).
+- `output_separator_default = "\n"`
 
 ## 8) Criterios de calidad final
 - Correctitud del dedupe exacto.

@@ -23,6 +23,7 @@ Entregables:
 - Documento final aprobado de motor.
 - Documento final aprobado de UI/Tauri.
 - Criterios QA cerrados.
+- Registro de decisiones V1 cerrado (`docs/05_DECISIONES_PENDIENTES.md`).
 
 Salida:
 - Decision log inicial firmado por equipo.
@@ -41,6 +42,7 @@ Entregables:
 - Pantalla unica completa (Inputs, Processing, Export, Run).
 - Integracion de commands/events con backend.
 - Estado de ejecucion y cancelacion robustos.
+- i18n base implementado (`en`, `zh-CN`) sin hardcode de strings.
 
 Salida:
 - Flujo end-to-end operativo.
@@ -101,6 +103,11 @@ Mitigacion:
 3. Sin bloqueos criticos en cancelacion y escritura de salida.
 4. UI estable bajo carga objetivo.
 5. Documentacion de limits y comportamientos conocidos publicada.
+6. SLOs V1 cumplidos en entorno controlado:
+   - progreso entre 4 y 10Hz,
+   - ETA mostrada solo cuando sea confiable,
+   - memoria en RAM mode controlada (objetivo <=75% de RAM libre al inicio),
+   - comportamiento estable de DISK mode con spill a disco.
 
 ## 7) Gobernanza de cambios
 - Cualquier cambio a reglas de parsing, orden o contrato IPC requiere:
@@ -110,4 +117,4 @@ Mitigacion:
   - decision registrada en changelog del producto.
 
 ## 8) Recomendacion de cierre
-Mantener estos cuatro documentos como fuente unica de trabajo para el equipo, y registrar ajustes posteriores como anexos versionados en lugar de editar decisiones historicas sin trazabilidad.
+Mantener este set documental como fuente unica de trabajo para el equipo, y registrar ajustes posteriores como anexos versionados en lugar de editar decisiones historicas sin trazabilidad.

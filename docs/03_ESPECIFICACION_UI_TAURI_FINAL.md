@@ -30,6 +30,7 @@ Una unica pantalla para:
 
 ### 3.2 Configuracion de procesamiento
 - Selector de `Mode`: `AUTO`, `RAM`, `DISK`.
+- Regla V1 para `AUTO`: se comporta como `RAM` y debe mostrarse tooltip explicativo.
 - Selector de `Output Ordering`:
   - `PreserveFirstSeen` (default),
   - `Alphabetical`,
@@ -37,6 +38,8 @@ Una unica pantalla para:
 - Si `DISK + Alphabetical`, mostrar subopciones:
   - `Fast (Recommended)` = FastBucketLocal,
   - `Global Perfect (Slower)` = GlobalPerfect.
+- Si `DISK + PreserveFirstSeen`, mostrar advertencia fuerte:
+  no se garantiza orden global de primera aparicion en esta version.
 
 ### 3.3 Separador de salida
 - Debe aceptar string arbitrario.
@@ -159,19 +162,27 @@ Una unica pantalla para:
 - Running con animacion minima y estable.
 - Success y error sin efectos distractores.
 
-## 9) Accesibilidad MUST
+## 9) Localizacion e internacionalizacion (MUST)
+- Idiomas V1 obligatorios:
+  - ingles (`en`),
+  - chino simplificado (`zh-CN`).
+- No se permite hardcodear textos en componentes.
+- Todo copy visible debe salir de claves i18n.
+- La estructura i18n debe permitir agregar nuevos idiomas sin refactor grande.
+
+## 10) Accesibilidad MUST
 - Contraste minimo AA.
 - Estados no solo por color.
 - Navegacion por teclado.
 - Respeto a `reduce motion` del sistema.
 
-## 10) Manejo de errores
+## 11) Manejo de errores
 - Error panel con mensaje humano corto.
 - Detalle tecnico colapsable.
 - Boton para copiar reporte de debug.
 - Accion `Retry`.
 
-## 11) Criterios de aceptacion QA
+## 12) Criterios de aceptacion QA
 1. Flujo completo RAM con salida valida.
 2. Flujo DISK + Alphabetical Fast con stages correctos.
 3. Flujo DISK + Alphabetical GlobalPerfect con stages correctos.
@@ -179,3 +190,4 @@ Una unica pantalla para:
 5. Cancelacion efectiva sin bloqueo de UI.
 6. UI fluida bajo carga con actualizaciones <=10Hz.
 7. Cumplimiento de contraste y foco visible.
+8. Cambio de idioma `en` <-> `zh-CN` sin reinicio de app.
