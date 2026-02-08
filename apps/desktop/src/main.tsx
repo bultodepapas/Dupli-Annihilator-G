@@ -33,6 +33,40 @@ type ProgressSnapshot = {
   etaMs: number | null;
 };
 
+type RunSummary = {
+  jobId: number;
+  status: "success" | "error" | "canceled";
+  startedAt: string;
+  finishedAt: string;
+  filesTotal: number;
+  filesDone: number;
+  tokensSeen: number;
+  uniqueTokens: number;
+  duplicates: number;
+  reductionPct: number;
+  uniqPct: number;
+  inputBytesTotal: number;
+  outputPath: string;
+  outputBytes: number;
+  mode: string;
+  modeEffective: string;
+  ordering: string;
+  diskAlphabeticalMode: string | null;
+  diskBuckets: number | null;
+  diskRunBytes: number | null;
+  trim: boolean;
+  dropEmpty: boolean;
+  outputSeparatorRaw: string;
+  outputSeparatorPreview: string;
+  elapsedMs: number;
+  avgThroughputTps: number;
+  peakThroughputTps: number | null;
+  stageDurationsMs: Record<string, number> | null;
+  tempBytesTotal: number | null;
+  warnings: string[];
+  errorMessage: string | null;
+};
+
 type RunStatus = "idle" | "running" | "done" | "error" | "canceled";
 
 type FormState = {
@@ -66,6 +100,7 @@ const DEFAULT_FORM: FormState = {
 };
 
 const LOCALE_STORAGE_KEY = "dupli.locale";
+const INT_FORMAT = new Intl.NumberFormat();
 
 function loadInitialLocale(): Locale {
   try {
@@ -241,6 +276,128 @@ function extractDroppedPaths(event: React.DragEvent<HTMLElement>): string[] {
   return Array.from(new Set(out));
 }
 
+function asNumber(value: unknown, fallback = 0): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function asString(value: unknown, fallback = ""): string {
+  return typeof value === "string" ? value : fallback;
+}
+
+function parseRunSummary(raw: Record<string, unknown>): RunSummary | null {
+  const status = asString(raw.status) as RunSummary["status"];
+  if (status !== "success" && status !== "error" && status !== "canceled") {
+    return null;
+  }
+
+  const stageDurationsRaw =
+    raw.stage_durations_ms && typeof raw.stage_durations_ms === "object"
+      ? (raw.stage_durations_ms as Record<string, unknown>)
+      : null;
+  const stageDurationsMs = stageDurationsRaw
+    ? Object.fromEntries(
+        Object.entries(stageDurationsRaw).map(([k, v]) => [k, asNumber(v)]),
+      )
+    : null;
+
+  return {
+    jobId: asNumber(raw.job_id),
+    status,
+    startedAt: asString(raw.started_at),
+    finishedAt: asString(raw.finished_at),
+    filesTotal: asNumber(raw.files_total),
+    filesDone: asNumber(raw.files_done),
+    tokensSeen: asNumber(raw.tokens_seen),
+    uniqueTokens: asNumber(raw.unique_tokens),
+    duplicates: asNumber(raw.duplicates),
+    reductionPct: asNumber(raw.reduction_pct),
+    uniqPct: asNumber(raw.uniq_pct),
+    inputBytesTotal: asNumber(raw.input_bytes_total),
+    outputPath: asString(raw.output_path),
+    outputBytes: asNumber(raw.output_bytes),
+    mode: asString(raw.mode),
+    modeEffective: asString(raw.mode_effective),
+    ordering: asString(raw.ordering),
+    diskAlphabeticalMode: raw.disk_alphabetical_mode ? asString(raw.disk_alphabetical_mode) : null,
+    diskBuckets: raw.disk_buckets === null || raw.disk_buckets === undefined ? null : asNumber(raw.disk_buckets),
+    diskRunBytes:
+      raw.disk_run_bytes === null || raw.disk_run_bytes === undefined ? null : asNumber(raw.disk_run_bytes),
+    trim: Boolean(raw.trim),
+    dropEmpty: Boolean(raw.drop_empty),
+    outputSeparatorRaw: asString(raw.output_separator_raw),
+    outputSeparatorPreview: asString(raw.output_separator_preview),
+    elapsedMs: asNumber(raw.elapsed_ms),
+    avgThroughputTps: asNumber(raw.avg_throughput_tps),
+    peakThroughputTps:
+      raw.peak_throughput_tps === null || raw.peak_throughput_tps === undefined
+        ? null
+        : asNumber(raw.peak_throughput_tps),
+    stageDurationsMs,
+    tempBytesTotal:
+      raw.temp_bytes_total === null || raw.temp_bytes_total === undefined ? null : asNumber(raw.temp_bytes_total),
+    warnings: Array.isArray(raw.warnings) ? raw.warnings.map((w) => String(w)) : [],
+    errorMessage: raw.error_message ? asString(raw.error_message) : null,
+  };
+}
+
+function formatInt(value: number): string {
+  return INT_FORMAT.format(value);
+}
+
+function formatPct(value: number): string {
+  return `${value.toFixed(2)}%`;
+}
+
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes < 0) {
+    return "-";
+  }
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let size = bytes;
+  let idx = 0;
+  while (size >= 1024 && idx < units.length - 1) {
+    size /= 1024;
+    idx += 1;
+  }
+  const frac = idx === 0 ? 0 : 2;
+  return `${size.toFixed(frac)} ${units[idx]}`;
+}
+
+function formatElapsed(elapsedMs: number): string {
+  const totalMs = Math.max(0, Math.floor(elapsedMs));
+  const totalSec = Math.floor(totalMs / 1000);
+  const minutes = Math.floor(totalSec / 60);
+  const seconds = totalSec % 60;
+  const tenths = Math.floor((totalMs % 1000) / 100);
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}.${tenths}`;
+}
+
+function formatIsoLocal(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) {
+    return iso || "-";
+  }
+  return date.toLocaleString();
+}
+
+function prettyMode(summary: RunSummary): string {
+  if (summary.mode === "auto" && summary.modeEffective) {
+    return `AUTO(->${summary.modeEffective.toUpperCase()})`;
+  }
+  return summary.mode.toUpperCase();
+}
+
+function buildSummaryBadge(summary: RunSummary): { text: string; cls: string } {
+  if (summary.status === "error") {
+    return { text: "ERROR", cls: "summary-badge-error" };
+  }
+  if (summary.status === "canceled" || summary.warnings.length > 0) {
+    return { text: "WARNING", cls: "summary-badge-warning" };
+  }
+  return { text: "SUCCESS", cls: "summary-badge-success" };
+}
+
 function validateForm(form: FormState, tr: (key: I18nKey, params?: Record<string, string | number>) => string): string[] {
   const errors: string[] = [];
   const inputs = parseInputs(form.inputsText);
@@ -292,6 +449,19 @@ function runButtonKey(status: RunStatus): I18nKey {
   }
 }
 
+function summaryTitleKey(status: RunSummary["status"]): I18nKey {
+  switch (status) {
+    case "success":
+      return "summary.title.success";
+    case "error":
+      return "summary.title.error";
+    case "canceled":
+      return "summary.title.canceled";
+    default:
+      return "summary.title.success";
+  }
+}
+
 async function resolveDefaultOutputPath(): Promise<string | null> {
   try {
     return await invoke<string>("default_output_path");
@@ -314,6 +484,7 @@ function App() {
   const [message, setMessage] = React.useState<string>(() => t(INITIAL_LOCALE, "message.idle"));
   const [progress, setProgress] = React.useState<ProgressSnapshot>(EMPTY_PROGRESS);
   const [inputsDragActive, setInputsDragActive] = React.useState(false);
+  const [lastSummary, setLastSummary] = React.useState<RunSummary | null>(null);
 
   const pollingRef = React.useRef(false);
   const parsedInputs = React.useMemo(() => parseInputs(form.inputsText), [form.inputsText]);
@@ -330,6 +501,18 @@ function App() {
     () => escapeControlChars(separatorPreview),
     [separatorPreview],
   );
+  const showSummaryScreen = lastSummary !== null && runStatus !== "running";
+  const summaryBadge = React.useMemo(
+    () => (lastSummary ? buildSummaryBadge(lastSummary) : null),
+    [lastSummary],
+  );
+  const summaryStageRows = React.useMemo(() => {
+    if (!lastSummary?.stageDurationsMs) {
+      return [] as Array<[string, number]>;
+    }
+    return Object.entries(lastSummary.stageDurationsMs).sort((a, b) => b[1] - a[1]);
+  }, [lastSummary]);
+  const summaryTopStages = React.useMemo(() => summaryStageRows.slice(0, 3), [summaryStageRows]);
 
   const appendMessage = React.useCallback((text: string) => {
     setMessage(text);
@@ -345,6 +528,42 @@ function App() {
       return { ...prev, inputsText: deduped.join("\n") };
     });
   }, []);
+
+  const buildSummaryReport = React.useCallback(
+    (summary: RunSummary): string => {
+      const lines: string[] = [];
+      lines.push("MISSION REPORT");
+      lines.push(
+        `${summary.status.toUpperCase()} • ${prettyMode(summary)} • ${summary.ordering} • ${summary.diskAlphabeticalMode ?? "-"}`,
+      );
+      lines.push(`job_id: ${summary.jobId}`);
+      lines.push(`finished_at: ${summary.finishedAt}`);
+      lines.push(`tokens_seen: ${summary.tokensSeen}`);
+      lines.push(`unique_tokens: ${summary.uniqueTokens}`);
+      lines.push(`duplicates: ${summary.duplicates}`);
+      lines.push(`reduction_pct: ${summary.reductionPct}`);
+      lines.push(`uniq_pct: ${summary.uniqPct}`);
+      lines.push(`elapsed_ms: ${summary.elapsedMs}`);
+      lines.push(`avg_throughput_tps: ${summary.avgThroughputTps}`);
+      lines.push(`output_path: ${summary.outputPath}`);
+      lines.push(`output_bytes: ${summary.outputBytes}`);
+      lines.push(`separator_raw: ${summary.outputSeparatorRaw}`);
+      lines.push(`separator_preview: ${summary.outputSeparatorPreview}`);
+      lines.push(`trim: ${summary.trim ? "on" : "off"}`);
+      lines.push(`drop_empty: ${summary.dropEmpty ? "on" : "off"}`);
+      if (summary.warnings.length > 0) {
+        lines.push("warnings:");
+        for (const warning of summary.warnings) {
+          lines.push(`- ${warning}`);
+        }
+      }
+      if (summary.errorMessage) {
+        lines.push(`error_message: ${summary.errorMessage}`);
+      }
+      return lines.join("\n");
+    },
+    [],
+  );
 
   const syncRuntimeState = React.useCallback(async () => {
     const state = await invoke<RuntimeState>("get_runtime_state");
@@ -429,6 +648,19 @@ function App() {
             appendMessage(tr("message.canceled"));
             break;
           }
+          case "job://summary": {
+            const raw = ev.payload.summary;
+            if (!raw || typeof raw !== "object") {
+              break;
+            }
+            const parsed = parseRunSummary(raw as Record<string, unknown>);
+            if (!parsed) {
+              break;
+            }
+            setLastSummary(parsed);
+            appendMessage(tr("message.summary_ready"));
+            break;
+          }
           default:
             break;
         }
@@ -504,6 +736,7 @@ function App() {
     };
 
     try {
+      setLastSummary(null);
       setRunStatus("running");
       setMessage(tr("message.starting"));
       setProgress(EMPTY_PROGRESS);
@@ -600,6 +833,65 @@ function App() {
       separator: preset.value,
       rawSeparator: preset.raw,
     }));
+  };
+
+  const openSummaryOutput = async () => {
+    if (!lastSummary) {
+      return;
+    }
+    try {
+      await invoke("open_output", { req: { path: lastSummary.outputPath } });
+    } catch (err) {
+      appendMessage(tr("message.open_output_failed", { detail: String(err) }));
+    }
+  };
+
+  const openSummaryFolder = async () => {
+    if (!lastSummary) {
+      return;
+    }
+    try {
+      await invoke("open_output_folder", { req: { path: lastSummary.outputPath } });
+    } catch (err) {
+      appendMessage(tr("message.open_output_folder_failed", { detail: String(err) }));
+    }
+  };
+
+  const copySummaryReport = async () => {
+    if (!lastSummary) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(buildSummaryReport(lastSummary));
+      appendMessage(tr("message.report_copied"));
+    } catch (err) {
+      appendMessage(tr("message.copy_report_failed", { detail: String(err) }));
+    }
+  };
+
+  const exportSummaryJson = async () => {
+    if (!lastSummary) {
+      return;
+    }
+    try {
+      const defaultName = `run-summary-${lastSummary.jobId}.json`;
+      const selected = await save({
+        defaultPath: defaultName,
+        filters: [{ name: "JSON", extensions: ["json"] }],
+      });
+      if (!selected) {
+        return;
+      }
+      await invoke("export_summary_json", {
+        req: {
+          path: selected,
+          content: JSON.stringify(lastSummary, null, 2),
+        },
+      });
+      appendMessage(tr("message.summary_exported"));
+    } catch (err) {
+      appendMessage(tr("message.export_summary_failed", { detail: String(err) }));
+    }
   };
 
   const progressPercent =
