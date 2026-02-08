@@ -1,5 +1,5 @@
 use dedupe_core::{Config, DiskAlphabeticalMode, Mode, OutputOrdering};
-use dedupe_job_runner::{JobEvent, JobManager};
+use dedupe_job_runner::{JobEvent, JobManager, RunTerminalStatus};
 use std::fs;
 use std::time::{Duration, Instant};
 
@@ -143,4 +143,49 @@ fn job_event_topics_and_json_are_stable() {
     let v = ev.to_json_value();
     assert_eq!(v.get("type").and_then(|x| x.as_str()), Some("progress"));
     assert_eq!(v.get("job_id").and_then(|x| x.as_u64()), Some(7));
+}
+
+#[test]
+fn done_job_emits_summary_with_actionable_metrics() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let input = dir.path().join("in.txt");
+    let output = dir.path().join("out.txt");
+    fs::write(&input, "a,b,b;c\na c").expect("write input");
+
+    let manager = JobManager::new();
+    let job_id = manager
+        .start_job(make_ram_config(input, output.clone()))
+        .expect("start job");
+
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let mut saw_summary = false;
+    while Instant::now() < deadline {
+        let Some(event) = manager.next_event_timeout(Duration::from_millis(200)) else {
+            continue;
+        };
+
+        if let JobEvent::Summary { job_id: id, summary } = event {
+            if id != job_id {
+                continue;
+            }
+            saw_summary = true;
+            assert_eq!(summary.status, RunTerminalStatus::Success);
+            assert_eq!(summary.output_path, output.to_string_lossy());
+            assert_eq!(summary.tokens_seen, 6);
+            assert_eq!(summary.unique_tokens, 3);
+            assert_eq!(summary.duplicates, 3);
+            assert_eq!(summary.reduction_pct, 50.0);
+            assert_eq!(summary.uniq_pct, 50.0);
+            assert!(summary.output_bytes > 0);
+            assert!(summary.avg_throughput_tps > 0);
+            assert_eq!(summary.mode, "ram");
+            assert_eq!(summary.mode_effective, "ram");
+            assert_eq!(summary.ordering, "preserve_first_seen");
+            assert_eq!(summary.output_separator_raw, ",");
+            assert_eq!(summary.output_separator_preview, ",");
+            break;
+        }
+    }
+
+    assert!(saw_summary, "missing summary event");
 }
