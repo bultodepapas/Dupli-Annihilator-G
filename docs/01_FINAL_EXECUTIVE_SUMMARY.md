@@ -7,6 +7,7 @@
 - `docs/03_FINAL_UI_TAURI_SPECIFICATION.md`
 - `docs/04_FINAL_PM_IMPLEMENTATION_PLAN.md`
 - `docs/05_PENDING_DECISIONS.md`
+- `docs/06_DOCUMENT_CONTROL.md`
 
 ## 1) Executive Objective
 Ship a desktop-grade deduplication tool with deterministic behavior, high throughput on large datasets, and operationally safe UX for technical users.

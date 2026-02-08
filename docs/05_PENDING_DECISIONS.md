@@ -7,6 +7,7 @@
 - `docs/02_FINAL_ENGINE_SPECIFICATION.md`
 - `docs/03_FINAL_UI_TAURI_SPECIFICATION.md`
 - `docs/04_FINAL_PM_IMPLEMENTATION_PLAN.md`
+- `docs/06_DOCUMENT_CONTROL.md`
 
 ## 1) Purpose
 Maintain an auditable and traceable record of V1 product decisions.

@@ -7,6 +7,7 @@
 - `docs/02_FINAL_ENGINE_SPECIFICATION.md`
 - `docs/03_FINAL_UI_TAURI_SPECIFICATION.md`
 - `docs/05_PENDING_DECISIONS.md`
+- `docs/06_DOCUMENT_CONTROL.md`
 
 ## 1) Plan Objective
 Provide an execution-grade delivery plan for a senior team to ship V1 with controlled scope, measurable quality, and low rework risk.

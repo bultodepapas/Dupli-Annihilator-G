@@ -7,6 +7,7 @@
 - `docs/02_FINAL_ENGINE_SPECIFICATION.md`
 - `docs/04_FINAL_PM_IMPLEMENTATION_PLAN.md`
 - `docs/05_PENDING_DECISIONS.md`
+- `docs/06_DOCUMENT_CONTROL.md`
 
 ## 1) Scope and Source of Truth
 This specification defines the desktop application layer for V1 using Tauri v2.

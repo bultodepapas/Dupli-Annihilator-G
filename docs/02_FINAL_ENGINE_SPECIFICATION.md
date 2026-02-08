@@ -7,6 +7,7 @@
 - `docs/03_FINAL_UI_TAURI_SPECIFICATION.md`
 - `docs/04_FINAL_PM_IMPLEMENTATION_PLAN.md`
 - `docs/05_PENDING_DECISIONS.md`
+- `docs/06_DOCUMENT_CONTROL.md`
 
 ## 1) Scope and Intent
 This document defines the final V1 engine behavior derived from the final engine section of `ideaV0.01.md`.
