@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Context, Result};
 use clap::{ArgAction, Parser, ValueEnum};
 use dedupe_backend::{
-    ApiDiskAlphabeticalMode, ApiMode, ApiOrdering, BackendService, CancelJobRequest,
+    ApiDiskAlphabeticalMode, ApiMode, ApiOrdering, BackendJobEvent, BackendService, CancelJobRequest,
     StartJobConfig, StartJobRequest,
 };
 use std::path::PathBuf;
@@ -117,110 +117,52 @@ fn main() -> Result<()> {
             }
         }
 
-        let Some(event) = backend.next_emitted_event_timeout(Duration::from_millis(200)) else {
+        let Some(event) = backend.next_event_timeout(Duration::from_millis(200)) else {
             continue;
         };
 
-        match event.topic.as_str() {
-            "job://started" => {
+        match event {
+            BackendJobEvent::Started { .. } => {
                 if !cli.quiet {
                     eprintln!("[job] started id={job_id}");
                 }
             }
-            "job://stage" => {
+            BackendJobEvent::Stage { stage, .. } => {
                 if !cli.quiet {
-                    let stage = event
-                        .payload
-                        .get("stage")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("unknown");
                     eprintln!("[stage] {stage}");
                 }
             }
-            "job://progress" => {
+            BackendJobEvent::Progress {
+                files_done,
+                files_total,
+                tokens_seen,
+                unique_tokens,
+                duplicates,
+                throughput_tps,
+                elapsed_ms,
+                eta_ms,
+                ..
+            } => {
                 if !cli.quiet {
-                    let files_done = event
-                        .payload
-                        .get("files_done")
-                        .and_then(|v| v.as_u64())
-                        .unwrap_or(0);
-                    let files_total = event
-                        .payload
-                        .get("files_total")
-                        .and_then(|v| v.as_u64())
-                        .unwrap_or(0);
-                    let tokens_seen = event
-                        .payload
-                        .get("tokens_seen")
-                        .and_then(|v| v.as_u64())
-                        .unwrap_or(0);
-                    let unique_tokens = event
-                        .payload
-                        .get("unique_tokens")
-                        .and_then(|v| v.as_u64())
-                        .unwrap_or(0);
-                    let duplicates = event
-                        .payload
-                        .get("duplicates")
-                        .and_then(|v| v.as_u64())
-                        .unwrap_or(0);
-                    let throughput_tps = event
-                        .payload
-                        .get("throughput_tps")
-                        .and_then(|v| v.as_u64())
-                        .unwrap_or(0);
-                    let elapsed_ms = event
-                        .payload
-                        .get("elapsed_ms")
-                        .and_then(|v| v.as_u64())
-                        .unwrap_or(0);
-                    let eta_ms = event.payload.get("eta_ms").and_then(|v| v.as_u64());
-
                     eprintln!(
                         "[progress] files={files_done}/{files_total} tokens={tokens_seen} unique={unique_tokens} dup={duplicates} tps={throughput_tps} elapsed_ms={elapsed_ms} eta_ms={}",
                         eta_ms.map(|v| v.to_string()).unwrap_or_else(|| "-".to_string())
                     );
                 }
             }
-            "job://done" => {
-                let stats = event.payload.get("stats");
+            BackendJobEvent::Done { stats, .. } => {
                 println!(
                     "done files={} tokens_seen={} unique={} duplicates={} elapsed_ms={}",
-                    stats
-                        .and_then(|s| s.get("files"))
-                        .and_then(|v| v.as_u64())
-                        .unwrap_or(0),
-                    stats
-                        .and_then(|s| s.get("tokens_seen"))
-                        .and_then(|v| v.as_u64())
-                        .unwrap_or(0),
-                    stats
-                        .and_then(|s| s.get("unique_tokens"))
-                        .and_then(|v| v.as_u64())
-                        .unwrap_or(0),
-                    stats
-                        .and_then(|s| s.get("duplicates"))
-                        .and_then(|v| v.as_u64())
-                        .unwrap_or(0),
-                    stats
-                        .and_then(|s| s.get("elapsed_ms"))
-                        .and_then(|v| v.as_u64())
-                        .unwrap_or(0)
+                    stats.files, stats.tokens_seen, stats.unique_tokens, stats.duplicates, stats.elapsed_ms
                 );
                 break;
             }
-            "job://error" => {
-                let message = event
-                    .payload
-                    .get("message")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("unknown error");
+            BackendJobEvent::Error { message, .. } => {
                 return Err(anyhow!("engine run failed: {message}"));
             }
-            "job://canceled" => {
+            BackendJobEvent::Canceled { .. } => {
                 return Err(anyhow!("job canceled"));
             }
-            _ => {}
         }
     }
 
