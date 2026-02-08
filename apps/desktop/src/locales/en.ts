@@ -22,6 +22,7 @@ export const en = {
   "button.open_folder": "OPEN FOLDER",
   "button.copy_report": "COPY REPORT",
   "button.export_json": "EXPORT JSON",
+  "button.close_report": "CLOSE REPORT",
 
   "field.inputs": "Input files (one absolute path per line)",
   "field.output": "Output file path",

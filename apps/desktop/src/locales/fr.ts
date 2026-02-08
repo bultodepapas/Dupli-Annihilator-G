@@ -102,6 +102,7 @@ export const fr: Dictionary = {
   "button.open_folder": "OPEN FOLDER",
   "button.copy_report": "COPY REPORT",
   "button.export_json": "EXPORT JSON",
+  "button.close_report": "CLOSE REPORT",
   "summary.mission_report": "MISSION REPORT",
   "summary.title.success": "Run Complete",
   "summary.title.error": "Run Failed",

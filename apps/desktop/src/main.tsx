@@ -894,6 +894,10 @@ function App() {
     }
   };
 
+  const closeSummaryReport = () => {
+    setLastSummary(null);
+  };
+
   const progressPercent =
     progress.filesTotal > 0 ? Math.min(100, (progress.filesDone / progress.filesTotal) * 100) : 0;
 
@@ -1056,6 +1060,7 @@ function App() {
                 <button className="secondary" onClick={() => void openSummaryFolder()}>{tr("button.open_folder")}</button>
                 <button className="secondary" onClick={() => void copySummaryReport()}>{tr("button.copy_report")}</button>
                 <button className="secondary" onClick={() => void exportSummaryJson()}>{tr("button.export_json")}</button>
+                <button className="secondary" onClick={closeSummaryReport}>{tr("button.close_report")}</button>
                 <button className="primary" disabled={!canRun} onClick={() => void startJob()}>{tr("button.run_again")}</button>
               </div>
             </footer>
