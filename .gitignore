@@ -2,3 +2,5 @@
 **/target/
 .tmp_smoke/
 .tmp_cli/
+apps/desktop/src-tauri/gen/
+apps/desktop/src-tauri/Cargo.lock

@@ -3,6 +3,8 @@ name = "dedupe_desktop_tauri"
 version = "0.1.0"
 edition = "2021"
 
+[package.metadata]
+
 [build-dependencies]
 tauri-build = { version = "2" }
 
