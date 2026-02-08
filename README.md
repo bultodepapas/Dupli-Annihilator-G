@@ -2,14 +2,58 @@
 
 **Principal Author:** Giuseppe Rojas
 
-Dupli-Annihilator-G is a Rust-based duplicate-line processing system with:
-- core engine (`crates/core`)
-- job orchestration + backend API (`crates/job_runner`, `crates/backend`)
-- CLI app (`apps/cli`)
-- desktop app (Tauri + React) (`apps/desktop`)
-- product and engineering documentation (`docs`)
+Dupli-Annihilator-G is a desktop tool that removes duplicate tokens from text-like files and exports a clean output file.
+
+## Quick Start (End Users)
+
+If you just want to use the app:
+1. Download the installer from this repository's **GitHub Releases** page.
+2. Open the desktop app.
+3. Add one or more input files (picker or drag and drop).
+4. Choose the output file path.
+5. Click `RUN` and wait for `DONE`.
+
+## What You Can Do
+
+- Merge multiple input files into one deduplicated output.
+- Keep first-seen order, sort alphabetically, or run in fastest unordered mode.
+- Choose RAM, DISK, or AUTO execution mode.
+- Configure output separator (`\n`, `\t`, custom separator, raw separator).
+- Monitor progress, throughput, elapsed time, and ETA in real time.
+- Cancel and retry safely.
+
+## How The Output Works
+
+- Deduplication is exact and case-sensitive (`Perro`, `perro`, `PERRO` are different).
+- Token delimiters are fixed to whitespace, comma `,`, and semicolon `;`.
+- Output is generated with your selected separator.
+- No trailing separator is written at the end of the output file.
+
+## Language Support (Desktop UI)
+
+Current UI locales in the app:
+- `en`
+- `zh-CN`
+- `hi`
+- `es`
+- `fr`
+- `ar`
+- `bn`
+- `pt`
+- `ru`
+- `ur`
+
+## Project Layout
+
+- Core engine: `crates/core`
+- Job orchestration: `crates/job_runner`
+- Backend API: `crates/backend`
+- CLI app: `apps/cli`
+- Desktop app (Tauri + React): `apps/desktop`
+- Product and engineering docs: `docs`
 
 ## Documentation Baseline
+
 - Baseline version: `V1.0`
 - Current document-set version: `V1.1.2`
 - Baseline date: `2026-02-08`
