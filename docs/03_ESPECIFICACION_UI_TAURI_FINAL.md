@@ -1,112 +1,112 @@
-# Especificacion UI/Tauri v2 (Final, sin codigo)
+# UI/Tauri v2 Specification (Final, No Code)
 
-## Documentos relacionados
+## Related Documents
 - `README.md`
 - `docs/00_INDICE_DOCUMENTACION_FINAL.md`
 - `docs/01_RESUMEN_EJECUTIVO_FINAL.md`
 - `docs/02_ESPECIFICACION_MOTOR_FINAL.md`
 - `docs/04_PLAN_PM_IMPLEMENTACION_FINAL.md`
-- `docs/05_DECISIONES_PENDIENTES.md`
+- `docs/05_PENDING_DECISIONS.md`
 
-## 1) Objetivo de la aplicacion desktop
-Una unica pantalla para:
-1. seleccionar multiples archivos de entrada,
-2. configurar modo, orden y separador de salida,
-3. elegir archivo final de exportacion,
-4. ejecutar, monitorear y cancelar el job sin bloquear UI.
+## 1) Desktop Application Objective
+A single-screen desktop experience that enables users to:
+1. select multiple input files,
+2. configure mode, ordering, and output separator,
+3. choose output target path and file,
+4. run, monitor, and cancel jobs without blocking the UI.
 
-## 2) Stack recomendado (nivel equipo senior)
-- Tauri v2 para contenedor desktop.
-- Frontend React + TypeScript.
-- Sistema visual con Tailwind y componentes headless.
-- Motor pesado en Rust; frontend solo orquesta y visualiza.
+## 2) Recommended Stack (Senior Team Baseline)
+- Tauri v2 as desktop shell.
+- React + TypeScript frontend.
+- Tailwind + headless components for UI system.
+- Rust engine for heavy processing; frontend handles orchestration and visualization.
 
-## 3) Requisitos funcionales MUST
+## 3) MUST Functional Requirements
 
 ### 3.1 Inputs
-- Seleccion de N archivos (boton + drag and drop).
-- Lista con nombre, tamano, ruta truncada y remove individual.
-- Accion `Clear all`.
+- Support N input files (button + drag and drop).
+- File list must display name, size, truncated path, and per-item remove action.
+- `Clear all` action is required.
 
-### 3.2 Configuracion de procesamiento
-- Selector de `Mode`: `AUTO`, `RAM`, `DISK`.
-- Regla V1 para `AUTO`: se comporta como `RAM` y debe mostrarse tooltip explicativo.
-- Selector de `Output Ordering`:
+### 3.2 Processing Configuration
+- `Mode` selector: `AUTO`, `RAM`, `DISK`.
+- V1 rule for `AUTO`: behaves as `RAM`, with explicit tooltip.
+- `Output Ordering` selector:
   - `PreserveFirstSeen` (default),
   - `Alphabetical`,
   - `UnorderedFast` (advanced).
-- Si `DISK + Alphabetical`, mostrar subopciones:
-  - `Fast (Recommended)` = FastBucketLocal,
-  - `Global Perfect (Slower)` = GlobalPerfect.
-- Si `DISK + PreserveFirstSeen`, mostrar advertencia fuerte:
-  no se garantiza orden global de primera aparicion en esta version.
+- If `DISK + Alphabetical`, show sub-options:
+  - `Fast (Recommended)` = `FastBucketLocal`,
+  - `Global Perfect (Slower)` = `GlobalPerfect`.
+- If `DISK + PreserveFirstSeen`, show a strong warning:
+  global first-seen order is not guaranteed in V1.
 
-### 3.3 Separador de salida
-- Debe aceptar string arbitrario.
-- Debe ofrecer presets comunes.
-- Debe permitir custom separator.
-- Debe incluir toggle `Interpret escapes` (ON por defecto).
-- Debe mostrar preview visible del resultado.
+### 3.3 Output Separator
+- Must accept arbitrary string separator.
+- Must provide common presets.
+- Must support custom separator input.
+- Must include `Interpret escapes` toggle (default ON).
+- Must include output preview visualization.
 
-### 3.4 Output file
-- Seleccion de ruta y nombre por Save dialog.
-- Validacion de salida no vacia.
-- Confirmacion de overwrite cuando corresponda.
+### 3.4 Output File
+- Path and filename selection via Save dialog.
+- Must validate non-empty output path.
+- Must confirm overwrite when target exists.
 
-### 3.5 Ejecucion y cancelacion
-- Boton principal con estados:
+### 3.5 Run and Cancel
+- Primary CTA states:
   - `RUN`,
-  - `CANCEL` (durante ejecucion),
-  - `RUN AGAIN` (finalizado),
+  - `CANCEL` (while running),
+  - `RUN AGAIN` (completed),
   - `RETRY` (error).
-- Estados operativos visibles:
+- Visible runtime status states:
   - `Idle`, `Running`, `Finalizing`, `Done`, `Error`, `Canceled`.
 
-## 4) Progreso, telemetria y ETA
+## 4) Progress, Telemetry, and ETA
 
-### 4.1 Principio de rendimiento
-- Sin streaming de logs por token.
-- Solo telemetria agregada y eventos throttled.
+### 4.1 Performance Principle
+- No per-token log streaming to UI.
+- Only aggregated telemetry and throttled events.
 
-### 4.2 Progreso visual
-- Barra de progreso destacada.
-- Determinate cuando haya base confiable.
-- Indeterminate cuando no exista base confiable.
-- Stage actual y detail line obligatorios.
+### 4.2 Progress Visualization
+- Prominent progress bar.
+- Determinate mode when reliable progress basis exists.
+- Indeterminate mode otherwise.
+- Current stage and detail line are required.
 
-### 4.3 Metricas live
+### 4.3 Live Metrics
 - `tokens_seen`
 - `unique_tokens`
 - `duplicates`
-- `throughput (tokens/sec)` suavizado
+- smoothed `throughput (tokens/sec)`
 - `elapsed`
-- `ETA (approx)` o `-` cuando no aplique
+- `ETA (approx)` or `-` when unreliable
 
-### 4.4 Stages de referencia en UI
+### 4.4 Reference Stages in UI
 - RAM:
-  - ScanningInputs,
-  - Tokenizing,
-  - Deduplicating,
-  - Sorting (si aplica),
-  - WritingOutput,
-  - Finalizing.
+  - `ScanningInputs`,
+  - `Tokenizing`,
+  - `Deduplicating`,
+  - `Sorting` (if applicable),
+  - `WritingOutput`,
+  - `Finalizing`.
 - DISK fast:
-  - PartitioningBuckets,
-  - ReducingBuckets,
-  - WritingOutput,
-  - Finalizing.
+  - `PartitioningBuckets`,
+  - `ReducingBuckets`,
+  - `WritingOutput`,
+  - `Finalizing`.
 - DISK global perfect:
-  - GeneratingRuns,
-  - MergingRuns,
-  - WritingOutput,
-  - Finalizing.
+  - `GeneratingRuns`,
+  - `MergingRuns`,
+  - `WritingOutput`,
+  - `Finalizing`.
 
-## 5) Contrato de integracion Frontend <-> Rust
+## 5) Frontend <-> Rust Integration Contract
 
 ### 5.1 Commands
-- `start_job(config)` retorna identificador de trabajo.
-- `cancel_job(job_id)` solicita cancelacion.
-- `get_app_info()` opcional.
+- `start_job(config)` returns job identifier.
+- `cancel_job(job_id)` requests cancellation.
+- `get_app_info()` optional.
 
 ### 5.2 Events
 - `job://started`
@@ -115,79 +115,79 @@ Una unica pantalla para:
 - `job://error`
 - `job://canceled`
 
-### 5.3 Campos minimos esperados en progreso
-- jobId,
-- stage,
-- progress01 best-effort,
-- filesDone/filesTotal,
-- tokensSeen/uniqueTokens/duplicates,
-- throughput,
-- elapsed,
-- eta,
-- detail.
+### 5.3 Minimum Progress Payload Fields
+- `jobId`
+- `stage`
+- `progress01` (best effort)
+- `filesDone/filesTotal`
+- `tokensSeen/uniqueTokens/duplicates`
+- `throughput`
+- `elapsed`
+- `eta`
+- `detail`
 
-## 6) Seguridad en Tauri v2
-- Modelo de capacidades minimas por ventana.
-- Lectura/escritura pesada solo en Rust.
-- Frontend con acceso a FS solo para dialogos y metadatos necesarios.
+## 6) Tauri v2 Security
+- Per-window least-privilege capability model.
+- Heavy file read/write must run in Rust.
+- Frontend file system access limited to dialog and minimal metadata operations.
 
-## 7) Performance UI obligatoria
-1. Throttling backend->frontend: 4-10 actualizaciones por segundo maximo.
-2. Throttling/batching en frontend para evitar re-render excesivo.
-3. Evitar miles de nodos en pantalla (logs infinitos o tablas gigantes).
-4. Virtualizar lista solo cuando volumen de items lo justifique.
+## 7) Mandatory UI Performance Rules
+1. Backend-to-frontend throttling: max 4-10 updates/sec.
+2. Frontend state batching/throttling to limit re-render pressure.
+3. Avoid large DOM structures (infinite logs, oversized tables).
+4. Virtualize lists only when item volume justifies it.
 
-## 8) Sistema visual final ("Neon Lab")
+## 8) Final Visual System ("Neon Lab")
 
-### 8.1 Direccion visual
-- Dark-first con acentos neon controlados.
-- Estetica de instrumento cientifico, no arcade.
-- Jerarquia limpia, ruido visual minimo.
+### 8.1 Visual Direction
+- Dark-first palette with controlled neon accents.
+- Scientific instrument aesthetic, not arcade.
+- Clear hierarchy and low visual noise.
 
-### 8.2 Paleta base consolidada
-- Fondos: `#05070D`, `#0B1020`, `#0F1730`.
-- Texto: `#E6F0FF` y variantes atenuadas.
-- Acentos: cyan, magenta, lime, amber, red.
-- Borde y glow discretos para foco y estado activo.
+### 8.2 Consolidated Base Palette
+- Backgrounds: `#05070D`, `#0B1020`, `#0F1730`.
+- Text: `#E6F0FF` and attenuated variants.
+- Accents: cyan, magenta, lime, amber, red.
+- Border/glow: subtle focus and active-state use only.
 
-### 8.3 Layout final de pantalla unica
-- Header: marca + modo actual.
-- Panel Inputs.
-- Panel Processing.
-- Panel Export.
-- Footer de telemetria en vivo.
+### 8.3 Final One-Screen Layout
+- Header: brand + current mode.
+- Inputs panel.
+- Processing panel.
+- Export panel.
+- Live telemetry footer.
 
-### 8.4 Microinteracciones
-- Hover/focus claros y breves.
-- Running con animacion minima y estable.
-- Success y error sin efectos distractores.
+### 8.4 Microinteractions
+- Clear, short hover/focus transitions.
+- Minimal, stable running-state motion.
+- Non-distracting success and error feedback.
 
-## 9) Localizacion e internacionalizacion (MUST)
-- Idiomas V1 obligatorios:
-  - ingles (`en`),
-  - chino simplificado (`zh-CN`).
-- No se permite hardcodear textos en componentes.
-- Todo copy visible debe salir de claves i18n.
-- La estructura i18n debe permitir agregar nuevos idiomas sin refactor grande.
+## 9) Localization and Internationalization (MUST)
+- Required V1 locales:
+  - English (`en`),
+  - Simplified Chinese (`zh-CN`).
+- No hardcoded text inside UI components.
+- All visible copy must come from i18n keys.
+- i18n structure must support adding future locales without major refactor.
 
-## 10) Accesibilidad MUST
-- Contraste minimo AA.
-- Estados no solo por color.
-- Navegacion por teclado.
-- Respeto a `reduce motion` del sistema.
+## 10) Accessibility (MUST)
+- Minimum WCAG AA contrast.
+- Non-color-only status signaling.
+- Full keyboard navigation.
+- Respect system `reduce motion` preference.
 
-## 11) Manejo de errores
-- Error panel con mensaje humano corto.
-- Detalle tecnico colapsable.
-- Boton para copiar reporte de debug.
-- Accion `Retry`.
+## 11) Error Handling
+- Human-readable short error message.
+- Collapsible technical detail.
+- `Copy debug report` action.
+- `Retry` action.
 
-## 12) Criterios de aceptacion QA
-1. Flujo completo RAM con salida valida.
-2. Flujo DISK + Alphabetical Fast con stages correctos.
-3. Flujo DISK + Alphabetical GlobalPerfect con stages correctos.
-4. Interpretacion correcta de escapes del separador.
-5. Cancelacion efectiva sin bloqueo de UI.
-6. UI fluida bajo carga con actualizaciones <=10Hz.
-7. Cumplimiento de contraste y foco visible.
-8. Cambio de idioma `en` <-> `zh-CN` sin reinicio de app.
+## 12) QA Acceptance Criteria
+1. Full RAM flow produces valid output.
+2. DISK + Alphabetical Fast flow reports correct stages.
+3. DISK + Alphabetical GlobalPerfect flow reports correct stages.
+4. Separator escape interpretation is correct.
+5. Cancellation works without UI blocking.
+6. UI remains fluid under load with updates <= 10Hz.
+7. Contrast and focus visibility are compliant.
+8. Runtime language switch `en` <-> `zh-CN` works without app restart.

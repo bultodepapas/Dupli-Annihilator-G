@@ -1,120 +1,120 @@
-# Plan PM de Implementacion (Final)
+# PM Delivery Plan (Final)
 
-## Documentos relacionados
+## Related Documents
 - `README.md`
 - `docs/00_INDICE_DOCUMENTACION_FINAL.md`
 - `docs/01_RESUMEN_EJECUTIVO_FINAL.md`
 - `docs/02_ESPECIFICACION_MOTOR_FINAL.md`
 - `docs/03_ESPECIFICACION_UI_TAURI_FINAL.md`
-- `docs/05_DECISIONES_PENDIENTES.md`
+- `docs/05_PENDING_DECISIONS.md`
 
-## 1) Objetivo del plan
-Traducir la especificacion final en una ejecucion ordenada para equipo senior, con entregables claros, hitos verificables y control de riesgo tecnico.
+## 1) Plan Objective
+Translate final specifications into an execution-ready plan for a senior team, with explicit deliverables, measurable milestones, and controlled technical risk.
 
-## 2) Enfoque de gestion
-- Entrega incremental por fases.
-- Priorizacion de correctitud y rendimiento antes de polish visual.
-- Congelamiento de contratos (config, eventos, stages) para evitar retrabajo.
+## 2) Management Approach
+- Incremental delivery by phase.
+- Prioritize correctness and performance before UI polish.
+- Freeze critical contracts (config, events, stages) to prevent rework.
 
-## 3) Fases recomendadas
+## 3) Recommended Phases
 
-### Fase 0 - Baseline documental (corto)
-Entregables:
-- Documento final aprobado de motor.
-- Documento final aprobado de UI/Tauri.
-- Criterios QA cerrados.
-- Registro de decisiones V1 cerrado (`docs/05_DECISIONES_PENDIENTES.md`).
+### Phase 0 - Documentation Baseline
+Deliverables:
+- Approved final engine specification.
+- Approved final UI/Tauri specification.
+- Closed QA criteria.
+- Closed V1 decision log (`docs/05_PENDING_DECISIONS.md`).
 
-Salida:
-- Decision log inicial firmado por equipo.
+Exit:
+- Initial decision log signed off by stakeholders.
 
-### Fase 1 - Core engine listo para integracion
-Entregables:
-- Motor Rust funcional con modos RAM/DISK y ordenamientos definidos.
-- Telemetria de progreso y stats agregadas.
-- Validacion de reglas de parsing/salida.
+### Phase 1 - Core Engine Ready for Integration
+Deliverables:
+- Functional Rust engine with RAM/DISK modes and defined orderings.
+- Aggregated progress and stats telemetry.
+- Validation of parsing and output rules.
 
-Salida:
-- Pruebas funcionales base superadas.
+Exit:
+- Baseline functional tests pass.
 
-### Fase 2 - Shell Tauri + UX operativa
-Entregables:
-- Pantalla unica completa (Inputs, Processing, Export, Run).
-- Integracion de commands/events con backend.
-- Estado de ejecucion y cancelacion robustos.
-- i18n base implementado (`en`, `zh-CN`) sin hardcode de strings.
+### Phase 2 - Tauri Shell + Operational UX
+Deliverables:
+- Complete single-screen UI (Inputs, Processing, Export, Run).
+- Commands/events integration with backend.
+- Robust run/cancel lifecycle behavior.
+- Base i18n in place (`en`, `zh-CN`) with no hardcoded strings.
 
-Salida:
-- Flujo end-to-end operativo.
+Exit:
+- End-to-end flow operational.
 
-### Fase 3 - Rendimiento UX + observabilidad
-Entregables:
-- Throttling backend/frontend aplicado.
-- ETA aproximada habilitada.
-- Telemetria estable en carga alta.
+### Phase 3 - UX Performance + Observability
+Deliverables:
+- Backend/frontend throttling enabled.
+- Approximate ETA enabled.
+- Stable telemetry under high load.
 
-Salida:
-- UI fluida en escenarios de volumen.
+Exit:
+- UI remains responsive in high-volume scenarios.
 
-### Fase 4 - QA final + hardening
-Entregables:
-- Suite QA de aceptacion ejecutada.
-- Revisión de accesibilidad minima AA.
-- Revisión de seguridad por capabilities minimas.
+### Phase 4 - Final QA + Hardening
+Deliverables:
+- Acceptance test suite executed.
+- Minimum AA accessibility review complete.
+- Security review complete (least-privilege capabilities).
 
-Salida:
-- Release candidate.
+Exit:
+- Release candidate approved.
 
-## 4) Priorizacion de trabajo (orden sugerido)
-1. Correctitud funcional del motor.
-2. Contrato de integracion estable.
-3. UX operativa con progreso real.
-4. Optimizacion final y hardening.
+## 4) Work Priority (Recommended Order)
+1. Functional correctness of engine behavior.
+2. Stable integration contracts.
+3. Operational UX with trustworthy progress feedback.
+4. Final optimization and hardening.
 
-## 5) Riesgos principales y mitigacion
+## 5) Main Risks and Mitigations
 
-### Riesgo A: degradacion UI por exceso de eventos
-Mitigacion:
-- Limitar eventos de progreso a 4-10Hz.
-- Batching de actualizaciones en frontend.
+### Risk A: UI degradation from excessive event rate
+Mitigation:
+- Enforce progress event cap at 4-10Hz.
+- Batch frontend state updates.
 
-### Riesgo B: expectativas de orden en DISK mal comunicadas
-Mitigacion:
-- Tooltips y copy explicitos para `PreserveFirstSeen` en DISK.
-- Matriz de garantias visible en documentacion interna.
+### Risk B: Misinterpretation of ordering guarantees in DISK mode
+Mitigation:
+- Explicit warning copy for `PreserveFirstSeen` in DISK mode.
+- Keep guarantees matrix visible in product documentation.
 
-### Riesgo C: ETA inestable
-Mitigacion:
-- Usar ETA aproximada.
-- Mostrar `-` cuando no exista base confiable.
+### Risk C: ETA instability
+Mitigation:
+- Use approximate ETA model.
+- Display `-` when reliability is insufficient.
 
-### Riesgo D: sobrecoste de GlobalPerfect en hardware lento
-Mitigacion:
-- FastBucketLocal como default recomendado.
-- Exponer GlobalPerfect como opcion avanzada con advertencia.
+### Risk D: GlobalPerfect overhead on slower hardware
+Mitigation:
+- Keep `FastBucketLocal` as default recommendation.
+- Expose `GlobalPerfect` as advanced mode with warning.
 
-### Riesgo E: retrabajo por cambios de contrato tardios
-Mitigacion:
-- Congelar naming de modes, ordering, events y payloads antes de desarrollo UI completo.
+### Risk E: Rework from late contract changes
+Mitigation:
+- Freeze mode/order/event/payload naming before full UI implementation.
 
-## 6) Definicion de Done (DoD) por release
-1. Todos los MUST funcionales cumplidos.
-2. Criterios QA de aceptacion aprobados.
-3. Sin bloqueos criticos en cancelacion y escritura de salida.
-4. UI estable bajo carga objetivo.
-5. Documentacion de limits y comportamientos conocidos publicada.
-6. SLOs V1 cumplidos en entorno controlado:
-   - progreso entre 4 y 10Hz,
-   - ETA mostrada solo cuando sea confiable,
-   - memoria en RAM mode controlada (objetivo <=75% de RAM libre al inicio),
-   - comportamiento estable de DISK mode con spill a disco.
+## 6) Definition of Done (Release)
+1. All MUST functional requirements are met.
+2. QA acceptance criteria are approved.
+3. No critical blockers in cancel flow or output writing.
+4. UI remains stable under target load.
+5. Known limits and behavior notes are documented.
+6. V1 SLOs are met in controlled environment:
+   - progress update rate between 4 and 10Hz,
+   - ETA shown only when reliable,
+   - RAM mode peak memory controlled (target <= 75% of free RAM at job start),
+   - DISK mode behavior stable with disk spill strategy.
 
-## 7) Gobernanza de cambios
-- Cualquier cambio a reglas de parsing, orden o contrato IPC requiere:
-  - impacto tecnico,
-  - impacto UX,
-  - impacto QA,
-  - decision registrada en changelog del producto.
+## 7) Change Governance
+Any change to parsing rules, ordering guarantees, or IPC contracts must include:
+- technical impact,
+- UX impact,
+- QA impact,
+- decision entry in product changelog.
 
-## 8) Recomendacion de cierre
-Mantener este set documental como fuente unica de trabajo para el equipo, y registrar ajustes posteriores como anexos versionados en lugar de editar decisiones historicas sin trazabilidad.
+## 8) Closure Recommendation
+Use this documentation set as the single source of truth for the team, and track future adjustments through versioned annexes instead of rewriting historical decisions without traceability.
