@@ -135,7 +135,7 @@ impl JobManager {
         drop(active);
 
         let tx = self.inner.tx.clone();
-        let active_slot = Arc::clone(&self.inner.active);
+        let inner = Arc::clone(&self.inner);
         std::thread::spawn(move || {
             let _ = tx.send(JobEvent::Started { job_id });
 
@@ -162,7 +162,7 @@ impl JobManager {
             }
 
             done.store(true, Ordering::Release);
-            if let Ok(mut current) = active_slot.lock() {
+            if let Ok(mut current) = inner.active.lock() {
                 if current.as_ref().map(|job| job.id) == Some(job_id) {
                     *current = None;
                 }
