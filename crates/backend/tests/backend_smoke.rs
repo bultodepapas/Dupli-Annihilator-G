@@ -159,6 +159,33 @@ fn get_app_info_is_available() {
 }
 
 #[test]
+fn invalid_config_fails_fast_on_start() {
+    let backend = BackendService::new();
+    let err = backend
+        .start_job(StartJobRequest {
+            config: StartJobConfig {
+                inputs: vec![],
+                output: String::new(),
+                output_separator: "\n".to_string(),
+                interpret_separator_escapes: false,
+                mode: ApiMode::Ram,
+                ordering: ApiOrdering::PreserveFirstSeen,
+                trim: true,
+                drop_empty: true,
+                disk_buckets: 64,
+                disk_alphabetical_mode: ApiDiskAlphabeticalMode::FastBucketLocal,
+                disk_run_bytes: 2 * 1024 * 1024,
+            },
+        })
+        .expect_err("invalid config should fail before background start");
+
+    assert_eq!(err.category, "invalid_config");
+    let state = backend.get_runtime_state();
+    assert!(!state.is_running);
+    assert!(state.active_job_id.is_none());
+}
+
+#[test]
 fn typed_event_stream_exposes_done_event() {
     let dir = tempfile::tempdir().expect("tempdir");
     let input = dir.path().join("in.txt");
@@ -187,6 +214,53 @@ fn typed_event_stream_exposes_done_event() {
     }
 
     assert!(saw_done, "expected typed done event");
+}
+
+#[test]
+fn runtime_state_transitions_running_to_idle() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let input = dir.path().join("in.txt");
+    let output = dir.path().join("out.txt");
+    let mut payload = String::new();
+    for i in 0..80_000 {
+        payload.push_str(&format!("token_{i} alpha beta gamma delta epsilon zeta\n"));
+    }
+    fs::write(&input, payload).expect("write input");
+
+    let backend = BackendService::new();
+    let start = backend
+        .start_job(make_disk_request(
+            input.to_string_lossy().to_string(),
+            output.to_string_lossy().to_string(),
+        ))
+        .expect("start");
+
+    let mut observed_running = false;
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while Instant::now() < deadline {
+        let state = backend.get_runtime_state();
+        if state.is_running {
+            observed_running = true;
+            assert_eq!(state.active_job_id, Some(start.job_id));
+            break;
+        }
+    }
+    assert!(observed_running, "expected running state");
+
+    let mut observed_idle = false;
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while Instant::now() < deadline {
+        if let Some(ev) = backend.next_event_timeout(Duration::from_millis(200)) {
+            if let BackendJobEvent::Done { .. } = ev {
+                let state = backend.get_runtime_state();
+                if !state.is_running && state.active_job_id.is_none() {
+                    observed_idle = true;
+                    break;
+                }
+            }
+        }
+    }
+    assert!(observed_idle, "expected idle state after terminal event");
 }
 
 #[test]

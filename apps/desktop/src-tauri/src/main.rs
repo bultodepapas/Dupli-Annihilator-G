@@ -2,7 +2,7 @@
 
 use dedupe_backend::{
     AppInfo, BackendService, CancelJobRequest, CancelJobResponse, CommandError, EmittedEvent,
-    StartJobRequest, StartJobResponse,
+    RuntimeState, StartJobRequest, StartJobResponse,
 };
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
@@ -37,6 +37,11 @@ fn get_app_info(state: tauri::State<'_, AppState>) -> AppInfo {
 }
 
 #[tauri::command]
+fn get_runtime_state(state: tauri::State<'_, AppState>) -> RuntimeState {
+    state.backend.get_runtime_state()
+}
+
+#[tauri::command]
 fn next_events(state: tauri::State<'_, AppState>, req: NextEventsRequest) -> Vec<EmittedEvent> {
     let max_events = req.max_events.clamp(1, 256);
     let timeout_ms = req.timeout_ms.min(5_000);
@@ -54,6 +59,7 @@ fn main() {
             start_job,
             cancel_job,
             get_app_info,
+            get_runtime_state,
             next_events
         ])
         .run(tauri::generate_context!())

@@ -88,6 +88,13 @@ pub struct AppInfo {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+pub struct RuntimeState {
+    pub is_running: bool,
+    pub active_job_id: Option<JobId>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct CommandError {
     pub category: String,
     pub message: String,
@@ -118,6 +125,7 @@ impl BackendService {
             .config
             .into_core_config()
             .map_err(map_anyhow_to_command_error)?;
+        cfg.validate().map_err(map_anyhow_to_command_error)?;
         let job_id = self
             .manager
             .start_job(cfg)
@@ -135,6 +143,13 @@ impl BackendService {
             app_name: "Dupli-Annihilator-G".to_string(),
             app_version: env!("CARGO_PKG_VERSION").to_string(),
             backend_version: env!("CARGO_PKG_VERSION").to_string(),
+        }
+    }
+
+    pub fn get_runtime_state(&self) -> RuntimeState {
+        RuntimeState {
+            is_running: self.manager.is_running(),
+            active_job_id: self.manager.active_job_id(),
         }
     }
 
