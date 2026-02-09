@@ -7,3 +7,13 @@ apps/desktop/src-tauri/Cargo.lock
 apps/desktop/node_modules/
 apps/desktop/dist/
 apps/desktop/*.tsbuildinfo
+
+# AI agents
+.claude/
+.cursor/
+.copilot/
+.aider*
+.codeium/
+.continue/
+.windsurf/
+.bolt/
