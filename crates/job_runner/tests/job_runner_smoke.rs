@@ -164,7 +164,11 @@ fn done_job_emits_summary_with_actionable_metrics() {
             continue;
         };
 
-        if let JobEvent::Summary { job_id: id, summary } = event {
+        if let JobEvent::Summary {
+            job_id: id,
+            summary,
+        } = event
+        {
             if id != job_id {
                 continue;
             }

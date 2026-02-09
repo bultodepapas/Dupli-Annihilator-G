@@ -2,6 +2,8 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import { invoke } from "@tauri-apps/api/core";
 import { confirm, open, save } from "@tauri-apps/plugin-dialog";
+import { relaunch } from "@tauri-apps/plugin-process";
+import { check } from "@tauri-apps/plugin-updater";
 import { isSupportedLocale, type I18nKey, type Locale, supportedLocales, t } from "./i18n";
 import "./styles.css";
 
@@ -9,7 +11,29 @@ type AppInfo = {
   appName: string;
   appVersion: string;
   backendVersion: string;
+  updateChannel: string;
 };
+
+type GitHubRelease = {
+  tag_name: string;
+  html_url: string;
+  name?: string | null;
+  draft?: boolean;
+  prerelease?: boolean;
+};
+
+type AvailableUpdate = {
+  version: string;
+  tag: string;
+  url: string;
+  isMajor: boolean;
+};
+
+type UpdateStatus = "idle" | "checking" | "up_to_date" | "available" | "downloading" | "ready_to_restart" | "error";
+type UpdaterProgressEvent =
+  | { event: "Started"; data: { contentLength?: number } }
+  | { event: "Progress"; data: { chunkLength?: number } }
+  | { event: "Finished" };
 
 type RuntimeState = {
   isRunning: boolean;
@@ -381,6 +405,38 @@ function formatIsoLocal(iso: string): string {
   return date.toLocaleString();
 }
 
+function parseSemver(version: string): { major: number; minor: number; patch: number } | null {
+  const match = /^v?(\d+)\.(\d+)\.(\d+)$/.exec(version.trim());
+  if (!match) {
+    return null;
+  }
+  return {
+    major: Number(match[1]),
+    minor: Number(match[2]),
+    patch: Number(match[3]),
+  };
+}
+
+function compareSemver(
+  a: { major: number; minor: number; patch: number },
+  b: { major: number; minor: number; patch: number },
+): number {
+  if (a.major !== b.major) {
+    return a.major - b.major;
+  }
+  if (a.minor !== b.minor) {
+    return a.minor - b.minor;
+  }
+  return a.patch - b.patch;
+}
+
+function isMajorUpgrade(
+  latest: { major: number; minor: number; patch: number },
+  current: { major: number; minor: number; patch: number },
+): boolean {
+  return latest.major > current.major;
+}
+
 function prettyMode(summary: RunSummary): string {
   if (summary.mode === "auto" && summary.modeEffective) {
     return `AUTO(->${summary.modeEffective.toUpperCase()})`;
@@ -485,8 +541,13 @@ function App() {
   const [progress, setProgress] = React.useState<ProgressSnapshot>(EMPTY_PROGRESS);
   const [inputsDragActive, setInputsDragActive] = React.useState(false);
   const [lastSummary, setLastSummary] = React.useState<RunSummary | null>(null);
+  const [updateStatus, setUpdateStatus] = React.useState<UpdateStatus>("idle");
+  const [availableUpdate, setAvailableUpdate] = React.useState<AvailableUpdate | null>(null);
+  const [updateDownloadPct, setUpdateDownloadPct] = React.useState<number | null>(null);
+  const [updaterInstallReady, setUpdaterInstallReady] = React.useState(false);
 
   const pollingRef = React.useRef(false);
+  const updateAutoCheckedRef = React.useRef(false);
   const parsedInputs = React.useMemo(() => parseInputs(form.inputsText), [form.inputsText]);
   const validationErrors = React.useMemo(() => validateForm(form, tr), [form, tr]);
   const resolvedSeparator = React.useMemo(
@@ -534,10 +595,13 @@ function App() {
       const lines: string[] = [];
       lines.push("MISSION REPORT");
       lines.push(
-        `${summary.status.toUpperCase()} • ${prettyMode(summary)} • ${summary.ordering} • ${summary.diskAlphabeticalMode ?? "-"}`,
+        `${summary.status.toUpperCase()} | ${prettyMode(summary)} | ${summary.ordering} | ${summary.diskAlphabeticalMode ?? "-"}`,
       );
       lines.push(`job_id: ${summary.jobId}`);
       lines.push(`finished_at: ${summary.finishedAt}`);
+      lines.push(`app_version: ${appInfo?.appVersion ?? "-"}`);
+      lines.push(`backend_version: ${appInfo?.backendVersion ?? "-"}`);
+      lines.push(`update_channel: ${appInfo?.updateChannel ?? "stable"}`);
       lines.push(`tokens_seen: ${summary.tokensSeen}`);
       lines.push(`unique_tokens: ${summary.uniqueTokens}`);
       lines.push(`duplicates: ${summary.duplicates}`);
@@ -562,9 +626,8 @@ function App() {
       }
       return lines.join("\n");
     },
-    [],
+    [appInfo?.appVersion, appInfo?.backendVersion, appInfo?.updateChannel],
   );
-
   const syncRuntimeState = React.useCallback(async () => {
     const state = await invoke<RuntimeState>("get_runtime_state");
     setRunStatus(state.isRunning ? "running" : "idle");
@@ -885,7 +948,19 @@ function App() {
       await invoke("export_summary_json", {
         req: {
           path: selected,
-          content: JSON.stringify(lastSummary, null, 2),
+          content: JSON.stringify(
+            {
+              app: {
+                name: appInfo?.appName ?? "Dupli-Annihilator-G",
+                appVersion: appInfo?.appVersion ?? "-",
+                backendVersion: appInfo?.backendVersion ?? "-",
+                updateChannel: appInfo?.updateChannel ?? "stable",
+              },
+              summary: lastSummary,
+            },
+            null,
+            2,
+          ),
         },
       });
       appendMessage(tr("message.summary_exported"));
@@ -898,6 +973,168 @@ function App() {
     setLastSummary(null);
   };
 
+  const checkForUpdates = React.useCallback(async () => {
+    if (!appInfo?.appVersion) {
+      return;
+    }
+
+    setUpdateStatus("checking");
+    appendMessage(tr("message.update_checking"));
+
+    try {
+      const response = await fetch("https://api.github.com/repos/bultodepapas/Dupli-Annihilator-G/releases/latest", {
+        headers: {
+          Accept: "application/vnd.github+json",
+        },
+      });
+      if (!response.ok) {
+        throw new Error(`http_${response.status}`);
+      }
+
+      const release = (await response.json()) as GitHubRelease;
+      if (release.draft || release.prerelease) {
+        setUpdateStatus("up_to_date");
+        setAvailableUpdate(null);
+        appendMessage(tr("message.update_up_to_date", { version: appInfo.appVersion }));
+        return;
+      }
+
+      const latest = parseSemver(release.tag_name);
+      const current = parseSemver(appInfo.appVersion);
+      if (!latest || !current) {
+        throw new Error("invalid_semver");
+      }
+
+      if (compareSemver(latest, current) > 0) {
+        const normalizedVersion = `${latest.major}.${latest.minor}.${latest.patch}`;
+        const majorUpgrade = isMajorUpgrade(latest, current);
+        setAvailableUpdate({
+          version: normalizedVersion,
+          tag: `v${normalizedVersion}`,
+          url: release.html_url,
+          isMajor: majorUpgrade,
+        });
+        setUpdateStatus("available");
+        setUpdaterInstallReady(false);
+        if (majorUpgrade) {
+          appendMessage(tr("message.update_major_manual_only", { version: normalizedVersion }));
+        } else {
+          void (async () => {
+            try {
+              const update = await check();
+              setUpdaterInstallReady(Boolean(update));
+            } catch {
+              setUpdaterInstallReady(false);
+            }
+          })();
+          appendMessage(tr("message.update_available", { version: normalizedVersion }));
+        }
+      } else {
+        setAvailableUpdate(null);
+        setUpdateStatus("up_to_date");
+        setUpdaterInstallReady(false);
+        appendMessage(tr("message.update_up_to_date", { version: appInfo.appVersion }));
+      }
+    } catch (err) {
+      setUpdateStatus("error");
+      setUpdaterInstallReady(false);
+      appendMessage(tr("message.update_check_failed", { detail: String(err) }));
+    }
+  }, [appInfo?.appVersion, appendMessage, tr]);
+
+  const openLatestReleasePage = async () => {
+    if (!availableUpdate) {
+      return;
+    }
+    try {
+      await invoke("open_external_url", { req: { url: availableUpdate.url } });
+    } catch (err) {
+      appendMessage(tr("message.open_release_failed", { detail: String(err) }));
+    }
+  };
+
+  const installAvailableUpdate = async () => {
+    if (!availableUpdate) {
+      return;
+    }
+    if (availableUpdate.isMajor) {
+      appendMessage(tr("message.update_major_manual_only", { version: availableUpdate.version }));
+      await openLatestReleasePage();
+      return;
+    }
+    if (!updaterInstallReady) {
+      appendMessage(tr("message.update_auto_unavailable"));
+      await openLatestReleasePage();
+      return;
+    }
+    if (runStatus === "running") {
+      appendMessage(tr("message.update_install_blocked_running"));
+      return;
+    }
+
+    try {
+      setUpdateStatus("downloading");
+      setUpdateDownloadPct(0);
+      appendMessage(tr("message.update_installing", { version: availableUpdate.version }));
+
+      const update = await check();
+      if (!update) {
+        throw new Error("updater_no_payload");
+      }
+
+      let downloaded = 0;
+      let contentLength = 0;
+      await update.downloadAndInstall((event: UpdaterProgressEvent) => {
+        switch (event.event) {
+          case "Started":
+            contentLength = Number(event.data.contentLength ?? 0);
+            downloaded = 0;
+            setUpdateDownloadPct(0);
+            break;
+          case "Progress":
+            downloaded += Number(event.data.chunkLength ?? 0);
+            if (contentLength > 0) {
+              setUpdateDownloadPct(Math.min(100, (downloaded / contentLength) * 100));
+            }
+            break;
+          case "Finished":
+            setUpdateDownloadPct(100);
+            break;
+          default:
+            break;
+        }
+      });
+
+      setUpdateStatus("ready_to_restart");
+      appendMessage(tr("message.update_ready_restart", { version: availableUpdate.version }));
+    } catch (err) {
+      setUpdateStatus("error");
+      setUpdateDownloadPct(null);
+      appendMessage(tr("message.update_install_failed", { detail: String(err) }));
+      await openLatestReleasePage();
+    }
+  };
+
+  const restartToApplyUpdate = async () => {
+    try {
+      appendMessage(tr("message.update_restarting"));
+      await relaunch();
+    } catch (err) {
+      appendMessage(tr("message.update_restart_failed", { detail: String(err) }));
+    }
+  };
+
+  React.useEffect(() => {
+    if (!appInfo?.appVersion || updateAutoCheckedRef.current) {
+      return;
+    }
+    updateAutoCheckedRef.current = true;
+    const timer = window.setTimeout(() => {
+      void checkForUpdates();
+    }, 1200);
+    return () => window.clearTimeout(timer);
+  }, [appInfo?.appVersion, checkForUpdates]);
+
   const progressPercent =
     progress.filesTotal > 0 ? Math.min(100, (progress.filesDone / progress.filesTotal) * 100) : 0;
 
@@ -909,6 +1146,14 @@ function App() {
           <p className="subtitle">{tr("app.subtitle")}</p>
         </div>
         <div className="topbar-actions">
+          <button
+            className="secondary topbar-btn"
+            type="button"
+            disabled={updateStatus === "checking" || updateStatus === "downloading"}
+            onClick={() => void checkForUpdates()}
+          >
+            {updateStatus === "checking" ? tr("button.checking_updates") : tr("button.check_updates")}
+          </button>
           <label className="lang-control">
             <span>{tr("field.language")}</span>
             <select value={locale} onChange={(e) => setLocale(e.target.value as Locale)}>
@@ -919,9 +1164,53 @@ function App() {
               ))}
             </select>
           </label>
+          {availableUpdate ? <div className="update-pill">{tr("update.available_pill", { version: availableUpdate.tag })}</div> : null}
           <div className={`status-chip status-${runStatus}`}>{tr(statusKey(runStatus))}</div>
         </div>
       </header>
+
+      {availableUpdate ? (
+        <section className="card update-banner">
+          <h2>{tr("update.banner_title", { version: availableUpdate.tag })}</h2>
+          <p>{tr("update.banner_body", { current: appInfo?.appVersion ?? "-", latest: availableUpdate.tag })}</p>
+          {availableUpdate.isMajor ? <p>{tr("update.major_notice")}</p> : null}
+          {updateStatus === "downloading" ? (
+            <p>{tr("update.download_progress", { pct: Math.round(updateDownloadPct ?? 0) })}</p>
+          ) : null}
+          <div className="update-actions">
+            {updateStatus === "ready_to_restart" ? (
+              <button className="primary" type="button" onClick={() => void restartToApplyUpdate()}>
+                {tr("button.restart_to_apply")}
+              </button>
+            ) : updaterInstallReady && !availableUpdate.isMajor ? (
+              <button
+                className="primary"
+                type="button"
+                disabled={updateStatus === "downloading"}
+                onClick={() => void installAvailableUpdate()}
+              >
+                {updateStatus === "downloading" ? tr("button.installing_update") : tr("button.install_update")}
+              </button>
+            ) : null}
+            <button
+              className="secondary"
+              type="button"
+              disabled={updateStatus === "downloading"}
+              onClick={() => void openLatestReleasePage()}
+            >
+              {tr("button.download_update")}
+            </button>
+            <button
+              className="secondary"
+              type="button"
+              disabled={updateStatus === "checking" || updateStatus === "downloading"}
+              onClick={() => void checkForUpdates()}
+            >
+              {tr("button.check_updates")}
+            </button>
+          </div>
+        </section>
+      ) : null}
 
       <main className={showSummaryScreen ? "summary-main" : "grid"}>
         {showSummaryScreen && lastSummary && summaryBadge ? (
@@ -1000,8 +1289,14 @@ function App() {
                   <div>{prettyMode(lastSummary)} / {lastSummary.ordering}</div>
                   <div>{tr("summary.metric.normalization")}</div>
                   <div>
-                    trim={lastSummary.trim ? "on" : "off"} • drop_empty={lastSummary.dropEmpty ? "on" : "off"}
+                    trim={lastSummary.trim ? "on" : "off"} | drop_empty={lastSummary.dropEmpty ? "on" : "off"}
                   </div>
+                  <div>{tr("summary.metric.app_version")}</div>
+                  <div>{appInfo?.appVersion ?? "-"}</div>
+                  <div>{tr("summary.metric.backend_version")}</div>
+                  <div>{appInfo?.backendVersion ?? "-"}</div>
+                  <div>{tr("summary.metric.update_channel")}</div>
+                  <div>{appInfo?.updateChannel ?? "stable"}</div>
                   {lastSummary.diskAlphabeticalMode ? (
                     <>
                       <div>{tr("summary.metric.disk_mode")}</div>
@@ -1268,6 +1563,9 @@ function App() {
                 </div>
                 <div>
                   {tr("meta.backend")}: {appInfo?.backendVersion ?? "-"}
+                </div>
+                <div>
+                  {tr("meta.update_channel")}: {appInfo?.updateChannel ?? "stable"}
                 </div>
                 <div>
                   {tr("meta.job_id")}: {activeJobId ?? "-"}

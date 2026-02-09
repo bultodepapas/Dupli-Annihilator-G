@@ -33,6 +33,12 @@ struct ExportSummaryJsonRequest {
     content: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct OpenExternalUrlRequest {
+    url: String,
+}
+
 #[tauri::command]
 fn start_job(
     state: tauri::State<'_, AppState>,
@@ -110,6 +116,18 @@ fn export_summary_json(req: ExportSummaryJsonRequest) -> Result<(), String> {
         .map_err(|e| format!("failed to write summary JSON '{}': {e}", req.path))
 }
 
+#[tauri::command]
+fn open_external_url(req: OpenExternalUrlRequest) -> Result<(), String> {
+    let url = req.url.trim();
+    const ALLOWED_PREFIX: &str = "https://github.com/bultodepapas/Dupli-Annihilator-G/releases";
+
+    if !url.starts_with(ALLOWED_PREFIX) {
+        return Err("blocked external URL".to_string());
+    }
+
+    open_path_with_default_app(url)
+}
+
 fn open_path_with_default_app(path: &str) -> Result<(), String> {
     let status = if cfg!(target_os = "windows") {
         Command::new("cmd").args(["/C", "start", "", path]).status()
@@ -130,6 +148,8 @@ fn open_path_with_default_app(path: &str) -> Result<(), String> {
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(AppState {
             backend: BackendService::new(),
         })
@@ -143,7 +163,8 @@ fn main() {
             next_events,
             open_output,
             open_output_folder,
-            export_summary_json
+            export_summary_json,
+            open_external_url
         ])
         .run(tauri::generate_context!())
         .expect("failed to run tauri app");

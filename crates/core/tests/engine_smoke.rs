@@ -197,7 +197,12 @@ fn disk_globalperfect_accepts_non_utf8_input_lossy() {
     let bytes = [b'a', b',', 0xFF, b',', b'a', b'\n', 0xFE, b',', b'b'];
     fs::write(&input, bytes).expect("write input");
 
-    let mut cfg = make_cfg(input, output.clone(), Mode::Disk, OutputOrdering::Alphabetical);
+    let mut cfg = make_cfg(
+        input,
+        output.clone(),
+        Mode::Disk,
+        OutputOrdering::Alphabetical,
+    );
     cfg.disk_alphabetical_mode = DiskAlphabeticalMode::GlobalPerfect;
     cfg.output_separator = "|".to_string();
 

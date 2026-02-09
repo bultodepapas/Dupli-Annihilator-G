@@ -46,6 +46,12 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.topbar-btn {
+  white-space: nowrap;
 }
 
 .lang-control {
@@ -92,6 +98,33 @@ h4 {
   padding: 7px 12px;
   font-weight: 700;
   letter-spacing: 0.6px;
+}
+
+.update-pill {
+  border: 1px solid #2f8f70;
+  color: #74ffcb;
+  background: #163229;
+  border-radius: 999px;
+  padding: 7px 11px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.update-banner {
+  display: grid;
+  gap: 8px;
+}
+
+.update-banner p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.update-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .status-idle {

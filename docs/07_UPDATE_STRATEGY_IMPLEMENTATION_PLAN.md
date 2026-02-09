@@ -361,16 +361,16 @@ Riesgo: usuario corporativo sin permisos.
 5. Playbook de rollback documentado.
 
 ## 12) Open Decisions (pendientes)
-1. Politica de major updates: auto o manual.
+1. Politica de major updates: definida en `manual` (no auto-install para major).
 2. Canal beta/publico desde el inicio o solo stable.
 3. Frecuencia default de update check (startup-only vs periodic).
 4. Nivel de telemetria de update permitido por privacidad.
 
 ## 13) Checklist de Ejecucion Inmediata
 - [ ] Definir llave de firma y secrets en GitHub Environment.
-- [ ] Agregar gate de coherencia de versiones en CI.
-- [ ] Agregar gate de "tag reachable from main".
-- [ ] Implementar `useUpdater` + UI base.
-- [ ] Integrar plugins updater/process en Tauri.
+- [x] Agregar gate de coherencia de versiones en CI.
+- [x] Agregar gate de "tag reachable from main".
+- [x] Implementar `useUpdater` + UI base.
+- [x] Integrar plugins updater/process en Tauri.
 - [ ] Ejecutar release de prueba `v1.3.1-rc1`.
 - [ ] Validar update real desde `v1.3.0` a `v1.3.1`.
