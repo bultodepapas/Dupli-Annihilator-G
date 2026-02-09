@@ -15,7 +15,47 @@ permissions:
   contents: write
 
 jobs:
+  verify-release:
+    runs-on: ubuntu-latest
+    outputs:
+      release_tag: ${{ steps.resolve_tag.outputs.tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve release tag
+        id: resolve_tag
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          elif [[ -n "${{ github.event.inputs.tag }}" ]]; then
+            echo "tag=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Verify version coherence
+        shell: bash
+        run: |
+          bash scripts/ci/verify-release-consistency.sh "${{ steps.resolve_tag.outputs.tag }}"
+
+      - name: Fetch release tag reference
+        if: ${{ steps.resolve_tag.outputs.tag != '' }}
+        shell: bash
+        run: |
+          git fetch origin "refs/tags/${{ steps.resolve_tag.outputs.tag }}:refs/tags/${{ steps.resolve_tag.outputs.tag }}"
+
+      - name: Verify release tag comes from origin/main
+        if: ${{ steps.resolve_tag.outputs.tag != '' }}
+        shell: bash
+        run: |
+          bash scripts/ci/verify-tag-reachable-from-main.sh "${{ steps.resolve_tag.outputs.tag }}"
+
   build-desktop:
+    needs: verify-release
     strategy:
       fail-fast: false
       matrix:
@@ -70,23 +110,10 @@ jobs:
           if-no-files-found: error
 
   publish-release:
-    needs: build-desktop
+    needs: [verify-release, build-desktop]
     runs-on: ubuntu-latest
-    if: ${{ startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && github.event.inputs.tag != '') }}
+    if: ${{ needs.verify-release.outputs.release_tag != '' }}
     steps:
-      - name: Resolve release tag
-        id: resolve_tag
-        shell: bash
-        run: |
-          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
-          elif [[ -n "${{ github.event.inputs.tag }}" ]]; then
-            echo "tag=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "No tag available for release publishing." >&2
-            exit 1
-          fi
-
       - name: Download desktop bundle artifacts
         uses: actions/download-artifact@v4
         with:
@@ -97,8 +124,8 @@ jobs:
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.resolve_tag.outputs.tag }}
-          name: Dupli-Annihilator-G ${{ steps.resolve_tag.outputs.tag }}
+          tag_name: ${{ needs.verify-release.outputs.release_tag }}
+          name: Dupli-Annihilator-G ${{ needs.verify-release.outputs.release_tag }}
           generate_release_notes: true
           fail_on_unmatched_files: false
           files: |
