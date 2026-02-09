@@ -86,6 +86,7 @@ pub struct AppInfo {
     pub app_name: String,
     pub app_version: String,
     pub backend_version: String,
+    pub update_channel: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -153,6 +154,7 @@ impl BackendService {
             app_name: "Dupli-Annihilator-G".to_string(),
             app_version: env!("CARGO_PKG_VERSION").to_string(),
             backend_version: env!("CARGO_PKG_VERSION").to_string(),
+            update_channel: resolve_update_channel(),
         }
     }
 
@@ -213,6 +215,16 @@ impl BackendService {
 
     pub fn drain_events(&self) -> Vec<JobEvent> {
         self.manager.drain_events()
+    }
+}
+
+fn resolve_update_channel() -> String {
+    let from_env = std::env::var("DUPLI_UPDATE_CHANNEL").unwrap_or_default();
+    let normalized = from_env.trim().to_ascii_lowercase();
+    if normalized.is_empty() {
+        "stable".to_string()
+    } else {
+        normalized
     }
 }
 

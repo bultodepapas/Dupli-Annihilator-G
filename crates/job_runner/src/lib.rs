@@ -1,9 +1,9 @@
 use anyhow::anyhow;
+use chrono::{SecondsFormat, Utc};
 use dedupe_core::{
     is_canceled_error, run_with_control, CancellationToken, Config, DiskAlphabeticalMode, Mode,
     OutputOrdering, ProgressEvent, ProgressSink, Stats,
 };
-use chrono::{SecondsFormat, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fs;
@@ -241,7 +241,11 @@ impl JobManager {
                 Err(err) => {
                     if is_canceled_error(&err) || cancel.is_canceled() {
                         let _ = tx.send(JobEvent::Canceled { job_id });
-                        (RunTerminalStatus::Canceled, bridge.snapshot.to_stats_snapshot(), None)
+                        (
+                            RunTerminalStatus::Canceled,
+                            bridge.snapshot.to_stats_snapshot(),
+                            None,
+                        )
                     } else {
                         let message = format!("{err:#}");
                         let _ = tx.send(JobEvent::Error {

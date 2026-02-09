@@ -175,7 +175,10 @@ fn main() -> Result<()> {
                 if !cli.quiet {
                     eprintln!(
                         "[summary] status={:?} reduction_pct={} uniq_pct={} output_bytes={}",
-                        summary.status, summary.reduction_pct, summary.uniq_pct, summary.output_bytes
+                        summary.status,
+                        summary.reduction_pct,
+                        summary.uniq_pct,
+                        summary.output_bytes
                     );
                 }
             }

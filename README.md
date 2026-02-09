@@ -22,6 +22,8 @@ If you just want to use the app:
 - Monitor progress, throughput, elapsed time, and ETA in real time.
 - Review a final `MISSION REPORT` screen with key results, diagnostics, and timeline.
 - Open output/folder, copy report, export JSON summary, and run again with same settings.
+- Check for updates from inside the app and download/install when updater metadata is available.
+- For major versions (for example `1.x` -> `2.x`), the app enforces manual install from Releases.
 - Cancel and retry safely.
 
 ## How The Output Works
@@ -125,4 +127,38 @@ and uploads platform installers as workflow artifacts.
 Release publishing:
 - Pushing a tag that matches `v*` (example: `v1.3.0`) builds installers and publishes a GitHub Release with attached assets.
 - Manual runs are also supported via `workflow_dispatch` with optional `tag` input.
+- If `TAURI_SIGNING_PRIVATE_KEY` secrets are configured, the workflow builds signed updater artifacts automatically.
+- Updater metadata is configured dynamically during CI by `scripts/release/configure-updater.mjs`.
+
+Updater activation (GitHub):
+- Required repository secrets:
+  - `TAURI_SIGNING_PRIVATE_KEY`
+  - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`
+  - `TAURI_UPDATER_PUBKEY`
+- Optional repository variable:
+  - `TAURI_UPDATER_ENDPOINT` (defaults to `.../releases/latest/download/latest.json`)
+  - `DUPLI_UPDATE_CHANNEL` (optional app runtime/build channel label, default `stable`)
+
+Dry run updater config locally:
+```bash
+node scripts/release/configure-updater.mjs --dry-run
+```
+
+Release prep helper:
+```bash
+node scripts/release/bump-version.mjs 1.3.1 --dry-run
+node scripts/release/bump-version.mjs 1.3.1
+```
+This updates desktop/package versions, Tauri versions, crate versions, and release tag example text consistently.
+
+Release prep pipeline helper (single command):
+```bash
+node scripts/release/prepare-release.mjs 1.3.1 --dry-run
+node scripts/release/prepare-release.mjs 1.3.1 --commit --tag
+```
+Useful flags:
+- `--allow-dirty` allows running on non-clean worktrees.
+- `--skip-build` skips desktop build.
+- `--skip-tests` skips workspace tests.
+- `--push` pushes `main` and the release tag (requires `--tag`).
 

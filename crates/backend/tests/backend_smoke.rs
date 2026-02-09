@@ -158,6 +158,7 @@ fn get_app_info_is_available() {
     assert_eq!(info.app_name, "Dupli-Annihilator-G");
     assert!(!info.app_version.is_empty());
     assert!(!info.backend_version.is_empty());
+    assert!(!info.update_channel.is_empty());
 }
 
 #[test]

@@ -55,12 +55,32 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci --prefix apps/desktop
 
+      - name: Configure updater for release build
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_UPDATER_PUBKEY: ${{ secrets.TAURI_UPDATER_PUBKEY }}
+          TAURI_UPDATER_ENDPOINT: ${{ vars.TAURI_UPDATER_ENDPOINT }}
+        run: |
+          node scripts/release/configure-updater.mjs
+
       - name: Install Tauri CLI
         run: cargo install tauri-cli --version "^2.0" --locked
 
       - name: Build desktop bundle
         working-directory: apps/desktop/src-tauri
-        run: cargo tauri build --ci --no-sign
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          if [[ -n "${TAURI_SIGNING_PRIVATE_KEY}" ]]; then
+            echo "Updater signing key detected. Building signed artifacts."
+            cargo tauri build --ci
+          else
+            echo "No updater signing key configured. Building unsigned artifacts."
+            cargo tauri build --ci --no-sign
+          fi
 
       - name: Upload desktop bundle artifacts
         uses: actions/upload-artifact@v4
@@ -107,3 +127,6 @@ jobs:
             release-assets/**/*.dmg
             release-assets/**/*.app.tar.gz
             release-assets/**/*.app.tar.gz.sig
+            release-assets/**/*.sig
+            release-assets/**/latest.json
+            release-assets/**/latest*.json
