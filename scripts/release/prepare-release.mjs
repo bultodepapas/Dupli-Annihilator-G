@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { execSync, spawnSync } from "node:child_process";
+import { execSync } from "node:child_process";
 
 const args = process.argv.slice(2);
 const targetVersion = args[0];
@@ -43,15 +43,7 @@ function run(cmd, options = {}) {
   if (dryRun) {
     return;
   }
-  const [command, ...args] = cmd;
-  const result = spawnSync(command, args, {
-    stdio: "inherit",
-    shell: false,
-    ...options,
-  });
-  if (result.status !== 0) {
-    throw new Error(`Command failed (${result.status}): ${printable}`);
-  }
+  execSync(printable, { stdio: "inherit", ...options });
 }
 
 function runCargoTests() {
@@ -91,6 +83,7 @@ if (!skipTests) {
 }
 
 const releaseFiles = [
+  "Cargo.lock",
   "apps/desktop/package.json",
   "apps/desktop/package-lock.json",
   "apps/desktop/src-tauri/tauri.conf.json",
