@@ -65,6 +65,7 @@ export const en = {
   "flag.trim": "trim",
   "flag.drop_empty": "drop_empty",
 
+  "meta.license": "Licensed under PolyForm Small Business 1.0.0 — Commercial license required for large organizations",
   "meta.app": "app",
   "meta.backend": "backend",
   "meta.update_channel": "update_channel",

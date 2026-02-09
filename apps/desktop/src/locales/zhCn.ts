@@ -56,6 +56,7 @@ export const zhCn: Dictionary = {
   "flag.trim": "去除首尾空格",
   "flag.drop_empty": "跳过空行",
 
+  "meta.license": "基于 PolyForm Small Business 1.0.0 许可 — 大型组织需要商业许可",
   "meta.app": "应用",
   "meta.backend": "后端",
   "meta.update_channel": "update_channel",

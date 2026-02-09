@@ -56,6 +56,7 @@ export const ar: Dictionary = {
   "flag.trim": "إزالة المسافات",
   "flag.drop_empty": "تخطي الفارغ",
 
+  "meta.license": "مرخص بموجب PolyForm Small Business 1.0.0 — يلزم ترخيص تجاري للمؤسسات الكبيرة",
   "meta.app": "التطبيق",
   "meta.backend": "الخلفية",
   "meta.update_channel": "update_channel",

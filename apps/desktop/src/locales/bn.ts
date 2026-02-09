@@ -56,6 +56,7 @@ export const bn: Dictionary = {
   "flag.trim": "trim",
   "flag.drop_empty": "drop_empty",
 
+  "meta.license": "PolyForm Small Business 1.0.0 এর অধীনে লাইসেন্সকৃত — বড় প্রতিষ্ঠানের জন্য বাণিজ্যিক লাইসেন্স প্রয়োজন",
   "meta.app": "app",
   "meta.backend": "backend",
   "meta.update_channel": "update_channel",

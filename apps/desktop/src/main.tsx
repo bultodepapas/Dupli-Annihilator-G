@@ -1570,6 +1570,9 @@ function App() {
                 <div>
                   {tr("meta.job_id")}: {activeJobId ?? "-"}
                 </div>
+                <div className="license-notice">
+                  {tr("meta.license")}
+                </div>
               </div>
             </section>
           </>

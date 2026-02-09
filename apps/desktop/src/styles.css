@@ -302,6 +302,14 @@ button:disabled {
   font-size: 0.86rem;
 }
 
+.license-notice {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+  font-size: 0.78rem;
+  opacity: 0.7;
+}
+
 .telemetry {
   animation: rise 180ms ease-out;
 }

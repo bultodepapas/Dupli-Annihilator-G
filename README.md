@@ -240,6 +240,19 @@ node scripts/release/prepare-release.mjs 1.3.1 --commit --tag
 
 ---
 
+## Licensing
+
+This project is licensed under the **[PolyForm Small Business License 1.0.0](https://polyformproject.org/licenses/small-business/1.0.0/)**.
+
+- **Free** for personal use and for organizations that qualify as a "Small Business" under the license (fewer than 100 employees/contractors and less than $1M USD annual revenue).
+- **Commercial license required** for organizations that do not qualify.
+
+See:
+- [`LICENSE`](LICENSE) — Full PolyForm Small Business License 1.0.0 text
+- [`COMMERCIAL_LICENSE.md`](COMMERCIAL_LICENSE.md) — How to obtain a commercial license
+
+---
+
 ## Documentation
 
 The project includes a comprehensive specification set in `docs/`:
@@ -251,6 +264,17 @@ The project includes a comprehensive specification set in `docs/`:
 5. `04_FINAL_PM_IMPLEMENTATION_PLAN.md` — Implementation plan
 6. `05_PENDING_DECISIONS.md` — Decision register
 7. `06_DOCUMENT_CONTROL.md` — Version control
+
+---
+
+<p align="center">
+  <br/>
+  If Dupli-Annihilator-G saved you time or made your workflow easier,<br/>
+  a <strong>GitHub star</strong> would mean the world to me.<br/><br/>
+  It's a small gesture that helps others discover this tool<br/>
+  and keeps me motivated to keep improving it.<br/><br/>
+  Thank you for using it!
+</p>
 
 ---
 

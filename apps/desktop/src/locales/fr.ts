@@ -58,6 +58,7 @@ export const fr: Dictionary = {
   "flag.trim": "trim",
   "flag.drop_empty": "drop_empty",
 
+  "meta.license": "Sous licence PolyForm Small Business 1.0.0 — Licence commerciale requise pour les grandes organisations",
   "meta.app": "app",
   "meta.backend": "backend",
   "meta.update_channel": "update_channel",

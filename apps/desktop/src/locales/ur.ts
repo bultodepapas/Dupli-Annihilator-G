@@ -56,6 +56,7 @@ export const ur: Dictionary = {
   "flag.trim": "trim",
   "flag.drop_empty": "drop_empty",
 
+  "meta.license": "PolyForm Small Business 1.0.0 کے تحت لائسنس یافتہ — بڑی تنظیموں کے لیے تجارتی لائسنس ضروری ہے",
   "meta.app": "app",
   "meta.backend": "backend",
   "meta.update_channel": "update_channel",
