@@ -125,7 +125,7 @@ GitHub Actions workflows:
 and uploads platform installers as workflow artifacts.
 
 Release publishing:
-- Pushing a tag that matches `v*` (example: `v1.3.1`) builds installers and publishes a GitHub Release with attached assets.
+- Pushing a tag that matches `v*` (example: `v1.3.2`) builds installers and publishes a GitHub Release with attached assets.
 - Release tags must point to a commit reachable from `main` (release guard in CI).
 - Manual runs are also supported via `workflow_dispatch` with optional `tag` input.
 - If `TAURI_SIGNING_PRIVATE_KEY` secrets are configured, the workflow builds signed updater artifacts automatically.
