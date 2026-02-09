@@ -46,6 +46,9 @@ jobs:
         if: ${{ steps.resolve_tag.outputs.tag != '' }}
         shell: bash
         run: |
+          if git rev-parse -q --verify "refs/tags/${{ steps.resolve_tag.outputs.tag }}" >/dev/null; then
+            git tag -d "${{ steps.resolve_tag.outputs.tag }}"
+          fi
           git fetch origin "refs/tags/${{ steps.resolve_tag.outputs.tag }}:refs/tags/${{ steps.resolve_tag.outputs.tag }}"
 
       - name: Verify release tag comes from origin/main
