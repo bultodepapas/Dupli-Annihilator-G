@@ -137,6 +137,22 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ needs.verify-release.outputs.release_tag != '' }}
     steps:
+      - name: Checkout release ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.verify-release.outputs.release_tag }}
+
+      - name: Resolve release notes file
+        id: release_notes
+        shell: bash
+        run: |
+          NOTES_PATH="docs/releases/${{ needs.verify-release.outputs.release_tag }}.md"
+          if [[ -f "$NOTES_PATH" ]]; then
+            echo "notes_path=$NOTES_PATH" >> "$GITHUB_OUTPUT"
+          else
+            echo "notes_path=docs/releases/TEMPLATE.md" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Download desktop bundle artifacts
         uses: actions/download-artifact@v4
         with:
@@ -149,7 +165,8 @@ jobs:
         with:
           tag_name: ${{ needs.verify-release.outputs.release_tag }}
           name: Dupli-Annihilator-G ${{ needs.verify-release.outputs.release_tag }}
-          generate_release_notes: true
+          body_path: ${{ steps.release_notes.outputs.notes_path }}
+          generate_release_notes: false
           fail_on_unmatched_files: false
           files: |
             release-assets/**/*.msi
