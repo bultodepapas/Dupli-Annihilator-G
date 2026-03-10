@@ -16,6 +16,8 @@ This package consolidates and structures the final conclusions from `ideaV0.01.m
    Decision log, status tracking, and change-control policy.
 6. `docs/06_DOCUMENT_CONTROL.md`
    Document governance baseline: versions, ownership, approvals, and revision policy.
+7. `docs/07_RELEASE_OPERATIONS.md`
+   Release procedure, updater configuration contract, Cargo.lock policy, and incident log (INC-001 through INC-004).
 
 ## Document Relationships
 - `README.md` is the primary entry point.
@@ -25,6 +27,7 @@ This package consolidates and structures the final conclusions from `ideaV0.01.m
 - `docs/04_FINAL_PM_IMPLEMENTATION_PLAN.md` defines execution order and release readiness.
 - `docs/05_PENDING_DECISIONS.md` tracks decision status and governance.
 - `docs/06_DOCUMENT_CONTROL.md` governs document lifecycle and approval rules.
+- `docs/07_RELEASE_OPERATIONS.md` is the authoritative reference for how to cut a release, how the updater config works, the Cargo.lock policy, and the incident log for post-mortems.
 
 ## Source and Selection Criteria
 - Primary source: `ideaV0.01.md`.
