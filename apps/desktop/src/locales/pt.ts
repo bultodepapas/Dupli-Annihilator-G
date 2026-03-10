@@ -107,6 +107,7 @@ export const pt: Dictionary = {
   "button.copy_report": "COPIAR RELATORIO",
   "button.export_json": "EXPORTAR JSON",
   "button.close_report": "FECHAR RELATORIO",
+  "button.reset": "REINICIAR",
   "button.check_updates": "VERIFICAR ATUALIZACOES",
   "button.checking_updates": "VERIFICANDO...",
   "button.download_update": "BAIXAR ATUALIZACAO",

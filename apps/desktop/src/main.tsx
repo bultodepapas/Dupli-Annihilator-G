@@ -822,6 +822,7 @@ type SummaryScreenProps = {
   onCopyReport: () => void;
   onExportJson: () => void;
   onClose: () => void;
+  onReset: () => void;
   onRunAgain: () => void;
 };
 
@@ -838,6 +839,7 @@ const SummaryScreen = React.memo(function SummaryScreen({
   onCopyReport,
   onExportJson,
   onClose,
+  onReset,
   onRunAgain,
 }: SummaryScreenProps) {
   const reductionBarWidth = `${Math.min(100, Math.max(0, summary.reductionPct))}%`;
@@ -985,6 +987,7 @@ const SummaryScreen = React.memo(function SummaryScreen({
           <button className="secondary" onClick={onCopyReport}>{tr("button.copy_report")}</button>
           <button className="secondary" onClick={onExportJson}>{tr("button.export_json")}</button>
           <button className="secondary" onClick={onClose}>{tr("button.close_report")}</button>
+          <button className="secondary" onClick={onReset}>{tr("button.reset")}</button>
           <button className="primary" disabled={!canRun} onClick={onRunAgain}>{tr("button.run_again")}</button>
         </div>
       </footer>
@@ -1886,6 +1889,25 @@ function App() {
     dispatch({ type: "reset_summary" });
   }, [dispatch]);
 
+  const resetApp = React.useCallback(() => {
+    dispatch({ type: "reset_summary" });
+    dispatch({ type: "set_message", message: t(localeRef.current, "message.idle") });
+    setForm(DEFAULT_FORM);
+    void resolveDefaultOutputPath()
+      .then((path) => {
+        if (path) {
+          setForm((prev) => ({ ...prev, outputPath: path }));
+        }
+      })
+      .catch(() => null);
+    setCheckerPath("");
+    setCheckerStatus("idle");
+    setCheckerWordCount(0);
+    setCheckerWord("");
+    setCheckerResult(null);
+    setCheckerMessage("");
+  }, [dispatch]);
+
   // checkForUpdates uses localeRef so it doesn't depend on tr — stable as long as appVersion is stable.
   const checkForUpdates = React.useCallback(async () => {
     if (!appInfo?.appVersion) {
@@ -2182,6 +2204,7 @@ function App() {
             onCopyReport={() => void copySummaryReport()}
             onExportJson={() => void exportSummaryJson()}
             onClose={closeSummaryReport}
+            onReset={resetApp}
             onRunAgain={() => void startJob()}
           />
         ) : (

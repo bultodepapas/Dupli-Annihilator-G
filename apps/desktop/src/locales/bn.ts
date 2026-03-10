@@ -105,6 +105,7 @@ export const bn: Dictionary = {
   "button.copy_report": "COPY REPORT",
   "button.export_json": "EXPORT JSON",
   "button.close_report": "CLOSE REPORT",
+  "button.reset": "রিসেট",
   "button.check_updates": "CHECK UPDATES",
   "button.checking_updates": "CHECKING...",
   "button.download_update": "DOWNLOAD UPDATE",
