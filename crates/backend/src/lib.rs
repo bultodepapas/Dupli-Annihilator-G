@@ -1,8 +1,9 @@
 use anyhow::Context;
-use dedupe_core::{Config, DiskAlphabeticalMode, Mode, OutputOrdering};
+use dedupe_core::{Config, DiskAlphabeticalMode, Mode, OutputOrdering, WordChecker};
 use dedupe_job_runner::{JobEvent, JobId, JobManager};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use std::sync::Mutex;
 use std::time::Duration;
 
 const COMPATIBLE_EXTENSIONS: &[&str] = &["txt", "csv", "tsv", "log", "pdf"];
@@ -155,15 +156,29 @@ pub struct EmittedEvent {
     pub payload: serde_json::Value,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct LoadCheckerResponse {
+    pub word_count: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CheckWordResponse {
+    pub found: bool,
+    pub word_count: usize,
+}
+
 pub struct BackendService {
     manager: JobManager,
+    checker: Mutex<Option<WordChecker>>,
 }
 
 impl BackendService {
     pub fn new() -> Self {
         Self {
             manager: JobManager::new(),
+            checker: Mutex::new(None),
         }
     }
 
@@ -206,6 +221,32 @@ impl BackendService {
         RuntimeState {
             is_running: self.manager.is_running(),
             active_job_id: self.manager.active_job_id(),
+        }
+    }
+
+    pub fn load_wordlist_for_checker(
+        &self,
+        path: String,
+    ) -> Result<LoadCheckerResponse, CommandError> {
+        let wc = WordChecker::load(std::path::Path::new(&path))
+            .map_err(map_anyhow_to_command_error)?;
+        let word_count = wc.len();
+        *self.checker.lock().unwrap() = Some(wc);
+        Ok(LoadCheckerResponse { word_count })
+    }
+
+    pub fn check_word(&self, word: String) -> Result<CheckWordResponse, CommandError> {
+        let guard = self.checker.lock().unwrap();
+        match guard.as_ref() {
+            None => Err(CommandError {
+                category: "checker_not_loaded".to_string(),
+                message: "No wordlist loaded. Call load_wordlist_for_checker first.".to_string(),
+                detail: None,
+            }),
+            Some(wc) => Ok(CheckWordResponse {
+                found: wc.contains(&word),
+                word_count: wc.len(),
+            }),
         }
     }
 

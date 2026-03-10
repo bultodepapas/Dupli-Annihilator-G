@@ -167,6 +167,20 @@ export const en = {
   "placeholder.inputs": "C:\\data\\in1.txt\\nC:\\data\\book.pdf",
   "placeholder.output": "C:\\data\\out.txt",
   "fallback.unknown_error": "unknown error",
+
+  "section.checker": "Word Checker",
+  "button.pick_file": "PICK FILE",
+  "checker.path_placeholder": "Path to wordlist file...",
+  "checker.load": "LOAD",
+  "checker.loading": "LOADING...",
+  "checker.ready": "Wordlist loaded: {count} words",
+  "checker.loaded": "Loaded {count} words successfully.",
+  "checker.load_failed": "Load failed: {detail}",
+  "checker.word_placeholder": "Enter a word to check...",
+  "checker.check": "CHECK",
+  "checker.result_found": "FOUND",
+  "checker.result_not_found": "NOT FOUND",
+  "checker.check_failed": "Check failed: {detail}",
 } as const;
 
 export type TranslationKey = keyof typeof en;

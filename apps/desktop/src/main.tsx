@@ -1295,6 +1295,104 @@ const OutputSection = React.memo(function OutputSection({
   );
 });
 
+// ─── WordCheckerPanel ─────────────────────────────────────────────────────────
+
+type WordCheckerPanelProps = {
+  checkerPath: string;
+  checkerStatus: "idle" | "loading" | "ready" | "error";
+  checkerWordCount: number;
+  checkerWord: string;
+  checkerResult: "found" | "not_found" | null;
+  checkerMessage: string;
+  tr: (key: I18nKey, params?: Record<string, string | number>) => string;
+  onPathChange: (path: string) => void;
+  onPickFile: () => void;
+  onLoad: () => void;
+  onWordChange: (word: string) => void;
+  onCheck: () => void;
+};
+
+const WordCheckerPanel = React.memo(function WordCheckerPanel({
+  checkerPath,
+  checkerStatus,
+  checkerWordCount,
+  checkerWord,
+  checkerResult,
+  checkerMessage,
+  tr,
+  onPathChange,
+  onPickFile,
+  onLoad,
+  onWordChange,
+  onCheck,
+}: WordCheckerPanelProps) {
+  return (
+    <section className="card">
+      <h2>{tr("section.checker")}</h2>
+
+      <div className="button-row">
+        <input
+          className="path-input"
+          value={checkerPath}
+          onChange={(e) => onPathChange(e.target.value)}
+          placeholder={tr("checker.path_placeholder")}
+          disabled={checkerStatus === "loading"}
+        />
+        <button
+          className="secondary"
+          type="button"
+          onClick={onPickFile}
+          disabled={checkerStatus === "loading"}
+        >
+          {tr("button.pick_file")}
+        </button>
+        <button
+          className="primary"
+          type="button"
+          onClick={onLoad}
+          disabled={checkerStatus === "loading" || !checkerPath.trim()}
+        >
+          {checkerStatus === "loading" ? tr("checker.loading") : tr("checker.load")}
+        </button>
+      </div>
+
+      {checkerStatus === "ready" && (
+        <p className="message">{tr("checker.ready", { count: checkerWordCount })}</p>
+      )}
+      {checkerMessage && checkerStatus !== "ready" && (
+        <p className="message">{checkerMessage}</p>
+      )}
+
+      {checkerStatus === "ready" && (
+        <div className="button-row">
+          <input
+            className="path-input"
+            value={checkerWord}
+            onChange={(e) => onWordChange(e.target.value)}
+            placeholder={tr("checker.word_placeholder")}
+            onKeyDown={(e) => { if (e.key === "Enter") onCheck(); }}
+          />
+          <button
+            className="primary"
+            type="button"
+            onClick={onCheck}
+            disabled={!checkerWord.trim()}
+          >
+            {tr("checker.check")}
+          </button>
+        </div>
+      )}
+
+      {checkerResult === "found" && (
+        <p className="message checker-found">{tr("checker.result_found")}</p>
+      )}
+      {checkerResult === "not_found" && (
+        <p className="message checker-not-found">{tr("checker.result_not_found")}</p>
+      )}
+    </section>
+  );
+});
+
 // ─── App ──────────────────────────────────────────────────────────────────────
 
 function App() {
@@ -1319,6 +1417,13 @@ function App() {
   const [availableUpdate, setAvailableUpdate] = React.useState<AvailableUpdate | null>(null);
   const [updateDownloadPct, setUpdateDownloadPct] = React.useState<number | null>(null);
   const [updaterInstallReady, setUpdaterInstallReady] = React.useState(false);
+
+  const [checkerPath, setCheckerPath] = React.useState<string>("");
+  const [checkerStatus, setCheckerStatus] = React.useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [checkerWordCount, setCheckerWordCount] = React.useState<number>(0);
+  const [checkerWord, setCheckerWord] = React.useState<string>("");
+  const [checkerResult, setCheckerResult] = React.useState<"found" | "not_found" | null>(null);
+  const [checkerMessage, setCheckerMessage] = React.useState<string>("");
 
   const pollingRef = React.useRef(false);
   const updateAutoCheckedRef = React.useRef(false);
@@ -1966,6 +2071,54 @@ function App() {
     }
   }, [dispatch]);
 
+  const pickCheckerFile = React.useCallback(async () => {
+    try {
+      const selected = await open({
+        multiple: false,
+        directory: false,
+        filters: [{ name: "All supported", extensions: ["txt", "csv", "tsv", "log"] }],
+      });
+      if (!selected) return;
+      const path = Array.isArray(selected) ? selected[0] : selected;
+      if (path) {
+        setCheckerPath(path);
+        setCheckerStatus("idle");
+        setCheckerResult(null);
+        setCheckerMessage("");
+      }
+    } catch (err) {
+      setCheckerMessage(String(err));
+    }
+  }, []);
+
+  const loadWordlist = React.useCallback(async () => {
+    const path = checkerPath.trim();
+    if (!path) return;
+    setCheckerStatus("loading");
+    setCheckerResult(null);
+    setCheckerMessage("");
+    try {
+      const res = await invoke<{ wordCount: number }>("load_wordlist_for_checker", { path });
+      setCheckerWordCount(res.wordCount);
+      setCheckerStatus("ready");
+      setCheckerMessage(t(localeRef.current, "checker.loaded", { count: res.wordCount }));
+    } catch (err) {
+      setCheckerStatus("error");
+      setCheckerMessage(t(localeRef.current, "checker.load_failed", { detail: String(err) }));
+    }
+  }, [checkerPath]);
+
+  const checkWord = React.useCallback(async () => {
+    const word = checkerWord.trim();
+    if (!word || checkerStatus !== "ready") return;
+    try {
+      const res = await invoke<{ found: boolean; wordCount: number }>("check_word", { word });
+      setCheckerResult(res.found ? "found" : "not_found");
+    } catch (err) {
+      setCheckerMessage(t(localeRef.current, "checker.check_failed", { detail: String(err) }));
+    }
+  }, [checkerWord, checkerStatus]);
+
   const onLocaleChange = React.useCallback((l: Locale) => {
     setLocale(l);
   }, []);
@@ -2065,6 +2218,20 @@ function App() {
               onFormChange={setForm}
               onStartJob={() => void startJob()}
               onCancelJob={() => void cancelJob()}
+            />
+            <WordCheckerPanel
+              checkerPath={checkerPath}
+              checkerStatus={checkerStatus}
+              checkerWordCount={checkerWordCount}
+              checkerWord={checkerWord}
+              checkerResult={checkerResult}
+              checkerMessage={checkerMessage}
+              tr={tr}
+              onPathChange={setCheckerPath}
+              onPickFile={() => void pickCheckerFile()}
+              onLoad={() => void loadWordlist()}
+              onWordChange={setCheckerWord}
+              onCheck={() => void checkWord()}
             />
           </>
         )}

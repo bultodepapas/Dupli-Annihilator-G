@@ -1,8 +1,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use dedupe_backend::{
-    AppInfo, BackendService, CancelJobRequest, CancelJobResponse, CommandError, EmittedEvent,
-    RuntimeState, StartJobRequest, StartJobResponse,
+    AppInfo, BackendService, CancelJobRequest, CancelJobResponse, CheckWordResponse, CommandError,
+    EmittedEvent, LoadCheckerResponse, RuntimeState, StartJobRequest, StartJobResponse,
 };
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -117,6 +117,22 @@ fn export_summary_json(req: ExportSummaryJsonRequest) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn load_wordlist_for_checker(
+    state: tauri::State<'_, AppState>,
+    path: String,
+) -> Result<LoadCheckerResponse, CommandError> {
+    state.backend.load_wordlist_for_checker(path)
+}
+
+#[tauri::command]
+fn check_word(
+    state: tauri::State<'_, AppState>,
+    word: String,
+) -> Result<CheckWordResponse, CommandError> {
+    state.backend.check_word(word)
+}
+
+#[tauri::command]
 fn open_external_url(req: OpenExternalUrlRequest) -> Result<(), String> {
     let url = req.url.trim();
     const ALLOWED_PREFIX: &str = "https://github.com/bultodepapas/Dupli-Annihilator-G/releases";
@@ -164,7 +180,9 @@ fn main() {
             open_output,
             open_output_folder,
             export_summary_json,
-            open_external_url
+            open_external_url,
+            load_wordlist_for_checker,
+            check_word
         ])
         .run(tauri::generate_context!())
         .expect("failed to run tauri app");

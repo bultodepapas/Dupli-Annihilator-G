@@ -51,6 +51,7 @@ It is built entirely on **Rust**, which means it processes data at native speed 
 - **Drag & Drop** — Drop files directly into the app window.
 - **Cancel & retry** — Safely stop a running job and restart with different settings.
 - **Built-in updater** — Check for new versions and install updates from within the app.
+- **Word Search** — Load any wordlist and instantly check whether a specific word exists in it. O(1) lookup powered by the same high-performance hash engine used for deduplication.
 
 ---
 
