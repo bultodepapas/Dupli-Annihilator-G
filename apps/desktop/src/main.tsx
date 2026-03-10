@@ -167,6 +167,93 @@ const SEPARATOR_PRESETS: SeparatorPreset[] = [
   { label: "|", value: "|", raw: true },
 ];
 
+// Stable request object — avoids allocating a new object on every poll tick.
+const NEXT_EVENTS_REQ = { req: { maxEvents: 64, timeoutMs: 250 } } as const;
+
+// ─── Job state management ─────────────────────────────────────────────────────
+
+type JobState = {
+  runStatus: RunStatus;
+  activeJobId: number | null;
+  progress: ProgressSnapshot;
+  message: string;
+  lastSummary: RunSummary | null;
+};
+
+type JobAction =
+  | { type: "job_starting"; message: string }
+  | { type: "job_invoke_ok"; jobId: number }
+  | { type: "job_invoke_err"; message: string }
+  | { type: "event_job_started"; jobId: number | null; message: string }
+  | { type: "event_progress"; snapshot: Partial<ProgressSnapshot> }
+  | { type: "event_stage"; stage: string }
+  | { type: "event_done"; message: string }
+  | { type: "event_error"; message: string }
+  | { type: "event_canceled"; message: string }
+  | { type: "event_summary"; summary: RunSummary; message: string }
+  | { type: "set_message"; message: string }
+  | { type: "reset_summary" }
+  | { type: "sync_runtime"; isRunning: boolean; activeJobId: number | null };
+
+const INITIAL_JOB_STATE: JobState = {
+  runStatus: "idle",
+  activeJobId: null,
+  progress: EMPTY_PROGRESS,
+  message: t(INITIAL_LOCALE, "message.idle"),
+  lastSummary: null,
+};
+
+function jobReducer(state: JobState, action: JobAction): JobState {
+  switch (action.type) {
+    case "job_starting":
+      return {
+        ...state,
+        runStatus: "running",
+        activeJobId: null,
+        progress: EMPTY_PROGRESS,
+        message: action.message,
+        lastSummary: null,
+      };
+    case "job_invoke_ok":
+      return { ...state, activeJobId: action.jobId };
+    case "job_invoke_err":
+      return { ...state, runStatus: "error", activeJobId: null, message: action.message };
+    case "event_job_started":
+      return {
+        ...state,
+        runStatus: "running",
+        activeJobId: action.jobId ?? state.activeJobId,
+        message: action.message,
+      };
+    case "event_progress":
+      return { ...state, progress: { ...state.progress, ...action.snapshot } };
+    case "event_stage":
+      return { ...state, progress: { ...state.progress, stage: action.stage } };
+    case "event_done":
+      return { ...state, runStatus: "done", activeJobId: null, message: action.message };
+    case "event_error":
+      return { ...state, runStatus: "error", activeJobId: null, message: action.message };
+    case "event_canceled":
+      return { ...state, runStatus: "canceled", activeJobId: null, message: action.message };
+    case "event_summary":
+      return { ...state, lastSummary: action.summary, message: action.message };
+    case "set_message":
+      return { ...state, message: action.message };
+    case "reset_summary":
+      return { ...state, lastSummary: null };
+    case "sync_runtime":
+      return {
+        ...state,
+        runStatus: action.isRunning ? "running" : "idle",
+        activeJobId: action.activeJobId,
+      };
+    default:
+      return state;
+  }
+}
+
+// ─── Utility functions ────────────────────────────────────────────────────────
+
 function parseInputs(text: string): string[] {
   return text
     .split(/\r?\n/)
@@ -526,6 +613,8 @@ async function resolveDefaultOutputPath(): Promise<string | null> {
   }
 }
 
+// ─── TelemetryFooter ──────────────────────────────────────────────────────────
+
 type TelemetryFooterProps = {
   progress: ProgressSnapshot;
   validationErrors: readonly string[];
@@ -588,21 +677,635 @@ const TelemetryFooter = React.memo(function TelemetryFooter({
   );
 });
 
+// ─── Header ───────────────────────────────────────────────────────────────────
+
+type HeaderProps = {
+  locale: Locale;
+  updateStatus: UpdateStatus;
+  availableUpdate: AvailableUpdate | null;
+  runStatus: RunStatus;
+  tr: (key: I18nKey, params?: Record<string, string | number>) => string;
+  onLocaleChange: (locale: Locale) => void;
+  onCheckForUpdates: () => void;
+};
+
+const Header = React.memo(function Header({
+  locale,
+  updateStatus,
+  availableUpdate,
+  runStatus,
+  tr,
+  onLocaleChange,
+  onCheckForUpdates,
+}: HeaderProps) {
+  return (
+    <header className="topbar">
+      <div>
+        <h1>Dupli-Annihilator-G</h1>
+        <p className="subtitle">{tr("app.subtitle")}</p>
+      </div>
+      <div className="topbar-actions">
+        <button
+          className="secondary topbar-btn"
+          type="button"
+          disabled={updateStatus === "checking" || updateStatus === "downloading"}
+          onClick={onCheckForUpdates}
+        >
+          {updateStatus === "checking" ? tr("button.checking_updates") : tr("button.check_updates")}
+        </button>
+        <label className="lang-control">
+          <span>{tr("field.language")}</span>
+          <select value={locale} onChange={(e) => onLocaleChange(e.target.value as Locale)}>
+            {supportedLocales.map((loc) => (
+              <option key={loc} value={loc}>
+                {t(loc, "lang.name")}
+              </option>
+            ))}
+          </select>
+        </label>
+        {availableUpdate ? (
+          <div className="update-pill">{tr("update.available_pill", { version: availableUpdate.tag })}</div>
+        ) : null}
+        <div className={`status-chip status-${runStatus}`}>{tr(statusKey(runStatus))}</div>
+      </div>
+    </header>
+  );
+});
+
+// ─── UpdateBanner ─────────────────────────────────────────────────────────────
+
+type UpdateBannerProps = {
+  availableUpdate: AvailableUpdate;
+  updateStatus: UpdateStatus;
+  updateDownloadPct: number | null;
+  appInfo: AppInfo | null;
+  updaterInstallReady: boolean;
+  tr: (key: I18nKey, params?: Record<string, string | number>) => string;
+  onInstall: () => void;
+  onOpenRelease: () => void;
+  onCheckForUpdates: () => void;
+  onRestart: () => void;
+};
+
+const UpdateBanner = React.memo(function UpdateBanner({
+  availableUpdate,
+  updateStatus,
+  updateDownloadPct,
+  appInfo,
+  updaterInstallReady,
+  tr,
+  onInstall,
+  onOpenRelease,
+  onCheckForUpdates,
+  onRestart,
+}: UpdateBannerProps) {
+  return (
+    <section className="card update-banner">
+      <h2>{tr("update.banner_title", { version: availableUpdate.tag })}</h2>
+      <p>{tr("update.banner_body", { current: appInfo?.appVersion ?? "-", latest: availableUpdate.tag })}</p>
+      {availableUpdate.isMajor ? <p>{tr("update.major_notice")}</p> : null}
+      {updateStatus === "downloading" ? (
+        <p>{tr("update.download_progress", { pct: Math.round(updateDownloadPct ?? 0) })}</p>
+      ) : null}
+      <div className="update-actions">
+        {updateStatus === "ready_to_restart" ? (
+          <button className="primary" type="button" onClick={onRestart}>
+            {tr("button.restart_to_apply")}
+          </button>
+        ) : updaterInstallReady && !availableUpdate.isMajor ? (
+          <button
+            className="primary"
+            type="button"
+            disabled={updateStatus === "downloading"}
+            onClick={onInstall}
+          >
+            {updateStatus === "downloading" ? tr("button.installing_update") : tr("button.install_update")}
+          </button>
+        ) : null}
+        <button
+          className="secondary"
+          type="button"
+          disabled={updateStatus === "downloading"}
+          onClick={onOpenRelease}
+        >
+          {tr("button.download_update")}
+        </button>
+        <button
+          className="secondary"
+          type="button"
+          disabled={updateStatus === "checking" || updateStatus === "downloading"}
+          onClick={onCheckForUpdates}
+        >
+          {tr("button.check_updates")}
+        </button>
+      </div>
+    </section>
+  );
+});
+
+// ─── SummaryScreen ────────────────────────────────────────────────────────────
+
+type SummaryScreenProps = {
+  summary: RunSummary;
+  summaryBadge: { text: string; cls: string };
+  summaryTopStages: Array<[string, number]>;
+  summaryStageRows: Array<[string, number]>;
+  appInfo: AppInfo | null;
+  canRun: boolean;
+  tr: (key: I18nKey, params?: Record<string, string | number>) => string;
+  onOpenOutput: () => void;
+  onOpenFolder: () => void;
+  onCopyReport: () => void;
+  onExportJson: () => void;
+  onClose: () => void;
+  onRunAgain: () => void;
+};
+
+const SummaryScreen = React.memo(function SummaryScreen({
+  summary,
+  summaryBadge,
+  summaryTopStages,
+  summaryStageRows,
+  appInfo,
+  canRun,
+  tr,
+  onOpenOutput,
+  onOpenFolder,
+  onCopyReport,
+  onExportJson,
+  onClose,
+  onRunAgain,
+}: SummaryScreenProps) {
+  const reductionBarWidth = `${Math.min(100, Math.max(0, summary.reductionPct))}%`;
+
+  return (
+    <section className="summary-shell">
+      <header className="card summary-header">
+        <div>
+          <h2 className="summary-kicker">{tr("summary.mission_report")}</h2>
+          <h3>{tr(summaryTitleKey(summary.status))}</h3>
+          <p className="subtitle">
+            {tr("summary.subline", {
+              jobId: summary.jobId,
+              timestamp: formatIsoLocal(summary.finishedAt),
+              mode: prettyMode(summary),
+              ordering: summary.ordering,
+            })}
+          </p>
+        </div>
+        <div className={`summary-badge ${summaryBadge.cls}`}>{summaryBadge.text}</div>
+      </header>
+
+      <div className="summary-grid">
+        <section className="card summary-card">
+          <h3>{tr("summary.section.key_results")}</h3>
+          <div className="summary-hero-value">{formatInt(summary.uniqueTokens)}</div>
+          <div className="summary-hero-label">{tr("summary.metric.unique_output")}</div>
+          <div className="summary-kpis">
+            <div>
+              <strong>{formatInt(summary.tokensSeen)}</strong>
+              <span>{tr("summary.metric.total_scanned")}</span>
+            </div>
+            <div>
+              <strong>{formatInt(summary.duplicates)}</strong>
+              <span>{tr("summary.metric.duplicates_removed")}</span>
+            </div>
+            <div>
+              <strong>{formatPct(summary.reductionPct)}</strong>
+              <span>{tr("summary.metric.reduction")}</span>
+            </div>
+            <div>
+              <strong>{formatPct(summary.uniqPct)}</strong>
+              <span>{tr("summary.metric.uniq_rate")}</span>
+            </div>
+          </div>
+          <div className="summary-gauge-wrap">
+            <div className="summary-gauge-label">{tr("summary.metric.reduction_ratio")}</div>
+            <div className="bar-wrap">
+              <div className="bar" style={{ width: reductionBarWidth }} />
+            </div>
+          </div>
+
+          <h4>{tr("summary.section.output")}</h4>
+          <div className="summary-meta-grid">
+            <div>{tr("summary.metric.output_path")}</div>
+            <code>{summary.outputPath || "-"}</code>
+            <div>{tr("summary.metric.output_bytes")}</div>
+            <div>{formatBytes(summary.outputBytes)}</div>
+            <div>{tr("summary.metric.separator")}</div>
+            <div>
+              <code>{summary.outputSeparatorRaw || "-"}</code> ({summary.outputSeparatorPreview || "-"})
+            </div>
+          </div>
+        </section>
+
+        <section className="card summary-card">
+          <h3>{tr("summary.section.performance")}</h3>
+          <div className="summary-meta-grid">
+            <div>{tr("summary.metric.elapsed")}</div>
+            <div>{formatElapsed(summary.elapsedMs)}</div>
+            <div>{tr("summary.metric.avg_tps")}</div>
+            <div>{formatInt(summary.avgThroughputTps)}</div>
+            <div>{tr("summary.metric.peak_tps")}</div>
+            <div>{summary.peakThroughputTps ? formatInt(summary.peakThroughputTps) : "-"}</div>
+            <div>{tr("summary.metric.input_bytes")}</div>
+            <div>{formatBytes(summary.inputBytesTotal)}</div>
+            <div>{tr("summary.metric.mode_ordering")}</div>
+            <div>{prettyMode(summary)} / {summary.ordering}</div>
+            <div>{tr("summary.metric.normalization")}</div>
+            <div>
+              trim={summary.trim ? "on" : "off"} | drop_empty={summary.dropEmpty ? "on" : "off"}
+            </div>
+            <div>{tr("summary.metric.app_version")}</div>
+            <div>{appInfo?.appVersion ?? "-"}</div>
+            <div>{tr("summary.metric.backend_version")}</div>
+            <div>{appInfo?.backendVersion ?? "-"}</div>
+            <div>{tr("summary.metric.update_channel")}</div>
+            <div>{appInfo?.updateChannel ?? "stable"}</div>
+            {summary.diskAlphabeticalMode ? (
+              <>
+                <div>{tr("summary.metric.disk_mode")}</div>
+                <div>{summary.diskAlphabeticalMode}</div>
+              </>
+            ) : null}
+          </div>
+
+          <details className="summary-timeline" open={summaryTopStages.length > 0}>
+            <summary>{tr("summary.section.timeline")}</summary>
+            {summaryTopStages.length > 0 ? (
+              <div className="summary-stage-table">
+                {summaryTopStages.map(([stage, duration]) => (
+                  <div key={stage} className="summary-stage-row summary-stage-top">
+                    <span>{stage}</span>
+                    <strong>{formatElapsed(duration)}</strong>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="summary-empty">{tr("summary.no_stage_data")}</div>
+            )}
+            {summaryStageRows.length > 3 ? (
+              <div className="summary-stage-table">
+                {summaryStageRows.slice(3).map(([stage, duration]) => (
+                  <div key={stage} className="summary-stage-row">
+                    <span>{stage}</span>
+                    <span>{formatElapsed(duration)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </details>
+
+          <h4>{tr("summary.section.diagnostics")}</h4>
+          {summary.warnings.length > 0 ? (
+            <div className="warnings">
+              {summary.warnings.map((warning) => (
+                <div key={warning}>{warning}</div>
+              ))}
+            </div>
+          ) : (
+            <div className="summary-empty">{tr("summary.no_warnings")}</div>
+          )}
+          {summary.errorMessage ? (
+            <div className="errors">
+              <div>{summary.errorMessage}</div>
+            </div>
+          ) : null}
+        </section>
+      </div>
+
+      <footer className="card summary-footer">
+        <div className="button-row">
+          <button className="secondary" onClick={onOpenOutput}>{tr("button.open_output")}</button>
+          <button className="secondary" onClick={onOpenFolder}>{tr("button.open_folder")}</button>
+          <button className="secondary" onClick={onCopyReport}>{tr("button.copy_report")}</button>
+          <button className="secondary" onClick={onExportJson}>{tr("button.export_json")}</button>
+          <button className="secondary" onClick={onClose}>{tr("button.close_report")}</button>
+          <button className="primary" disabled={!canRun} onClick={onRunAgain}>{tr("button.run_again")}</button>
+        </div>
+      </footer>
+    </section>
+  );
+});
+
+// ─── InputSection ─────────────────────────────────────────────────────────────
+
+type InputSectionProps = {
+  form: FormState;
+  runStatus: RunStatus;
+  inputsDragActive: boolean;
+  tr: (key: I18nKey, params?: Record<string, string | number>) => string;
+  onFormChange: React.Dispatch<React.SetStateAction<FormState>>;
+  onPickInputFiles: () => void;
+  onPickOutputFile: () => void;
+  onDragOver: (e: React.DragEvent<HTMLDivElement>) => void;
+  onDragLeave: (e: React.DragEvent<HTMLDivElement>) => void;
+  onDrop: (e: React.DragEvent<HTMLDivElement>) => void;
+};
+
+const InputSection = React.memo(function InputSection({
+  form,
+  runStatus,
+  inputsDragActive,
+  tr,
+  onFormChange,
+  onPickInputFiles,
+  onPickOutputFile,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+}: InputSectionProps) {
+  return (
+    <section className="card">
+      <h2>{tr("section.inputs")}</h2>
+      <div className="button-row compact">
+        <button className="secondary" disabled={runStatus === "running"} onClick={onPickInputFiles}>
+          {tr("button.add_files")}
+        </button>
+      </div>
+      <label className="field">
+        <span>{tr("field.inputs")}</span>
+        <div
+          className={`drop-zone ${inputsDragActive ? "drop-zone-active" : ""}`}
+          onDragOver={onDragOver}
+          onDragLeave={onDragLeave}
+          onDrop={onDrop}
+        >
+          <textarea
+            value={form.inputsText}
+            onChange={(e) => onFormChange((f) => ({ ...f, inputsText: e.target.value }))}
+            rows={8}
+            placeholder={tr("placeholder.inputs")}
+          />
+          <div className="drop-hint">{tr("hint.drop_files")}</div>
+        </div>
+      </label>
+      <label className="field">
+        <span>{tr("field.output")}</span>
+        <input
+          value={form.outputPath}
+          onChange={(e) => onFormChange((f) => ({ ...f, outputPath: e.target.value }))}
+          placeholder={tr("placeholder.output")}
+        />
+      </label>
+      <div className="button-row compact">
+        <button className="secondary" disabled={runStatus === "running"} onClick={onPickOutputFile}>
+          {tr("button.pick_output")}
+        </button>
+      </div>
+    </section>
+  );
+});
+
+// ─── ProcessingSection ────────────────────────────────────────────────────────
+
+type ProcessingSectionProps = {
+  form: FormState;
+  tr: (key: I18nKey, params?: Record<string, string | number>) => string;
+  onFormChange: React.Dispatch<React.SetStateAction<FormState>>;
+};
+
+const ProcessingSection = React.memo(function ProcessingSection({
+  form,
+  tr,
+  onFormChange,
+}: ProcessingSectionProps) {
+  return (
+    <section className="card">
+      <h2>{tr("section.processing")}</h2>
+      <div className="row">
+        <label className="field" title={tr("tooltip.processing.mode")}>
+          <span title={tr("tooltip.processing.mode")}>{tr("field.mode")}</span>
+          <select
+            title={tr("tooltip.processing.mode")}
+            value={form.mode}
+            onChange={(e) => onFormChange((f) => ({ ...f, mode: e.target.value as FormState["mode"] }))}
+          >
+            <option value="auto">{tr("option.mode.auto")}</option>
+            <option value="ram">{tr("option.mode.ram")}</option>
+            <option value="disk">{tr("option.mode.disk")}</option>
+          </select>
+        </label>
+        <label className="field" title={tr("tooltip.processing.ordering")}>
+          <span title={tr("tooltip.processing.ordering")}>{tr("field.ordering")}</span>
+          <select
+            title={tr("tooltip.processing.ordering")}
+            value={form.ordering}
+            onChange={(e) =>
+              onFormChange((f) => ({ ...f, ordering: e.target.value as FormState["ordering"] }))
+            }
+          >
+            <option value="preserve_first_seen">{tr("option.ordering.preserve_first_seen")}</option>
+            <option value="alphabetical">{tr("option.ordering.alphabetical")}</option>
+            <option value="unordered_fast">{tr("option.ordering.unordered_fast")}</option>
+          </select>
+        </label>
+      </div>
+
+      <label className="field" title={tr("tooltip.processing.disk_alphabetical_mode")}>
+        <span title={tr("tooltip.processing.disk_alphabetical_mode")}>
+          {tr("field.disk_alphabetical_mode")}
+        </span>
+        <select
+          title={tr("tooltip.processing.disk_alphabetical_mode")}
+          value={form.diskAlphabeticalMode}
+          onChange={(e) =>
+            onFormChange((f) => ({
+              ...f,
+              diskAlphabeticalMode: e.target.value as FormState["diskAlphabeticalMode"],
+            }))
+          }
+        >
+          <option value="fast_bucket_local">{tr("option.disk_mode.fast_bucket_local")}</option>
+          <option value="global_perfect">{tr("option.disk_mode.global_perfect")}</option>
+        </select>
+      </label>
+
+      <div className="row">
+        <label className="field" title={tr("tooltip.processing.disk_buckets")}>
+          <span title={tr("tooltip.processing.disk_buckets")}>{tr("field.disk_buckets")}</span>
+          <input
+            title={tr("tooltip.processing.disk_buckets")}
+            type="number"
+            min={8}
+            value={form.diskBuckets}
+            onChange={(e) => onFormChange((f) => ({ ...f, diskBuckets: Number(e.target.value) }))}
+          />
+        </label>
+        <label className="field" title={tr("tooltip.processing.disk_run_bytes")}>
+          <span title={tr("tooltip.processing.disk_run_bytes")}>{tr("field.disk_run_bytes")}</span>
+          <input
+            title={tr("tooltip.processing.disk_run_bytes")}
+            type="number"
+            min={1_000_000}
+            value={form.diskRunBytes}
+            onChange={(e) => onFormChange((f) => ({ ...f, diskRunBytes: Number(e.target.value) }))}
+          />
+        </label>
+      </div>
+
+      <div className="row flags">
+        <label title={tr("tooltip.processing.trim")}>
+          <input
+            title={tr("tooltip.processing.trim")}
+            type="checkbox"
+            checked={form.trim}
+            onChange={(e) => onFormChange((f) => ({ ...f, trim: e.target.checked }))}
+          />
+          {tr("flag.trim")}
+        </label>
+        <label title={tr("tooltip.processing.drop_empty")}>
+          <input
+            title={tr("tooltip.processing.drop_empty")}
+            type="checkbox"
+            checked={form.dropEmpty}
+            onChange={(e) => onFormChange((f) => ({ ...f, dropEmpty: e.target.checked }))}
+          />
+          {tr("flag.drop_empty")}
+        </label>
+      </div>
+    </section>
+  );
+});
+
+// ─── OutputSection ────────────────────────────────────────────────────────────
+
+type OutputSectionProps = {
+  form: FormState;
+  runStatus: RunStatus;
+  activeJobId: number | null;
+  appInfo: AppInfo | null;
+  canRun: boolean;
+  canCancel: boolean;
+  separatorPreview: string;
+  separatorPreviewVisible: string;
+  resolvedSeparator: string;
+  tr: (key: I18nKey, params?: Record<string, string | number>) => string;
+  onFormChange: React.Dispatch<React.SetStateAction<FormState>>;
+  onStartJob: () => void;
+  onCancelJob: () => void;
+};
+
+const OutputSection = React.memo(function OutputSection({
+  form,
+  runStatus,
+  activeJobId,
+  appInfo,
+  canRun,
+  canCancel,
+  separatorPreview,
+  separatorPreviewVisible,
+  resolvedSeparator,
+  tr,
+  onFormChange,
+  onStartJob,
+  onCancelJob,
+}: OutputSectionProps) {
+  return (
+    <section className="card">
+      <h2>{tr("section.output")}</h2>
+      <label className="field">
+        <span>{tr("field.separator")}</span>
+        <input
+          value={form.separator}
+          onChange={(e) => onFormChange((f) => ({ ...f, separator: e.target.value }))}
+          placeholder="\\n"
+        />
+      </label>
+      <label className="field">
+        <span>{tr("field.separator_presets")}</span>
+        <div className="preset-row">
+          {SEPARATOR_PRESETS.map((preset) => (
+            <button
+              key={`${preset.label}:${preset.value}:${preset.raw}`}
+              className="secondary preset-btn"
+              type="button"
+              onClick={() =>
+                onFormChange((f) => ({ ...f, separator: preset.value, rawSeparator: preset.raw }))
+              }
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
+      </label>
+      <label className="field">
+        <span>{tr("field.separator_preview")}</span>
+        <pre className="separator-preview">{separatorPreview}</pre>
+        <div className="separator-preview-meta">
+          {tr("meta.effective_separator")}: <code>{escapeControlChars(resolvedSeparator)}</code>
+        </div>
+        <div className="separator-preview-meta">
+          {tr("metric.tokens")}: <code>{separatorPreviewVisible}</code>
+        </div>
+      </label>
+      <label className="field checkbox">
+        <input
+          type="checkbox"
+          checked={form.rawSeparator}
+          onChange={(e) => onFormChange((f) => ({ ...f, rawSeparator: e.target.checked }))}
+        />
+        <span>{tr("field.raw_separator")}</span>
+      </label>
+      <label className="field checkbox">
+        <input
+          type="checkbox"
+          checked={form.allowOverwrite}
+          onChange={(e) => onFormChange((f) => ({ ...f, allowOverwrite: e.target.checked }))}
+        />
+        <span>{tr("field.allow_overwrite")}</span>
+      </label>
+
+      <div className="button-row">
+        <button className="primary" disabled={!canRun} onClick={onStartJob}>
+          {tr(runButtonKey(runStatus))}
+        </button>
+        <button className="danger" disabled={!canCancel} onClick={onCancelJob}>
+          {tr("button.cancel")}
+        </button>
+      </div>
+
+      <div className="meta">
+        <div>
+          {tr("meta.app")}: {appInfo?.appName ?? "-"} {appInfo?.appVersion ?? ""}
+        </div>
+        <div>
+          {tr("meta.backend")}: {appInfo?.backendVersion ?? "-"}
+        </div>
+        <div>
+          {tr("meta.update_channel")}: {appInfo?.updateChannel ?? "stable"}
+        </div>
+        <div>
+          {tr("meta.job_id")}: {activeJobId ?? "-"}
+        </div>
+        <div className="license-notice">
+          {tr("meta.license")}
+        </div>
+      </div>
+    </section>
+  );
+});
+
+// ─── App ──────────────────────────────────────────────────────────────────────
+
 function App() {
   const [locale, setLocale] = React.useState<Locale>(INITIAL_LOCALE);
   const tr = React.useCallback(
     (key: I18nKey, params?: Record<string, string | number>) => t(locale, key, params),
     [locale],
   );
+  // Stable ref for locale — lets pollEvents and checkForUpdates use t(localeRef.current, ...)
+  // without capturing tr in their closures (which would cause the polling interval to restart
+  // every time the user changes the language).
+  const localeRef = React.useRef<Locale>(locale);
+  React.useEffect(() => {
+    localeRef.current = locale;
+  }, [locale]);
 
   const [form, setForm] = React.useState<FormState>(DEFAULT_FORM);
   const [appInfo, setAppInfo] = React.useState<AppInfo | null>(null);
-  const [runStatus, setRunStatus] = React.useState<RunStatus>("idle");
-  const [activeJobId, setActiveJobId] = React.useState<number | null>(null);
-  const [message, setMessage] = React.useState<string>(() => t(INITIAL_LOCALE, "message.idle"));
-  const [progress, setProgress] = React.useState<ProgressSnapshot>(EMPTY_PROGRESS);
+  const [jobState, dispatch] = React.useReducer(jobReducer, INITIAL_JOB_STATE);
   const [inputsDragActive, setInputsDragActive] = React.useState(false);
-  const [lastSummary, setLastSummary] = React.useState<RunSummary | null>(null);
   const [updateStatus, setUpdateStatus] = React.useState<UpdateStatus>("idle");
   const [availableUpdate, setAvailableUpdate] = React.useState<AvailableUpdate | null>(null);
   const [updateDownloadPct, setUpdateDownloadPct] = React.useState<number | null>(null);
@@ -610,6 +1313,10 @@ function App() {
 
   const pollingRef = React.useRef(false);
   const updateAutoCheckedRef = React.useRef(false);
+
+  // Destructure for convenience in derived values and callbacks.
+  const { runStatus, activeJobId, progress, message, lastSummary } = jobState;
+
   const parsedInputs = React.useMemo(() => parseInputs(form.inputsText), [form.inputsText]);
   const validationErrors = React.useMemo(() => validateForm(form, tr), [form, tr]);
   const resolvedSeparator = React.useMemo(
@@ -637,20 +1344,8 @@ function App() {
   }, [lastSummary]);
   const summaryTopStages = React.useMemo(() => summaryStageRows.slice(0, 3), [summaryStageRows]);
 
-  const appendMessage = React.useCallback((text: string) => {
-    setMessage(text);
-  }, []);
-
-  const mergeInputs = React.useCallback((incoming: string[]) => {
-    if (incoming.length === 0) {
-      return;
-    }
-    setForm((prev) => {
-      const merged = [...parseInputs(prev.inputsText), ...incoming];
-      const deduped = Array.from(new Set(merged));
-      return { ...prev, inputsText: deduped.join("\n") };
-    });
-  }, []);
+  const canRun = runStatus !== "running" && validationErrors.length === 0;
+  const canCancel = runStatus === "running" && activeJobId !== null;
 
   const buildSummaryReport = React.useCallback(
     (summary: RunSummary): string => {
@@ -690,11 +1385,22 @@ function App() {
     },
     [appInfo?.appVersion, appInfo?.backendVersion, appInfo?.updateChannel],
   );
+
+  const mergeInputs = React.useCallback((incoming: string[]) => {
+    if (incoming.length === 0) {
+      return;
+    }
+    setForm((prev) => {
+      const merged = [...parseInputs(prev.inputsText), ...incoming];
+      const deduped = Array.from(new Set(merged));
+      return { ...prev, inputsText: deduped.join("\n") };
+    });
+  }, []);
+
   const syncRuntimeState = React.useCallback(async () => {
     const state = await invoke<RuntimeState>("get_runtime_state");
-    setRunStatus(state.isRunning ? "running" : "idle");
-    setActiveJobId(state.activeJobId ?? null);
-  }, []);
+    dispatch({ type: "sync_runtime", isRunning: state.isRunning, activeJobId: state.activeJobId ?? null });
+  }, [dispatch]);
 
   React.useEffect(() => {
     try {
@@ -704,15 +1410,15 @@ function App() {
     }
   }, [locale]);
 
+  // pollEvents only depends on dispatch (stable) — not on tr or appendMessage.
+  // This means the 300ms polling interval is set once on mount and never restarted.
   const pollEvents = React.useCallback(async () => {
     if (pollingRef.current) {
       return;
     }
     pollingRef.current = true;
     try {
-      const batch = await invoke<EmittedEvent[]>("next_events", {
-        req: { maxEvents: 64, timeoutMs: 250 },
-      });
+      const batch = await invoke<EmittedEvent[]>("next_events", NEXT_EVENTS_REQ);
       if (batch.length === 0) {
         return;
       }
@@ -720,57 +1426,49 @@ function App() {
       for (const ev of batch) {
         switch (ev.topic) {
           case "job://started": {
-            setRunStatus("running");
             const id = Number(ev.payload.job_id ?? 0);
-            if (Number.isFinite(id) && id > 0) {
-              setActiveJobId(id);
-            }
-            appendMessage(tr("message.job_started"));
+            dispatch({
+              type: "event_job_started",
+              jobId: Number.isFinite(id) && id > 0 ? id : null,
+              message: t(localeRef.current, "message.job_started"),
+            });
             break;
           }
           case "job://stage": {
-            const stage = String(ev.payload.stage ?? "-");
-            setProgress((prev) => ({ ...prev, stage }));
+            dispatch({ type: "event_stage", stage: String(ev.payload.stage ?? "-") });
             break;
           }
           case "job://progress": {
-            setProgress((prev) => ({
-              ...prev,
-              stage: String(ev.payload.stage ?? prev.stage),
-              filesDone: Number(ev.payload.files_done ?? prev.filesDone),
-              filesTotal: Number(ev.payload.files_total ?? prev.filesTotal),
-              tokensSeen: Number(ev.payload.tokens_seen ?? prev.tokensSeen),
-              uniqueTokens: Number(ev.payload.unique_tokens ?? prev.uniqueTokens),
-              duplicates: Number(ev.payload.duplicates ?? prev.duplicates),
-              throughputTps: Number(ev.payload.throughput_tps ?? prev.throughputTps),
-              elapsedMs: Number(ev.payload.elapsed_ms ?? prev.elapsedMs),
-              etaMs:
-                ev.payload.eta_ms === null || ev.payload.eta_ms === undefined
-                  ? null
-                  : Number(ev.payload.eta_ms),
-            }));
+            const p = ev.payload;
+            const snapshot: Partial<ProgressSnapshot> = {};
+            if (p.stage != null) snapshot.stage = String(p.stage);
+            if (p.files_done != null) snapshot.filesDone = Number(p.files_done);
+            if (p.files_total != null) snapshot.filesTotal = Number(p.files_total);
+            if (p.tokens_seen != null) snapshot.tokensSeen = Number(p.tokens_seen);
+            if (p.unique_tokens != null) snapshot.uniqueTokens = Number(p.unique_tokens);
+            if (p.duplicates != null) snapshot.duplicates = Number(p.duplicates);
+            if (p.throughput_tps != null) snapshot.throughputTps = Number(p.throughput_tps);
+            if (p.elapsed_ms != null) snapshot.elapsedMs = Number(p.elapsed_ms);
+            snapshot.etaMs =
+              p.eta_ms === null || p.eta_ms === undefined ? null : Number(p.eta_ms);
+            dispatch({ type: "event_progress", snapshot });
             break;
           }
           case "job://done": {
-            setRunStatus("done");
-            setActiveJobId(null);
-            appendMessage(tr("message.done"));
+            dispatch({ type: "event_done", message: t(localeRef.current, "message.done") });
             break;
           }
           case "job://error": {
-            setRunStatus("error");
-            setActiveJobId(null);
-            appendMessage(
-              tr("message.error", {
-                detail: String(ev.payload.message ?? tr("fallback.unknown_error")),
+            dispatch({
+              type: "event_error",
+              message: t(localeRef.current, "message.error", {
+                detail: String(ev.payload.message ?? t(localeRef.current, "fallback.unknown_error")),
               }),
-            );
+            });
             break;
           }
           case "job://canceled": {
-            setRunStatus("canceled");
-            setActiveJobId(null);
-            appendMessage(tr("message.canceled"));
+            dispatch({ type: "event_canceled", message: t(localeRef.current, "message.canceled") });
             break;
           }
           case "job://summary": {
@@ -782,8 +1480,11 @@ function App() {
             if (!parsed) {
               break;
             }
-            setLastSummary(parsed);
-            appendMessage(tr("message.summary_ready"));
+            dispatch({
+              type: "event_summary",
+              summary: parsed,
+              message: t(localeRef.current, "message.summary_ready"),
+            });
             break;
           }
           default:
@@ -793,7 +1494,7 @@ function App() {
     } finally {
       pollingRef.current = false;
     }
-  }, [appendMessage, tr]);
+  }, [dispatch]);
 
   React.useEffect(() => {
     void invoke<AppInfo>("get_app_info").then(setAppInfo).catch(() => null);
@@ -812,12 +1513,14 @@ function App() {
     return () => window.clearInterval(timer);
   }, [pollEvents, syncRuntimeState]);
 
-  const canRun = runStatus !== "running" && validationErrors.length === 0;
-  const canCancel = runStatus === "running" && activeJobId !== null;
+  // ── Event handlers ──────────────────────────────────────────────────────────
 
-  const startJob = async () => {
+  const startJob = React.useCallback(async () => {
     if (validationErrors.length > 0) {
-      setMessage(tr("message.cannot_start", { detail: validationErrors[0] }));
+      dispatch({
+        type: "set_message",
+        message: t(localeRef.current, "message.cannot_start", { detail: validationErrors[0] }),
+      });
       return;
     }
 
@@ -825,19 +1528,24 @@ function App() {
     try {
       const exists = await invoke<boolean>("path_exists", { path: form.outputPath.trim() });
       if (exists && !allowOverwrite) {
-        const shouldOverwrite = await confirm(tr("confirm.overwrite.body", { path: form.outputPath }), {
-          title: tr("confirm.overwrite.title"),
-          kind: "warning",
-        });
+        const shouldOverwrite = await confirm(
+          t(localeRef.current, "confirm.overwrite.body", { path: form.outputPath }),
+          { title: t(localeRef.current, "confirm.overwrite.title"), kind: "warning" },
+        );
         if (!shouldOverwrite) {
-          setRunStatus("idle");
-          setMessage(tr("message.start_canceled_by_user"));
+          dispatch({
+            type: "set_message",
+            message: t(localeRef.current, "message.start_canceled_by_user"),
+          });
           return;
         }
         allowOverwrite = true;
       }
     } catch (err) {
-      setMessage(tr("message.preflight_failed", { detail: String(err) }));
+      dispatch({
+        type: "set_message",
+        message: t(localeRef.current, "message.preflight_failed", { detail: String(err) }),
+      });
       return;
     }
 
@@ -861,20 +1569,18 @@ function App() {
     };
 
     try {
-      setLastSummary(null);
-      setRunStatus("running");
-      setMessage(tr("message.starting"));
-      setProgress(EMPTY_PROGRESS);
+      dispatch({ type: "job_starting", message: t(localeRef.current, "message.starting") });
       const res = await invoke<{ jobId: number }>("start_job", req);
-      setActiveJobId(res.jobId);
+      dispatch({ type: "job_invoke_ok", jobId: res.jobId });
     } catch (err) {
-      setRunStatus("error");
-      setActiveJobId(null);
-      setMessage(tr("message.start_failed", { detail: String(err) }));
+      dispatch({
+        type: "job_invoke_err",
+        message: t(localeRef.current, "message.start_failed", { detail: String(err) }),
+      });
     }
-  };
+  }, [validationErrors, form, parsedInputs, dispatch]);
 
-  const cancelJob = async () => {
+  const cancelJob = React.useCallback(async () => {
     if (activeJobId === null) {
       return;
     }
@@ -883,14 +1589,17 @@ function App() {
         req: { jobId: activeJobId },
       });
       if (res.acknowledged) {
-        appendMessage(tr("message.cancel_requested"));
+        dispatch({ type: "set_message", message: t(localeRef.current, "message.cancel_requested") });
       }
     } catch (err) {
-      appendMessage(tr("message.cancel_failed", { detail: String(err) }));
+      dispatch({
+        type: "set_message",
+        message: t(localeRef.current, "message.cancel_failed", { detail: String(err) }),
+      });
     }
-  };
+  }, [activeJobId, dispatch]);
 
-  const pickInputFiles = async () => {
+  const pickInputFiles = React.useCallback(async () => {
     try {
       const selected = await open({
         multiple: true,
@@ -905,39 +1614,40 @@ function App() {
       }
       mergeInputs(list);
     } catch (err) {
-      appendMessage(tr("message.input_dialog_failed", { detail: String(err) }));
+      dispatch({
+        type: "set_message",
+        message: t(localeRef.current, "message.input_dialog_failed", { detail: String(err) }),
+      });
     }
-  };
+  }, [mergeInputs, dispatch]);
 
-  const onInputsDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+  const onInputsDragOver = React.useCallback((event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     if (runStatus === "running") {
       return;
     }
     event.dataTransfer.dropEffect = "copy";
-    if (!inputsDragActive) {
-      setInputsDragActive(true);
-    }
-  };
+    setInputsDragActive(true);
+  }, [runStatus]);
 
-  const onInputsDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
+  const onInputsDragLeave = React.useCallback((event: React.DragEvent<HTMLDivElement>) => {
     const related = event.relatedTarget as Node | null;
     if (related && event.currentTarget.contains(related)) {
       return;
     }
     setInputsDragActive(false);
-  };
+  }, []);
 
-  const onInputsDrop = (event: React.DragEvent<HTMLDivElement>) => {
+  const onInputsDrop = React.useCallback((event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     if (runStatus === "running") {
       return;
     }
     setInputsDragActive(false);
     mergeInputs(extractDroppedPaths(event));
-  };
+  }, [runStatus, mergeInputs]);
 
-  const pickOutputFile = async () => {
+  const pickOutputFile = React.useCallback(async () => {
     try {
       const selected = await save({
         defaultPath: form.outputPath.trim() || undefined,
@@ -948,53 +1658,57 @@ function App() {
       }
       setForm((prev) => ({ ...prev, outputPath: selected }));
     } catch (err) {
-      appendMessage(tr("message.output_dialog_failed", { detail: String(err) }));
+      dispatch({
+        type: "set_message",
+        message: t(localeRef.current, "message.output_dialog_failed", { detail: String(err) }),
+      });
     }
-  };
+  }, [form.outputPath, dispatch]);
 
-  const applySeparatorPreset = (preset: SeparatorPreset) => {
-    setForm((prev) => ({
-      ...prev,
-      separator: preset.value,
-      rawSeparator: preset.raw,
-    }));
-  };
-
-  const openSummaryOutput = async () => {
+  const openSummaryOutput = React.useCallback(async () => {
     if (!lastSummary) {
       return;
     }
     try {
       await invoke("open_output", { req: { path: lastSummary.outputPath } });
     } catch (err) {
-      appendMessage(tr("message.open_output_failed", { detail: String(err) }));
+      dispatch({
+        type: "set_message",
+        message: t(localeRef.current, "message.open_output_failed", { detail: String(err) }),
+      });
     }
-  };
+  }, [lastSummary, dispatch]);
 
-  const openSummaryFolder = async () => {
+  const openSummaryFolder = React.useCallback(async () => {
     if (!lastSummary) {
       return;
     }
     try {
       await invoke("open_output_folder", { req: { path: lastSummary.outputPath } });
     } catch (err) {
-      appendMessage(tr("message.open_output_folder_failed", { detail: String(err) }));
+      dispatch({
+        type: "set_message",
+        message: t(localeRef.current, "message.open_output_folder_failed", { detail: String(err) }),
+      });
     }
-  };
+  }, [lastSummary, dispatch]);
 
-  const copySummaryReport = async () => {
+  const copySummaryReport = React.useCallback(async () => {
     if (!lastSummary) {
       return;
     }
     try {
       await navigator.clipboard.writeText(buildSummaryReport(lastSummary));
-      appendMessage(tr("message.report_copied"));
+      dispatch({ type: "set_message", message: t(localeRef.current, "message.report_copied") });
     } catch (err) {
-      appendMessage(tr("message.copy_report_failed", { detail: String(err) }));
+      dispatch({
+        type: "set_message",
+        message: t(localeRef.current, "message.copy_report_failed", { detail: String(err) }),
+      });
     }
-  };
+  }, [lastSummary, buildSummaryReport, dispatch]);
 
-  const exportSummaryJson = async () => {
+  const exportSummaryJson = React.useCallback(async () => {
     if (!lastSummary) {
       return;
     }
@@ -1025,23 +1739,27 @@ function App() {
           ),
         },
       });
-      appendMessage(tr("message.summary_exported"));
+      dispatch({ type: "set_message", message: t(localeRef.current, "message.summary_exported") });
     } catch (err) {
-      appendMessage(tr("message.export_summary_failed", { detail: String(err) }));
+      dispatch({
+        type: "set_message",
+        message: t(localeRef.current, "message.export_summary_failed", { detail: String(err) }),
+      });
     }
-  };
+  }, [lastSummary, appInfo, dispatch]);
 
-  const closeSummaryReport = () => {
-    setLastSummary(null);
-  };
+  const closeSummaryReport = React.useCallback(() => {
+    dispatch({ type: "reset_summary" });
+  }, [dispatch]);
 
+  // checkForUpdates uses localeRef so it doesn't depend on tr — stable as long as appVersion is stable.
   const checkForUpdates = React.useCallback(async () => {
     if (!appInfo?.appVersion) {
       return;
     }
 
     setUpdateStatus("checking");
-    appendMessage(tr("message.update_checking"));
+    dispatch({ type: "set_message", message: t(localeRef.current, "message.update_checking") });
 
     try {
       const response = await fetch("https://api.github.com/repos/bultodepapas/Dupli-Annihilator-G/releases/latest", {
@@ -1057,7 +1775,10 @@ function App() {
       if (release.draft || release.prerelease) {
         setUpdateStatus("up_to_date");
         setAvailableUpdate(null);
-        appendMessage(tr("message.update_up_to_date", { version: appInfo.appVersion }));
+        dispatch({
+          type: "set_message",
+          message: t(localeRef.current, "message.update_up_to_date", { version: appInfo.appVersion }),
+        });
         return;
       }
 
@@ -1079,7 +1800,10 @@ function App() {
         setUpdateStatus("available");
         setUpdaterInstallReady(false);
         if (majorUpgrade) {
-          appendMessage(tr("message.update_major_manual_only", { version: normalizedVersion }));
+          dispatch({
+            type: "set_message",
+            message: t(localeRef.current, "message.update_major_manual_only", { version: normalizedVersion }),
+          });
         } else {
           void (async () => {
             try {
@@ -1089,55 +1813,73 @@ function App() {
               setUpdaterInstallReady(false);
             }
           })();
-          appendMessage(tr("message.update_available", { version: normalizedVersion }));
+          dispatch({
+            type: "set_message",
+            message: t(localeRef.current, "message.update_available", { version: normalizedVersion }),
+          });
         }
       } else {
         setAvailableUpdate(null);
         setUpdateStatus("up_to_date");
         setUpdaterInstallReady(false);
-        appendMessage(tr("message.update_up_to_date", { version: appInfo.appVersion }));
+        dispatch({
+          type: "set_message",
+          message: t(localeRef.current, "message.update_up_to_date", { version: appInfo.appVersion }),
+        });
       }
     } catch (err) {
       setUpdateStatus("error");
       setUpdaterInstallReady(false);
-      appendMessage(tr("message.update_check_failed", { detail: String(err) }));
+      dispatch({
+        type: "set_message",
+        message: t(localeRef.current, "message.update_check_failed", { detail: String(err) }),
+      });
     }
-  }, [appInfo?.appVersion, appendMessage, tr]);
+  }, [appInfo?.appVersion, dispatch]);
 
-  const openLatestReleasePage = async () => {
+  const openLatestReleasePage = React.useCallback(async () => {
     if (!availableUpdate) {
       return;
     }
     try {
       await invoke("open_external_url", { req: { url: availableUpdate.url } });
     } catch (err) {
-      appendMessage(tr("message.open_release_failed", { detail: String(err) }));
+      dispatch({
+        type: "set_message",
+        message: t(localeRef.current, "message.open_release_failed", { detail: String(err) }),
+      });
     }
-  };
+  }, [availableUpdate, dispatch]);
 
-  const installAvailableUpdate = async () => {
+  const installAvailableUpdate = React.useCallback(async () => {
     if (!availableUpdate) {
       return;
     }
     if (availableUpdate.isMajor) {
-      appendMessage(tr("message.update_major_manual_only", { version: availableUpdate.version }));
+      dispatch({
+        type: "set_message",
+        message: t(localeRef.current, "message.update_major_manual_only", { version: availableUpdate.version }),
+      });
       await openLatestReleasePage();
       return;
     }
     if (!updaterInstallReady) {
-      appendMessage(tr("message.update_auto_unavailable"));
+      dispatch({ type: "set_message", message: t(localeRef.current, "message.update_auto_unavailable") });
       await openLatestReleasePage();
       return;
     }
     if (runStatus === "running") {
-      appendMessage(tr("message.update_install_blocked_running"));
+      dispatch({ type: "set_message", message: t(localeRef.current, "message.update_install_blocked_running") });
       return;
     }
 
     try {
       setUpdateStatus("downloading");
       setUpdateDownloadPct(0);
-      appendMessage(tr("message.update_installing", { version: availableUpdate.version }));
+      dispatch({
+        type: "set_message",
+        message: t(localeRef.current, "message.update_installing", { version: availableUpdate.version }),
+      });
 
       const update = await check();
       if (!update) {
@@ -1168,23 +1910,40 @@ function App() {
       });
 
       setUpdateStatus("ready_to_restart");
-      appendMessage(tr("message.update_ready_restart", { version: availableUpdate.version }));
+      dispatch({
+        type: "set_message",
+        message: t(localeRef.current, "message.update_ready_restart", { version: availableUpdate.version }),
+      });
     } catch (err) {
       setUpdateStatus("error");
       setUpdateDownloadPct(null);
-      appendMessage(tr("message.update_install_failed", { detail: String(err) }));
+      dispatch({
+        type: "set_message",
+        message: t(localeRef.current, "message.update_install_failed", { detail: String(err) }),
+      });
       await openLatestReleasePage();
     }
-  };
+  }, [availableUpdate, updaterInstallReady, runStatus, dispatch, openLatestReleasePage]);
 
-  const restartToApplyUpdate = async () => {
+  const restartToApplyUpdate = React.useCallback(async () => {
     try {
-      appendMessage(tr("message.update_restarting"));
+      dispatch({ type: "set_message", message: t(localeRef.current, "message.update_restarting") });
       await relaunch();
     } catch (err) {
-      appendMessage(tr("message.update_restart_failed", { detail: String(err) }));
+      dispatch({
+        type: "set_message",
+        message: t(localeRef.current, "message.update_restart_failed", { detail: String(err) }),
+      });
     }
-  };
+  }, [dispatch]);
+
+  const onLocaleChange = React.useCallback((l: Locale) => {
+    setLocale(l);
+  }, []);
+
+  const onCheckForUpdates = React.useCallback(() => {
+    void checkForUpdates();
+  }, [checkForUpdates]);
 
   React.useEffect(() => {
     if (!appInfo?.appVersion || updateAutoCheckedRef.current) {
@@ -1197,443 +1956,86 @@ function App() {
     return () => window.clearTimeout(timer);
   }, [appInfo?.appVersion, checkForUpdates]);
 
+  // ── Render ──────────────────────────────────────────────────────────────────
+
   return (
     <div className="app">
-      <header className="topbar">
-        <div>
-          <h1>Dupli-Annihilator-G</h1>
-          <p className="subtitle">{tr("app.subtitle")}</p>
-        </div>
-        <div className="topbar-actions">
-          <button
-            className="secondary topbar-btn"
-            type="button"
-            disabled={updateStatus === "checking" || updateStatus === "downloading"}
-            onClick={() => void checkForUpdates()}
-          >
-            {updateStatus === "checking" ? tr("button.checking_updates") : tr("button.check_updates")}
-          </button>
-          <label className="lang-control">
-            <span>{tr("field.language")}</span>
-            <select value={locale} onChange={(e) => setLocale(e.target.value as Locale)}>
-              {supportedLocales.map((loc) => (
-                <option key={loc} value={loc}>
-                  {t(loc, "lang.name")}
-                </option>
-              ))}
-            </select>
-          </label>
-          {availableUpdate ? <div className="update-pill">{tr("update.available_pill", { version: availableUpdate.tag })}</div> : null}
-          <div className={`status-chip status-${runStatus}`}>{tr(statusKey(runStatus))}</div>
-        </div>
-      </header>
+      <Header
+        locale={locale}
+        updateStatus={updateStatus}
+        availableUpdate={availableUpdate}
+        runStatus={runStatus}
+        tr={tr}
+        onLocaleChange={onLocaleChange}
+        onCheckForUpdates={onCheckForUpdates}
+      />
 
       {availableUpdate ? (
-        <section className="card update-banner">
-          <h2>{tr("update.banner_title", { version: availableUpdate.tag })}</h2>
-          <p>{tr("update.banner_body", { current: appInfo?.appVersion ?? "-", latest: availableUpdate.tag })}</p>
-          {availableUpdate.isMajor ? <p>{tr("update.major_notice")}</p> : null}
-          {updateStatus === "downloading" ? (
-            <p>{tr("update.download_progress", { pct: Math.round(updateDownloadPct ?? 0) })}</p>
-          ) : null}
-          <div className="update-actions">
-            {updateStatus === "ready_to_restart" ? (
-              <button className="primary" type="button" onClick={() => void restartToApplyUpdate()}>
-                {tr("button.restart_to_apply")}
-              </button>
-            ) : updaterInstallReady && !availableUpdate.isMajor ? (
-              <button
-                className="primary"
-                type="button"
-                disabled={updateStatus === "downloading"}
-                onClick={() => void installAvailableUpdate()}
-              >
-                {updateStatus === "downloading" ? tr("button.installing_update") : tr("button.install_update")}
-              </button>
-            ) : null}
-            <button
-              className="secondary"
-              type="button"
-              disabled={updateStatus === "downloading"}
-              onClick={() => void openLatestReleasePage()}
-            >
-              {tr("button.download_update")}
-            </button>
-            <button
-              className="secondary"
-              type="button"
-              disabled={updateStatus === "checking" || updateStatus === "downloading"}
-              onClick={() => void checkForUpdates()}
-            >
-              {tr("button.check_updates")}
-            </button>
-          </div>
-        </section>
+        <UpdateBanner
+          availableUpdate={availableUpdate}
+          updateStatus={updateStatus}
+          updateDownloadPct={updateDownloadPct}
+          appInfo={appInfo}
+          updaterInstallReady={updaterInstallReady}
+          tr={tr}
+          onInstall={() => void installAvailableUpdate()}
+          onOpenRelease={() => void openLatestReleasePage()}
+          onCheckForUpdates={onCheckForUpdates}
+          onRestart={() => void restartToApplyUpdate()}
+        />
       ) : null}
 
       <main className={showSummaryScreen ? "summary-main" : "grid"}>
         {showSummaryScreen && lastSummary && summaryBadge ? (
-          <section className="summary-shell">
-            <header className="card summary-header">
-              <div>
-                <h2 className="summary-kicker">{tr("summary.mission_report")}</h2>
-                <h3>{tr(summaryTitleKey(lastSummary.status))}</h3>
-                <p className="subtitle">
-                  {tr("summary.subline", {
-                    jobId: lastSummary.jobId,
-                    timestamp: formatIsoLocal(lastSummary.finishedAt),
-                    mode: prettyMode(lastSummary),
-                    ordering: lastSummary.ordering,
-                  })}
-                </p>
-              </div>
-              <div className={`summary-badge ${summaryBadge.cls}`}>{summaryBadge.text}</div>
-            </header>
-
-            <div className="summary-grid">
-              <section className="card summary-card">
-                <h3>{tr("summary.section.key_results")}</h3>
-                <div className="summary-hero-value">{formatInt(lastSummary.uniqueTokens)}</div>
-                <div className="summary-hero-label">{tr("summary.metric.unique_output")}</div>
-                <div className="summary-kpis">
-                  <div>
-                    <strong>{formatInt(lastSummary.tokensSeen)}</strong>
-                    <span>{tr("summary.metric.total_scanned")}</span>
-                  </div>
-                  <div>
-                    <strong>{formatInt(lastSummary.duplicates)}</strong>
-                    <span>{tr("summary.metric.duplicates_removed")}</span>
-                  </div>
-                  <div>
-                    <strong>{formatPct(lastSummary.reductionPct)}</strong>
-                    <span>{tr("summary.metric.reduction")}</span>
-                  </div>
-                  <div>
-                    <strong>{formatPct(lastSummary.uniqPct)}</strong>
-                    <span>{tr("summary.metric.uniq_rate")}</span>
-                  </div>
-                </div>
-                <div className="summary-gauge-wrap">
-                  <div className="summary-gauge-label">{tr("summary.metric.reduction_ratio")}</div>
-                  <div className="bar-wrap">
-                    <div className="bar" style={{ width: `${Math.min(100, Math.max(0, lastSummary.reductionPct))}%` }} />
-                  </div>
-                </div>
-
-                <h4>{tr("summary.section.output")}</h4>
-                <div className="summary-meta-grid">
-                  <div>{tr("summary.metric.output_path")}</div>
-                  <code>{lastSummary.outputPath || "-"}</code>
-                  <div>{tr("summary.metric.output_bytes")}</div>
-                  <div>{formatBytes(lastSummary.outputBytes)}</div>
-                  <div>{tr("summary.metric.separator")}</div>
-                  <div>
-                    <code>{lastSummary.outputSeparatorRaw || "-"}</code> ({lastSummary.outputSeparatorPreview || "-"})
-                  </div>
-                </div>
-              </section>
-
-              <section className="card summary-card">
-                <h3>{tr("summary.section.performance")}</h3>
-                <div className="summary-meta-grid">
-                  <div>{tr("summary.metric.elapsed")}</div>
-                  <div>{formatElapsed(lastSummary.elapsedMs)}</div>
-                  <div>{tr("summary.metric.avg_tps")}</div>
-                  <div>{formatInt(lastSummary.avgThroughputTps)}</div>
-                  <div>{tr("summary.metric.peak_tps")}</div>
-                  <div>{lastSummary.peakThroughputTps ? formatInt(lastSummary.peakThroughputTps) : "-"}</div>
-                  <div>{tr("summary.metric.input_bytes")}</div>
-                  <div>{formatBytes(lastSummary.inputBytesTotal)}</div>
-                  <div>{tr("summary.metric.mode_ordering")}</div>
-                  <div>{prettyMode(lastSummary)} / {lastSummary.ordering}</div>
-                  <div>{tr("summary.metric.normalization")}</div>
-                  <div>
-                    trim={lastSummary.trim ? "on" : "off"} | drop_empty={lastSummary.dropEmpty ? "on" : "off"}
-                  </div>
-                  <div>{tr("summary.metric.app_version")}</div>
-                  <div>{appInfo?.appVersion ?? "-"}</div>
-                  <div>{tr("summary.metric.backend_version")}</div>
-                  <div>{appInfo?.backendVersion ?? "-"}</div>
-                  <div>{tr("summary.metric.update_channel")}</div>
-                  <div>{appInfo?.updateChannel ?? "stable"}</div>
-                  {lastSummary.diskAlphabeticalMode ? (
-                    <>
-                      <div>{tr("summary.metric.disk_mode")}</div>
-                      <div>{lastSummary.diskAlphabeticalMode}</div>
-                    </>
-                  ) : null}
-                </div>
-
-                <details className="summary-timeline" open={summaryTopStages.length > 0}>
-                  <summary>{tr("summary.section.timeline")}</summary>
-                  {summaryTopStages.length > 0 ? (
-                    <div className="summary-stage-table">
-                      {summaryTopStages.map(([stage, duration]) => (
-                        <div key={stage} className="summary-stage-row summary-stage-top">
-                          <span>{stage}</span>
-                          <strong>{formatElapsed(duration)}</strong>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="summary-empty">{tr("summary.no_stage_data")}</div>
-                  )}
-                  {summaryStageRows.length > 3 ? (
-                    <div className="summary-stage-table">
-                      {summaryStageRows.slice(3).map(([stage, duration]) => (
-                        <div key={stage} className="summary-stage-row">
-                          <span>{stage}</span>
-                          <span>{formatElapsed(duration)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
-                </details>
-
-                <h4>{tr("summary.section.diagnostics")}</h4>
-                {lastSummary.warnings.length > 0 ? (
-                  <div className="warnings">
-                    {lastSummary.warnings.map((warning) => (
-                      <div key={warning}>{warning}</div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="summary-empty">{tr("summary.no_warnings")}</div>
-                )}
-                {lastSummary.errorMessage ? (
-                  <div className="errors">
-                    <div>{lastSummary.errorMessage}</div>
-                  </div>
-                ) : null}
-              </section>
-            </div>
-
-            <footer className="card summary-footer">
-              <div className="button-row">
-                <button className="secondary" onClick={() => void openSummaryOutput()}>{tr("button.open_output")}</button>
-                <button className="secondary" onClick={() => void openSummaryFolder()}>{tr("button.open_folder")}</button>
-                <button className="secondary" onClick={() => void copySummaryReport()}>{tr("button.copy_report")}</button>
-                <button className="secondary" onClick={() => void exportSummaryJson()}>{tr("button.export_json")}</button>
-                <button className="secondary" onClick={closeSummaryReport}>{tr("button.close_report")}</button>
-                <button className="primary" disabled={!canRun} onClick={() => void startJob()}>{tr("button.run_again")}</button>
-              </div>
-            </footer>
-          </section>
+          <SummaryScreen
+            summary={lastSummary}
+            summaryBadge={summaryBadge}
+            summaryTopStages={summaryTopStages}
+            summaryStageRows={summaryStageRows}
+            appInfo={appInfo}
+            canRun={canRun}
+            tr={tr}
+            onOpenOutput={() => void openSummaryOutput()}
+            onOpenFolder={() => void openSummaryFolder()}
+            onCopyReport={() => void copySummaryReport()}
+            onExportJson={() => void exportSummaryJson()}
+            onClose={closeSummaryReport}
+            onRunAgain={() => void startJob()}
+          />
         ) : (
           <>
-            <section className="card">
-              <h2>{tr("section.inputs")}</h2>
-              <div className="button-row compact">
-                <button className="secondary" disabled={runStatus === "running"} onClick={() => void pickInputFiles()}>
-                  {tr("button.add_files")}
-                </button>
-              </div>
-              <label className="field">
-                <span>{tr("field.inputs")}</span>
-                <div
-                  className={`drop-zone ${inputsDragActive ? "drop-zone-active" : ""}`}
-                  onDragOver={onInputsDragOver}
-                  onDragLeave={onInputsDragLeave}
-                  onDrop={onInputsDrop}
-                >
-                  <textarea
-                    value={form.inputsText}
-                    onChange={(e) => setForm((f) => ({ ...f, inputsText: e.target.value }))}
-                    rows={8}
-                    placeholder={tr("placeholder.inputs")}
-                  />
-                  <div className="drop-hint">{tr("hint.drop_files")}</div>
-                </div>
-              </label>
-              <label className="field">
-                <span>{tr("field.output")}</span>
-                <input
-                  value={form.outputPath}
-                  onChange={(e) => setForm((f) => ({ ...f, outputPath: e.target.value }))}
-                  placeholder={tr("placeholder.output")}
-                />
-              </label>
-              <div className="button-row compact">
-                <button className="secondary" disabled={runStatus === "running"} onClick={() => void pickOutputFile()}>
-                  {tr("button.pick_output")}
-                </button>
-              </div>
-            </section>
-
-            <section className="card">
-              <h2>{tr("section.processing")}</h2>
-              <div className="row">
-                <label className="field" title={tr("tooltip.processing.mode")}>
-                  <span title={tr("tooltip.processing.mode")}>{tr("field.mode")}</span>
-                  <select
-                    title={tr("tooltip.processing.mode")}
-                    value={form.mode}
-                    onChange={(e) => setForm((f) => ({ ...f, mode: e.target.value as FormState["mode"] }))}
-                  >
-                    <option value="auto">{tr("option.mode.auto")}</option>
-                    <option value="ram">{tr("option.mode.ram")}</option>
-                    <option value="disk">{tr("option.mode.disk")}</option>
-                  </select>
-                </label>
-                <label className="field" title={tr("tooltip.processing.ordering")}>
-                  <span title={tr("tooltip.processing.ordering")}>{tr("field.ordering")}</span>
-                  <select
-                    title={tr("tooltip.processing.ordering")}
-                    value={form.ordering}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, ordering: e.target.value as FormState["ordering"] }))
-                    }
-                  >
-                    <option value="preserve_first_seen">{tr("option.ordering.preserve_first_seen")}</option>
-                    <option value="alphabetical">{tr("option.ordering.alphabetical")}</option>
-                    <option value="unordered_fast">{tr("option.ordering.unordered_fast")}</option>
-                  </select>
-                </label>
-              </div>
-
-              <label className="field" title={tr("tooltip.processing.disk_alphabetical_mode")}>
-                <span title={tr("tooltip.processing.disk_alphabetical_mode")}>
-                  {tr("field.disk_alphabetical_mode")}
-                </span>
-                <select
-                  title={tr("tooltip.processing.disk_alphabetical_mode")}
-                  value={form.diskAlphabeticalMode}
-                  onChange={(e) =>
-                    setForm((f) => ({
-                      ...f,
-                      diskAlphabeticalMode: e.target.value as FormState["diskAlphabeticalMode"],
-                    }))
-                  }
-                >
-                  <option value="fast_bucket_local">{tr("option.disk_mode.fast_bucket_local")}</option>
-                  <option value="global_perfect">{tr("option.disk_mode.global_perfect")}</option>
-                </select>
-              </label>
-
-              <div className="row">
-                <label className="field" title={tr("tooltip.processing.disk_buckets")}>
-                  <span title={tr("tooltip.processing.disk_buckets")}>{tr("field.disk_buckets")}</span>
-                  <input
-                    title={tr("tooltip.processing.disk_buckets")}
-                    type="number"
-                    min={8}
-                    value={form.diskBuckets}
-                    onChange={(e) => setForm((f) => ({ ...f, diskBuckets: Number(e.target.value) }))}
-                  />
-                </label>
-                <label className="field" title={tr("tooltip.processing.disk_run_bytes")}>
-                  <span title={tr("tooltip.processing.disk_run_bytes")}>{tr("field.disk_run_bytes")}</span>
-                  <input
-                    title={tr("tooltip.processing.disk_run_bytes")}
-                    type="number"
-                    min={1_000_000}
-                    value={form.diskRunBytes}
-                    onChange={(e) => setForm((f) => ({ ...f, diskRunBytes: Number(e.target.value) }))}
-                  />
-                </label>
-              </div>
-
-              <div className="row flags">
-                <label title={tr("tooltip.processing.trim")}>
-                  <input
-                    title={tr("tooltip.processing.trim")}
-                    type="checkbox"
-                    checked={form.trim}
-                    onChange={(e) => setForm((f) => ({ ...f, trim: e.target.checked }))}
-                  />
-                  {tr("flag.trim")}
-                </label>
-                <label title={tr("tooltip.processing.drop_empty")}>
-                  <input
-                    title={tr("tooltip.processing.drop_empty")}
-                    type="checkbox"
-                    checked={form.dropEmpty}
-                    onChange={(e) => setForm((f) => ({ ...f, dropEmpty: e.target.checked }))}
-                  />
-                  {tr("flag.drop_empty")}
-                </label>
-              </div>
-            </section>
-
-            <section className="card">
-              <h2>{tr("section.output")}</h2>
-              <label className="field">
-                <span>{tr("field.separator")}</span>
-                <input
-                  value={form.separator}
-                  onChange={(e) => setForm((f) => ({ ...f, separator: e.target.value }))}
-                  placeholder="\\n"
-                />
-              </label>
-              <label className="field">
-                <span>{tr("field.separator_presets")}</span>
-                <div className="preset-row">
-                  {SEPARATOR_PRESETS.map((preset) => (
-                    <button
-                      key={`${preset.label}:${preset.value}:${preset.raw}`}
-                      className="secondary preset-btn"
-                      type="button"
-                      onClick={() => applySeparatorPreset(preset)}
-                    >
-                      {preset.label}
-                    </button>
-                  ))}
-                </div>
-              </label>
-              <label className="field">
-                <span>{tr("field.separator_preview")}</span>
-                <pre className="separator-preview">{separatorPreview}</pre>
-                <div className="separator-preview-meta">
-                  {tr("meta.effective_separator")}: <code>{escapeControlChars(resolvedSeparator)}</code>
-                </div>
-                <div className="separator-preview-meta">
-                  {tr("metric.tokens")}: <code>{separatorPreviewVisible}</code>
-                </div>
-              </label>
-              <label className="field checkbox">
-                <input
-                  type="checkbox"
-                  checked={form.rawSeparator}
-                  onChange={(e) => setForm((f) => ({ ...f, rawSeparator: e.target.checked }))}
-                />
-                <span>{tr("field.raw_separator")}</span>
-              </label>
-              <label className="field checkbox">
-                <input
-                  type="checkbox"
-                  checked={form.allowOverwrite}
-                  onChange={(e) => setForm((f) => ({ ...f, allowOverwrite: e.target.checked }))}
-                />
-                <span>{tr("field.allow_overwrite")}</span>
-              </label>
-
-              <div className="button-row">
-                <button className="primary" disabled={!canRun} onClick={() => void startJob()}>
-                  {tr(runButtonKey(runStatus))}
-                </button>
-                <button className="danger" disabled={!canCancel} onClick={() => void cancelJob()}>
-                  {tr("button.cancel")}
-                </button>
-              </div>
-
-              <div className="meta">
-                <div>
-                  {tr("meta.app")}: {appInfo?.appName ?? "-"} {appInfo?.appVersion ?? ""}
-                </div>
-                <div>
-                  {tr("meta.backend")}: {appInfo?.backendVersion ?? "-"}
-                </div>
-                <div>
-                  {tr("meta.update_channel")}: {appInfo?.updateChannel ?? "stable"}
-                </div>
-                <div>
-                  {tr("meta.job_id")}: {activeJobId ?? "-"}
-                </div>
-                <div className="license-notice">
-                  {tr("meta.license")}
-                </div>
-              </div>
-            </section>
+            <InputSection
+              form={form}
+              runStatus={runStatus}
+              inputsDragActive={inputsDragActive}
+              tr={tr}
+              onFormChange={setForm}
+              onPickInputFiles={() => void pickInputFiles()}
+              onPickOutputFile={() => void pickOutputFile()}
+              onDragOver={onInputsDragOver}
+              onDragLeave={onInputsDragLeave}
+              onDrop={onInputsDrop}
+            />
+            <ProcessingSection
+              form={form}
+              tr={tr}
+              onFormChange={setForm}
+            />
+            <OutputSection
+              form={form}
+              runStatus={runStatus}
+              activeJobId={activeJobId}
+              appInfo={appInfo}
+              canRun={canRun}
+              canCancel={canCancel}
+              separatorPreview={separatorPreview}
+              separatorPreviewVisible={separatorPreviewVisible}
+              resolvedSeparator={resolvedSeparator}
+              tr={tr}
+              onFormChange={setForm}
+              onStartJob={() => void startJob()}
+              onCancelJob={() => void cancelJob()}
+            />
           </>
         )}
       </main>
