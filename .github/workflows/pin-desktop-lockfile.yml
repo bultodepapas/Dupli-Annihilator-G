@@ -1,0 +1,33 @@
+name: pin-desktop-lockfile
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  generate-lockfile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Generate Cargo.lock
+        working-directory: apps/desktop/src-tauri
+        run: cargo generate-lockfile
+
+      - name: Commit Cargo.lock
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add apps/desktop/src-tauri/Cargo.lock
+          if git diff --cached --quiet; then
+            echo "Cargo.lock is already up to date."
+          else
+            git commit -m "chore: pin apps/desktop/src-tauri/Cargo.lock"
+            git push
+          fi
