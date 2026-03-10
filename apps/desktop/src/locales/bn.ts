@@ -15,6 +15,7 @@ export const bn: Dictionary = {
   "section.telemetry": "টেলিমেট্রি",
 
   "button.add_files": "ফাইল যোগ করুন",
+  "button.add_folder": "ফোল্ডার যোগ করুন",
   "button.pick_output": "আউটপুট বাছাই করুন",
   "button.run": "চালান",
   "button.run_again": "আবার চালান",
@@ -34,7 +35,7 @@ export const bn: Dictionary = {
   "field.raw_separator": "র' বিভাজক (escape parse করবেন না)",
   "field.allow_overwrite": "কনফার্ম ছাড়া overwrite অনুমতি দিন",
   "field.language": "ভাষা",
-  "hint.drop_files": "Explorer/Finder থেকে ফাইল এখানে ছেড়ে দিন",
+  "hint.drop_files": "Explorer/Finder থেকে ফাইল বা ফোল্ডার এখানে ছেড়ে দিন (TXT, CSV, PDF…)",
   "tooltip.processing.mode": "এক্সিকিউশন কৌশল: auto নিজে বেছে নেয়, ram সবচেয়ে দ্রুত, disk কম মেমরি ব্যবহার করে।",
   "tooltip.processing.ordering": "আউটপুট ফাইলে unique লাইনগুলোর ক্রম কীভাবে হবে।",
   "tooltip.processing.disk_alphabetical_mode":
@@ -85,6 +86,7 @@ export const bn: Dictionary = {
   "message.preflight_failed": "প্রিফ্লাইট পরীক্ষা ব্যর্থ: {detail}",
   "message.start_canceled_by_user": "ব্যবহারকারী শুরু করা বাতিল করেছেন।",
   "message.input_dialog_failed": "ইনপুট ডায়ালগ ব্যর্থ: {detail}",
+  "message.folder_dialog_failed": "ফোল্ডার ডায়ালগ ব্যর্থ: {detail}",
   "message.output_dialog_failed": "আউটপুট ডায়ালগ ব্যর্থ: {detail}",
 
   "confirm.overwrite.title": "overwrite নিশ্চিত করুন",
@@ -96,7 +98,7 @@ export const bn: Dictionary = {
   "validation.disk_buckets_min": "ডিস্ক বাকেট >= 8 হতে হবে।",
   "validation.disk_run_bytes_min": "ডিস্ক রান বাইটস >= 1,000,000 হতে হবে।",
 
-  "placeholder.inputs": "C:\\data\\in1.txt\\nC:\\data\\in2.txt",
+  "placeholder.inputs": "C:\data\in1.txt\nC:\data\book.pdf",
   "placeholder.output": "C:\\data\\out.txt",
   "button.open_output": "OPEN OUTPUT",
   "button.open_folder": "OPEN FOLDER",

@@ -15,6 +15,7 @@ export const hi: Dictionary = {
   "section.telemetry": "टेलीमेट्री",
 
   "button.add_files": "फ़ाइलें जोड़ें",
+  "button.add_folder": "फ़ोल्डर जोड़ें",
   "button.pick_output": "आउटपुट चुनें",
   "button.run": "चलाएँ",
   "button.run_again": "फिर चलाएँ",
@@ -34,7 +35,7 @@ export const hi: Dictionary = {
   "field.raw_separator": "रॉ विभाजक (escape parse न करें)",
   "field.allow_overwrite": "बिना पुष्टि overwrite की अनुमति",
   "field.language": "भाषा",
-  "hint.drop_files": "Explorer/Finder से फाइलें यहां छोड़ें",
+  "hint.drop_files": "Explorer/Finder से फाइलें या फ़ोल्डर यहां छोड़ें (TXT, CSV, PDF…)",
   "tooltip.processing.mode": "एक्ज़ीक्यूशन रणनीति: auto अपने आप चुनता है, ram सबसे तेज है, disk कम मेमोरी लेता है।",
   "tooltip.processing.ordering": "आउटपुट फ़ाइल में unique पंक्तियाँ किस क्रम में रहेंगी।",
   "tooltip.processing.disk_alphabetical_mode":
@@ -85,6 +86,7 @@ export const hi: Dictionary = {
   "message.preflight_failed": "प्रीफ़्लाइट जांच विफल: {detail}",
   "message.start_canceled_by_user": "उपयोगकर्ता ने शुरुआत रद्द की।",
   "message.input_dialog_failed": "इनपुट डायलॉग विफल: {detail}",
+  "message.folder_dialog_failed": "फ़ोल्डर डायलॉग विफल: {detail}",
   "message.output_dialog_failed": "आउटपुट डायलॉग विफल: {detail}",
 
   "confirm.overwrite.title": "overwrite की पुष्टि",
@@ -96,7 +98,7 @@ export const hi: Dictionary = {
   "validation.disk_buckets_min": "डिस्क बकेट >= 8 होने चाहिए।",
   "validation.disk_run_bytes_min": "डिस्क रन बाइट्स >= 1,000,000 होने चाहिए।",
 
-  "placeholder.inputs": "C:\\data\\in1.txt\\nC:\\data\\in2.txt",
+  "placeholder.inputs": "C:\data\in1.txt\nC:\data\book.pdf",
   "placeholder.output": "C:\\data\\out.txt",
   "button.open_output": "OPEN OUTPUT",
   "button.open_folder": "OPEN FOLDER",

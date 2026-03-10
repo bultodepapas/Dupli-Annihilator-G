@@ -15,6 +15,7 @@ export const fr: Dictionary = {
   "section.telemetry": "Telemetrie",
 
   "button.add_files": "AJOUTER DES FICHIERS",
+  "button.add_folder": "AJOUTER UN DOSSIER",
   "button.pick_output": "CHOISIR LA SORTIE",
   "button.run": "LANCER",
   "button.run_again": "RELANCER",
@@ -34,7 +35,7 @@ export const fr: Dictionary = {
   "field.raw_separator": "Separateur brut (ne pas interpreter les echappements)",
   "field.allow_overwrite": "Autoriser l'ecrasement sans confirmation",
   "field.language": "Langue",
-  "hint.drop_files": "Deposez des fichiers ici depuis Explorer/Finder",
+  "hint.drop_files": "Deposez des fichiers ou dossiers ici depuis Explorer/Finder (TXT, CSV, PDF…)",
   "tooltip.processing.mode":
     "Strategie d'execution : auto choisit pour vous, ram est le plus rapide, disk utilise moins de memoire.",
   "tooltip.processing.ordering": "Comment les lignes uniques sont ordonnees dans le fichier de sortie.",
@@ -87,6 +88,7 @@ export const fr: Dictionary = {
   "message.preflight_failed": "Echec de la verification prealable : {detail}",
   "message.start_canceled_by_user": "Demarrage annule par l'utilisateur.",
   "message.input_dialog_failed": "Echec de la boite de dialogue d'entree : {detail}",
+  "message.folder_dialog_failed": "Echec de la boite de dialogue de dossier : {detail}",
   "message.output_dialog_failed": "Echec de la boite de dialogue de sortie : {detail}",
 
   "confirm.overwrite.title": "Confirmer l'ecrasement",
@@ -98,7 +100,7 @@ export const fr: Dictionary = {
   "validation.disk_buckets_min": "Les buckets disque doivent etre >= 8.",
   "validation.disk_run_bytes_min": "Les octets par run disque doivent etre >= 1,000,000.",
 
-  "placeholder.inputs": "C:\\data\\in1.txt\\nC:\\data\\in2.txt",
+  "placeholder.inputs": "C:\\data\\in1.txt\\nC:\\data\\book.pdf",
   "placeholder.output": "C:\\data\\out.txt",
   "button.open_output": "OPEN OUTPUT",
   "button.open_folder": "OPEN FOLDER",

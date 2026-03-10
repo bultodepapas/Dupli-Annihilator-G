@@ -4,6 +4,7 @@ pub mod dedupe_ram;
 pub mod disk;
 pub mod disk_sort;
 pub mod engine;
+pub mod pdf_reader;
 pub mod progress;
 pub mod stats;
 pub mod text_line_reader;

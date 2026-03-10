@@ -15,6 +15,7 @@ export const zhCn: Dictionary = {
   "section.telemetry": "遥测",
 
   "button.add_files": "添加文件",
+  "button.add_folder": "添加文件夹",
   "button.pick_output": "选择输出",
   "button.run": "开始",
   "button.run_again": "再次运行",
@@ -34,7 +35,7 @@ export const zhCn: Dictionary = {
   "field.raw_separator": "原始分隔符（不解析转义）",
   "field.allow_overwrite": "允许无确认覆盖",
   "field.language": "语言",
-  "hint.drop_files": "从 Explorer/Finder 拖放文件到这里",
+  "hint.drop_files": "从 Explorer/Finder 拖放文件或文件夹到这里 (TXT, CSV, PDF…)",
   "tooltip.processing.mode": "执行策略：auto 自动选择，ram 最快，disk 占用内存更少。",
   "tooltip.processing.ordering": "唯一行在输出文件中的排序方式。",
   "tooltip.processing.disk_alphabetical_mode":
@@ -85,6 +86,7 @@ export const zhCn: Dictionary = {
   "message.preflight_failed": "预检查失败：{detail}",
   "message.start_canceled_by_user": "用户已取消启动。",
   "message.input_dialog_failed": "输入文件对话框失败：{detail}",
+  "message.folder_dialog_failed": "文件夹对话框失败：{detail}",
   "message.output_dialog_failed": "输出文件对话框失败：{detail}",
 
   "confirm.overwrite.title": "确认覆盖",
@@ -96,7 +98,7 @@ export const zhCn: Dictionary = {
   "validation.disk_buckets_min": "磁盘桶数量必须 >= 8。",
   "validation.disk_run_bytes_min": "磁盘分段字节数必须 >= 1,000,000。",
 
-  "placeholder.inputs": "C:\\data\\in1.txt\\nC:\\data\\in2.txt",
+  "placeholder.inputs": "C:\\data\\in1.txt\\nC:\\data\\book.pdf",
   "placeholder.output": "C:\\data\\out.txt",
   "button.open_output": "OPEN OUTPUT",
   "button.open_folder": "OPEN FOLDER",

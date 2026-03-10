@@ -4,6 +4,7 @@ use crate::{
     dedupe_ram::RamStore,
     disk::DiskBuckets,
     disk_sort,
+    pdf_reader,
     progress::{ProgressEvent, ProgressSink},
     stats::Stats,
     text_line_reader::LossyLineReader,
@@ -12,7 +13,9 @@ use crate::{
 };
 use std::fs::File;
 use std::io::BufReader;
+use std::path::PathBuf;
 use std::time::Instant;
+use tempfile::NamedTempFile;
 
 pub fn run<P: ProgressSink>(config: &Config, progress: P) -> anyhow::Result<Stats> {
     run_with_control(config, progress, NoCancel)
@@ -26,11 +29,61 @@ pub fn run_with_control<P: ProgressSink, C: CancelCheck>(
     config.validate()?;
     ensure_not_canceled(&cancel)?;
 
-    match config.mode {
-        Mode::Ram => run_ram(config, &progress, &cancel),
-        Mode::Disk => run_disk(config, &progress, &cancel),
-        Mode::Auto => run_ram(config, &progress, &cancel),
+    // Resolve any PDF inputs to temporary plain-text files before the engine
+    // loop runs.  The returned `_temp_files` vec keeps the NamedTempFiles alive
+    // for the entire duration of the job; they are deleted when it drops.
+    let (resolved, _temp_files) = resolve_pdf_inputs(config, &progress, &cancel)?;
+
+    match resolved.mode {
+        Mode::Ram => run_ram(&resolved, &progress, &cancel),
+        Mode::Disk => run_disk(&resolved, &progress, &cancel),
+        Mode::Auto => run_ram(&resolved, &progress, &cancel),
     }
+}
+
+/// Scans `config.inputs` for `.pdf` files, extracts their text into temporary
+/// files, and returns a cloned `Config` whose `inputs` list replaces every PDF
+/// path with the corresponding temp-file path.  Non-PDF paths are forwarded
+/// unchanged.
+///
+/// Returns `(resolved_config, temp_files)`.  The caller must hold `temp_files`
+/// alive for as long as the resolved config's paths are in use.
+fn resolve_pdf_inputs<P: ProgressSink, C: CancelCheck>(
+    config: &Config,
+    progress: &P,
+    cancel: &C,
+) -> anyhow::Result<(Config, Vec<NamedTempFile>)> {
+    let pdf_count = config
+        .inputs
+        .iter()
+        .filter(|p| pdf_reader::is_pdf(p))
+        .count();
+
+    if pdf_count == 0 {
+        return Ok((config.clone(), Vec::new()));
+    }
+
+    progress.on_event(ProgressEvent::Stage("ExtractingPdf"));
+
+    let mut temp_files: Vec<NamedTempFile> = Vec::with_capacity(pdf_count);
+    let mut resolved_inputs: Vec<PathBuf> = Vec::with_capacity(config.inputs.len());
+
+    for path in &config.inputs {
+        ensure_not_canceled(cancel)?;
+
+        if pdf_reader::is_pdf(path) {
+            let tmp = pdf_reader::pdf_to_temp_text(path)?;
+            resolved_inputs.push(tmp.path().to_path_buf());
+            temp_files.push(tmp);
+        } else {
+            resolved_inputs.push(path.clone());
+        }
+    }
+
+    let mut resolved = config.clone();
+    resolved.inputs = resolved_inputs;
+
+    Ok((resolved, temp_files))
 }
 
 fn run_ram<P: ProgressSink, C: CancelCheck>(

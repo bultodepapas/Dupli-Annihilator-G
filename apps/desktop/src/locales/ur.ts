@@ -15,6 +15,7 @@ export const ur: Dictionary = {
   "section.telemetry": "ٹیلی میٹری",
 
   "button.add_files": "فائلیں شامل کریں",
+  "button.add_folder": "فولڈر شامل کریں",
   "button.pick_output": "آؤٹ پٹ منتخب کریں",
   "button.run": "چلائیں",
   "button.run_again": "دوبارہ چلائیں",
@@ -34,7 +35,7 @@ export const ur: Dictionary = {
   "field.raw_separator": "را جداکار (escape parse نہ کریں)",
   "field.allow_overwrite": "تصدیق کے بغیر overwrite کی اجازت",
   "field.language": "زبان",
-  "hint.drop_files": "Explorer/Finder سے فائلیں یہاں چھوڑیں",
+  "hint.drop_files": "Explorer/Finder سے فائلیں یا فولڈر یہاں چھوڑیں (TXT, CSV, PDF…)",
   "tooltip.processing.mode": "ایگزیکیوشن حکمت عملی: auto خود منتخب کرتا ہے، ram سب سے تیز ہے، disk کم میموری لیتا ہے۔",
   "tooltip.processing.ordering": "آؤٹ پٹ فائل میں unique لائنیں کس ترتیب سے ہوں گی۔",
   "tooltip.processing.disk_alphabetical_mode":
@@ -85,6 +86,7 @@ export const ur: Dictionary = {
   "message.preflight_failed": "پری فلائٹ چیک ناکام: {detail}",
   "message.start_canceled_by_user": "صارف نے آغاز منسوخ کر دیا۔",
   "message.input_dialog_failed": "ان پٹ ڈائیلاگ ناکام: {detail}",
+  "message.folder_dialog_failed": "فولڈر ڈائیلاگ ناکام: {detail}",
   "message.output_dialog_failed": "آؤٹ پٹ ڈائیلاگ ناکام: {detail}",
 
   "confirm.overwrite.title": "overwrite کی تصدیق",
@@ -96,7 +98,7 @@ export const ur: Dictionary = {
   "validation.disk_buckets_min": "ڈسک بکٹ >= 8 ہونا چاہیے۔",
   "validation.disk_run_bytes_min": "ڈسک رن بائٹس >= 1,000,000 ہونا چاہیے۔",
 
-  "placeholder.inputs": "C:\\data\\in1.txt\\nC:\\data\\in2.txt",
+  "placeholder.inputs": "C:\\data\\in1.txt\\nC:\\data\\book.pdf",
   "placeholder.output": "C:\\data\\out.txt",
   "button.open_output": "OPEN OUTPUT",
   "button.open_folder": "OPEN FOLDER",

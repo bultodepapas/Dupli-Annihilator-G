@@ -13,6 +13,7 @@ export const en = {
   "section.telemetry": "Telemetry",
 
   "button.add_files": "ADD FILES",
+  "button.add_folder": "ADD FOLDER",
   "button.pick_output": "PICK OUTPUT",
   "button.run": "RUN",
   "button.run_again": "RUN AGAIN",
@@ -43,7 +44,7 @@ export const en = {
   "field.raw_separator": "Raw separator (do not parse escapes)",
   "field.allow_overwrite": "Allow overwrite without confirmation",
   "field.language": "Language",
-  "hint.drop_files": "Drop files here from Explorer/Finder",
+  "hint.drop_files": "Drop files or folders here from Explorer/Finder (TXT, CSV, PDF…)",
   "tooltip.processing.mode": "Execution strategy: auto picks for you, ram is fastest, disk uses less memory.",
   "tooltip.processing.ordering": "How unique lines are ordered in the output file.",
   "tooltip.processing.disk_alphabetical_mode":
@@ -131,6 +132,7 @@ export const en = {
   "message.preflight_failed": "Preflight check failed: {detail}",
   "message.start_canceled_by_user": "Start canceled by user.",
   "message.input_dialog_failed": "Input dialog failed: {detail}",
+  "message.folder_dialog_failed": "Folder dialog failed: {detail}",
   "message.output_dialog_failed": "Output dialog failed: {detail}",
   "message.summary_ready": "Summary ready.",
   "message.open_output_failed": "Open output failed: {detail}",
@@ -162,7 +164,7 @@ export const en = {
   "validation.disk_buckets_min": "Disk buckets must be >= 8.",
   "validation.disk_run_bytes_min": "Disk run bytes must be >= 1,000,000.",
 
-  "placeholder.inputs": "C:\\data\\in1.txt\\nC:\\data\\in2.txt",
+  "placeholder.inputs": "C:\\data\\in1.txt\\nC:\\data\\book.pdf",
   "placeholder.output": "C:\\data\\out.txt",
   "fallback.unknown_error": "unknown error",
 } as const;

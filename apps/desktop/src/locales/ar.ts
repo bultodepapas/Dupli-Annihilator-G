@@ -15,6 +15,7 @@ export const ar: Dictionary = {
   "section.telemetry": "القياس",
 
   "button.add_files": "إضافة ملفات",
+  "button.add_folder": "إضافة مجلد",
   "button.pick_output": "اختيار المخرج",
   "button.run": "تشغيل",
   "button.run_again": "تشغيل مرة اخرى",
@@ -34,7 +35,7 @@ export const ar: Dictionary = {
   "field.raw_separator": "فاصل خام (دون تحليل محارف الهروب)",
   "field.allow_overwrite": "السماح بالاستبدال دون تأكيد",
   "field.language": "اللغة",
-  "hint.drop_files": "اسحب الملفات هنا من Explorer/Finder",
+  "hint.drop_files": "اسحب الملفات أو المجلدات هنا من Explorer/Finder (TXT, CSV, PDF…)",
   "tooltip.processing.mode": "استراتيجية التنفيذ: auto يختار تلقائيا، ram هو الأسرع، وdisk يستهلك ذاكرة أقل.",
   "tooltip.processing.ordering": "طريقة ترتيب الأسطر الفريدة في ملف الإخراج.",
   "tooltip.processing.disk_alphabetical_mode":
@@ -85,6 +86,7 @@ export const ar: Dictionary = {
   "message.preflight_failed": "فشل فحص ما قبل التشغيل: {detail}",
   "message.start_canceled_by_user": "تم إلغاء البدء بواسطة المستخدم.",
   "message.input_dialog_failed": "فشل مربع حوار الإدخال: {detail}",
+  "message.folder_dialog_failed": "فشل مربع حوار المجلد: {detail}",
   "message.output_dialog_failed": "فشل مربع حوار الإخراج: {detail}",
 
   "confirm.overwrite.title": "تأكيد الاستبدال",
@@ -96,7 +98,7 @@ export const ar: Dictionary = {
   "validation.disk_buckets_min": "يجب أن تكون حاويات القرص >= 8.",
   "validation.disk_run_bytes_min": "يجب أن يكون حجم التشغيل على القرص >= 1,000,000.",
 
-  "placeholder.inputs": "C:\\data\\in1.txt\\nC:\\data\\in2.txt",
+  "placeholder.inputs": "C:\\data\\in1.txt\\nC:\\data\\book.pdf",
   "placeholder.output": "C:\\data\\out.txt",
   "button.open_output": "OPEN OUTPUT",
   "button.open_folder": "OPEN FOLDER",

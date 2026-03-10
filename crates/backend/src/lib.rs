@@ -1,8 +1,52 @@
+use anyhow::Context;
 use dedupe_core::{Config, DiskAlphabeticalMode, Mode, OutputOrdering};
 use dedupe_job_runner::{JobEvent, JobId, JobManager};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::time::Duration;
+
+const COMPATIBLE_EXTENSIONS: &[&str] = &["txt", "csv", "tsv", "log", "pdf"];
+
+fn collect_compatible_files(dir: &std::path::Path, out: &mut Vec<PathBuf>) -> anyhow::Result<()> {
+    for entry in std::fs::read_dir(dir)
+        .with_context(|| format!("cannot read directory: {}", dir.display()))?
+    {
+        let entry =
+            entry.with_context(|| format!("error reading entry in: {}", dir.display()))?;
+        let path = entry.path();
+        let file_type = entry
+            .file_type()
+            .with_context(|| format!("cannot stat: {}", path.display()))?;
+        if file_type.is_dir() {
+            collect_compatible_files(&path, out)?;
+        } else if file_type.is_file() {
+            if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+                if COMPATIBLE_EXTENSIONS.contains(&ext.to_ascii_lowercase().as_str()) {
+                    out.push(path);
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+fn expand_path(path: PathBuf) -> anyhow::Result<Vec<PathBuf>> {
+    let meta = std::fs::metadata(&path)
+        .with_context(|| format!("cannot access path: {}", path.display()))?;
+    if meta.is_file() {
+        return Ok(vec![path]);
+    }
+    if meta.is_dir() {
+        let mut found: Vec<PathBuf> = Vec::new();
+        collect_compatible_files(&path, &mut found)?;
+        found.sort();
+        if found.is_empty() {
+            anyhow::bail!("no compatible files found in folder: {}", path.display());
+        }
+        return Ok(found);
+    }
+    anyhow::bail!("path is not a file or directory: {}", path.display());
+}
 
 pub use dedupe_job_runner::JobEvent as BackendJobEvent;
 
@@ -237,7 +281,15 @@ impl StartJobConfig {
         };
 
         Ok(Config {
-            inputs: self.inputs.into_iter().map(PathBuf::from).collect(),
+            inputs: {
+                let mut expanded: Vec<PathBuf> = Vec::new();
+                for raw in self.inputs {
+                    let path = PathBuf::from(raw);
+                    let files = expand_path(path)?;
+                    expanded.extend(files);
+                }
+                expanded
+            },
             output: PathBuf::from(self.output),
             output_separator,
             mode: map_mode(self.mode),
@@ -288,6 +340,7 @@ fn map_anyhow_to_command_error(err: anyhow::Error) -> CommandError {
     let category = if lower.contains("already running") {
         "job_busy"
     } else if lower.contains("no input files")
+        || lower.contains("no compatible files")
         || lower.contains("output path is required")
         || lower.contains("separator")
         || lower.contains("disk_buckets")

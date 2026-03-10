@@ -37,7 +37,9 @@ Given one or more plain-text input files, the engine must:
 ## 4) Functional Contract
 
 ### 4.1 Input Contract
-- Supported input: plain-text files (`.txt`, simple `.csv`, equivalent text files).
+
+- Supported input: plain-text files (`.txt`, simple `.csv`, equivalent text files) and PDF documents (`.pdf`).
+- PDF inputs are transparently extracted to plain text before entering the tokenization pipeline. The extraction phase is surfaced as an `ExtractingPdf` progress stage. Scanned-image PDFs (no embedded text layer) will produce an empty token stream.
 - Multiple files are processed as one logical stream (in configured file order).
 - Input sources are treated as uncontrolled and heterogeneous.
 

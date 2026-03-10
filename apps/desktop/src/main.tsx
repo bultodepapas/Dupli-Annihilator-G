@@ -1001,6 +1001,7 @@ type InputSectionProps = {
   tr: (key: I18nKey, params?: Record<string, string | number>) => string;
   onFormChange: React.Dispatch<React.SetStateAction<FormState>>;
   onPickInputFiles: () => void;
+  onPickInputFolder: () => void;
   onPickOutputFile: () => void;
   onDragOver: (e: React.DragEvent<HTMLDivElement>) => void;
   onDragLeave: (e: React.DragEvent<HTMLDivElement>) => void;
@@ -1014,6 +1015,7 @@ const InputSection = React.memo(function InputSection({
   tr,
   onFormChange,
   onPickInputFiles,
+  onPickInputFolder,
   onPickOutputFile,
   onDragOver,
   onDragLeave,
@@ -1025,6 +1027,9 @@ const InputSection = React.memo(function InputSection({
       <div className="button-row compact">
         <button className="secondary" disabled={runStatus === "running"} onClick={onPickInputFiles}>
           {tr("button.add_files")}
+        </button>
+        <button className="secondary" disabled={runStatus === "running"} onClick={onPickInputFolder}>
+          {tr("button.add_folder")}
         </button>
       </div>
       <label className="field">
@@ -1608,6 +1613,11 @@ function App() {
       const selected = await open({
         multiple: true,
         directory: false,
+        filters: [
+          { name: "All supported", extensions: ["txt", "csv", "tsv", "log", "pdf"] },
+          { name: "PDF", extensions: ["pdf"] },
+          { name: "Text / CSV", extensions: ["txt", "csv", "tsv", "log"] },
+        ],
       });
       if (!selected) {
         return;
@@ -1621,6 +1631,21 @@ function App() {
       dispatch({
         type: "set_message",
         message: t(localeRef.current, "message.input_dialog_failed", { detail: String(err) }),
+      });
+    }
+  }, [mergeInputs, dispatch]);
+
+  const pickInputFolder = React.useCallback(async () => {
+    try {
+      const selected = await open({ multiple: false, directory: true });
+      if (!selected) return;
+      const path = Array.isArray(selected) ? selected[0] : selected;
+      if (!path || path.trim().length === 0) return;
+      mergeInputs([path]);
+    } catch (err) {
+      dispatch({
+        type: "set_message",
+        message: t(localeRef.current, "message.folder_dialog_failed", { detail: String(err) }),
       });
     }
   }, [mergeInputs, dispatch]);
@@ -2015,6 +2040,7 @@ function App() {
               tr={tr}
               onFormChange={setForm}
               onPickInputFiles={() => void pickInputFiles()}
+              onPickInputFolder={() => void pickInputFolder()}
               onPickOutputFile={() => void pickOutputFile()}
               onDragOver={onInputsDragOver}
               onDragLeave={onInputsDragLeave}

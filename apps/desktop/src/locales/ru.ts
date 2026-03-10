@@ -15,6 +15,7 @@ export const ru: Dictionary = {
   "section.telemetry": "Телеметрия",
 
   "button.add_files": "ДОБАВИТЬ ФАЙЛЫ",
+  "button.add_folder": "ДОБАВИТЬ ПАПКУ",
   "button.pick_output": "ВЫБРАТЬ ВЫХОД",
   "button.run": "ЗАПУСТИТЬ",
   "button.run_again": "ЗАПУСТИТЬ СНОВА",
@@ -34,7 +35,7 @@ export const ru: Dictionary = {
   "field.raw_separator": "Сырой разделитель (не обрабатывать escape)",
   "field.allow_overwrite": "Разрешить перезапись без подтверждения",
   "field.language": "Язык",
-  "hint.drop_files": "Перетащите файлы сюда из Explorer/Finder",
+  "hint.drop_files": "Перетащите файлы или папки сюда из Explorer/Finder (TXT, CSV, PDF…)",
   "tooltip.processing.mode":
     "Стратегия выполнения: auto выбирает автоматически, ram самый быстрый, disk использует меньше памяти.",
   "tooltip.processing.ordering": "Как упорядочиваются уникальные строки в выходном файле.",
@@ -86,6 +87,7 @@ export const ru: Dictionary = {
   "message.preflight_failed": "Предварительная проверка не пройдена: {detail}",
   "message.start_canceled_by_user": "Запуск отменен пользователем.",
   "message.input_dialog_failed": "Ошибка диалога входа: {detail}",
+  "message.folder_dialog_failed": "Ошибка диалога папки: {detail}",
   "message.output_dialog_failed": "Ошибка диалога выхода: {detail}",
 
   "confirm.overwrite.title": "Подтвердите перезапись",
@@ -97,7 +99,7 @@ export const ru: Dictionary = {
   "validation.disk_buckets_min": "Дисковые бакеты должны быть >= 8.",
   "validation.disk_run_bytes_min": "Байты на дисковый проход должны быть >= 1,000,000.",
 
-  "placeholder.inputs": "C:\\data\\in1.txt\\nC:\\data\\in2.txt",
+  "placeholder.inputs": "C:\\data\\in1.txt\\nC:\\data\\book.pdf",
   "placeholder.output": "C:\\data\\out.txt",
   "button.open_output": "OPEN OUTPUT",
   "button.open_folder": "OPEN FOLDER",

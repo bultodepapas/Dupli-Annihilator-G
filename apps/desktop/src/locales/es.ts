@@ -15,6 +15,7 @@ export const es: Dictionary = {
   "section.telemetry": "Telemetria",
 
   "button.add_files": "AGREGAR ARCHIVOS",
+  "button.add_folder": "AGREGAR CARPETA",
   "button.pick_output": "ELEGIR SALIDA",
   "button.run": "EJECUTAR",
   "button.run_again": "EJECUTAR DE NUEVO",
@@ -34,7 +35,7 @@ export const es: Dictionary = {
   "field.raw_separator": "Separador literal (no interpretar escapes)",
   "field.allow_overwrite": "Permitir sobrescribir sin confirmacion",
   "field.language": "Idioma",
-  "hint.drop_files": "Suelta archivos aqui desde Explorer/Finder",
+  "hint.drop_files": "Suelta archivos o carpetas aqui desde Explorer/Finder (TXT, CSV, PDF…)",
   "tooltip.processing.mode":
     "Estrategia de ejecucion: auto elige por ti, ram es mas rapido, disk usa menos memoria.",
   "tooltip.processing.ordering": "Como se ordenan las lineas unicas en el archivo de salida.",
@@ -87,6 +88,7 @@ export const es: Dictionary = {
   "message.preflight_failed": "Fallo en preflight: {detail}",
   "message.start_canceled_by_user": "Inicio cancelado por el usuario.",
   "message.input_dialog_failed": "Fallo en dialogo de entrada: {detail}",
+  "message.folder_dialog_failed": "Fallo en dialogo de carpeta: {detail}",
   "message.output_dialog_failed": "Fallo en dialogo de salida: {detail}",
 
   "confirm.overwrite.title": "Confirmar sobrescritura",
@@ -98,7 +100,7 @@ export const es: Dictionary = {
   "validation.disk_buckets_min": "Los buckets de disco deben ser >= 8.",
   "validation.disk_run_bytes_min": "Los bytes por corrida en disco deben ser >= 1,000,000.",
 
-  "placeholder.inputs": "C:\\data\\in1.txt\\nC:\\data\\in2.txt",
+  "placeholder.inputs": "C:\\data\\in1.txt\\nC:\\data\\book.pdf",
   "placeholder.output": "C:\\data\\out.txt",
   "button.open_output": "OPEN OUTPUT",
   "button.open_folder": "OPEN FOLDER",
