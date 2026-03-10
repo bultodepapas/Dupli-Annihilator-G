@@ -749,6 +749,7 @@ type UpdateBannerProps = {
   onOpenRelease: () => void;
   onCheckForUpdates: () => void;
   onRestart: () => void;
+  onDismiss: () => void;
 };
 
 const UpdateBanner = React.memo(function UpdateBanner({
@@ -762,10 +763,14 @@ const UpdateBanner = React.memo(function UpdateBanner({
   onOpenRelease,
   onCheckForUpdates,
   onRestart,
+  onDismiss,
 }: UpdateBannerProps) {
   return (
-    <section className="card update-banner">
-      <h2>{tr("update.banner_title", { version: availableUpdate.tag })}</h2>
+    <section className="card update-banner toast">
+      <div className="toast-header">
+        <h2>{tr("update.banner_title", { version: availableUpdate.tag })}</h2>
+        <button className="toast-close" type="button" onClick={onDismiss} aria-label="Close">✕</button>
+      </div>
       <p>{tr("update.banner_body", { current: appInfo?.appVersion ?? "-", latest: availableUpdate.tag })}</p>
       {availableUpdate.isMajor ? <p>{tr("update.major_notice")}</p> : null}
       {updateStatus === "downloading" ? (
@@ -1245,9 +1250,7 @@ const OutputSection = React.memo(function OutputSection({
         <span>{tr("field.separator_preview")}</span>
         <pre className="separator-preview">{separatorPreview}</pre>
         <div className="separator-preview-meta">
-          {tr("meta.effective_separator")}: <code>{escapeControlChars(resolvedSeparator)}</code>
-        </div>
-        <div className="separator-preview-meta">
+          {tr("meta.effective_separator")}: <code>{escapeControlChars(resolvedSeparator)}</code>{" | "}
           {tr("metric.tokens")}: <code>{separatorPreviewVisible}</code>
         </div>
       </label>
@@ -1277,23 +1280,26 @@ const OutputSection = React.memo(function OutputSection({
         </button>
       </div>
 
-      <div className="meta">
-        <div>
-          {tr("meta.app")}: {appInfo?.appName ?? "-"} {appInfo?.appVersion ?? ""}
+      <details className="meta-accordion">
+        <summary>{tr("meta.app")}</summary>
+        <div className="meta">
+          <div>
+            {tr("meta.app")}: {appInfo?.appName ?? "-"} {appInfo?.appVersion ?? ""}
+          </div>
+          <div>
+            {tr("meta.backend")}: {appInfo?.backendVersion ?? "-"}
+          </div>
+          <div>
+            {tr("meta.update_channel")}: {appInfo?.updateChannel ?? "stable"}
+          </div>
+          <div>
+            {tr("meta.job_id")}: {activeJobId ?? "-"}
+          </div>
+          <div className="license-notice">
+            {tr("meta.license")}
+          </div>
         </div>
-        <div>
-          {tr("meta.backend")}: {appInfo?.backendVersion ?? "-"}
-        </div>
-        <div>
-          {tr("meta.update_channel")}: {appInfo?.updateChannel ?? "stable"}
-        </div>
-        <div>
-          {tr("meta.job_id")}: {activeJobId ?? "-"}
-        </div>
-        <div className="license-notice">
-          {tr("meta.license")}
-        </div>
-      </div>
+      </details>
     </section>
   );
 });
@@ -1330,9 +1336,7 @@ const WordCheckerPanel = React.memo(function WordCheckerPanel({
   onCheck,
 }: WordCheckerPanelProps) {
   return (
-    <section className="card">
-      <h2>{tr("section.checker")}</h2>
-
+    <>
       <div className="button-row">
         <input
           className="path-input"
@@ -1392,7 +1396,7 @@ const WordCheckerPanel = React.memo(function WordCheckerPanel({
       {checkerResult === "not_found" && (
         <p className="message checker-not-found">{tr("checker.result_not_found")}</p>
       )}
-    </section>
+    </>
   );
 });
 
@@ -1427,6 +1431,8 @@ function App() {
   const [checkerWord, setCheckerWord] = React.useState<string>("");
   const [checkerResult, setCheckerResult] = React.useState<"found" | "not_found" | null>(null);
   const [checkerMessage, setCheckerMessage] = React.useState<string>("");
+
+  const [bannerDismissed, setBannerDismissed] = React.useState(false);
 
   const pollingRef = React.useRef(false);
   const updateAutoCheckedRef = React.useRef(false);
@@ -2174,7 +2180,7 @@ function App() {
         onCheckForUpdates={onCheckForUpdates}
       />
 
-      {availableUpdate ? (
+      {availableUpdate && !bannerDismissed ? (
         <UpdateBanner
           availableUpdate={availableUpdate}
           updateStatus={updateStatus}
@@ -2186,6 +2192,7 @@ function App() {
           onOpenRelease={() => void openLatestReleasePage()}
           onCheckForUpdates={onCheckForUpdates}
           onRestart={() => void restartToApplyUpdate()}
+          onDismiss={() => setBannerDismissed(true)}
         />
       ) : null}
 
@@ -2222,11 +2229,32 @@ function App() {
               onDragLeave={onInputsDragLeave}
               onDrop={onInputsDrop}
             />
-            <ProcessingSection
-              form={form}
-              tr={tr}
-              onFormChange={setForm}
-            />
+            <div className="col-processing">
+              <ProcessingSection
+                form={form}
+                tr={tr}
+                onFormChange={setForm}
+              />
+              <details className="accordion card">
+                <summary>{tr("section.checker")}</summary>
+                <div className="accordion-body">
+                  <WordCheckerPanel
+                    checkerPath={checkerPath}
+                    checkerStatus={checkerStatus}
+                    checkerWordCount={checkerWordCount}
+                    checkerWord={checkerWord}
+                    checkerResult={checkerResult}
+                    checkerMessage={checkerMessage}
+                    tr={tr}
+                    onPathChange={setCheckerPath}
+                    onPickFile={() => void pickCheckerFile()}
+                    onLoad={() => void loadWordlist()}
+                    onWordChange={setCheckerWord}
+                    onCheck={() => void checkWord()}
+                  />
+                </div>
+              </details>
+            </div>
             <OutputSection
               form={form}
               runStatus={runStatus}
@@ -2241,20 +2269,6 @@ function App() {
               onFormChange={setForm}
               onStartJob={() => void startJob()}
               onCancelJob={() => void cancelJob()}
-            />
-            <WordCheckerPanel
-              checkerPath={checkerPath}
-              checkerStatus={checkerStatus}
-              checkerWordCount={checkerWordCount}
-              checkerWord={checkerWord}
-              checkerResult={checkerResult}
-              checkerMessage={checkerMessage}
-              tr={tr}
-              onPathChange={setCheckerPath}
-              onPickFile={() => void pickCheckerFile()}
-              onLoad={() => void loadWordlist()}
-              onWordChange={setCheckerWord}
-              onCheck={() => void checkWord()}
             />
           </>
         )}

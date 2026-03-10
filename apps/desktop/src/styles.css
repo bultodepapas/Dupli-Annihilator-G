@@ -29,11 +29,12 @@ body {
 }
 
 .app {
-  min-height: 100vh;
+  height: 100vh;
   padding: 20px;
   display: grid;
   grid-template-rows: auto 1fr auto;
   gap: 14px;
+  overflow: hidden;
 }
 
 .topbar {
@@ -128,6 +129,52 @@ h4 {
   flex-wrap: wrap;
 }
 
+/* ─── Toast (update banner as overlay) ──────────────────────────── */
+
+.toast {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 1000;
+  width: min(420px, calc(100vw - 32px));
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.55);
+  animation: slideIn 260ms ease-out;
+}
+
+.toast-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.toast-close {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 4px 8px;
+  font-size: 0.78rem;
+  min-width: 0;
+  flex-shrink: 0;
+}
+
+.toast-close:hover {
+  color: var(--txt);
+  border-color: var(--accent);
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(80px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 .status-idle {
   color: var(--muted);
 }
@@ -146,6 +193,8 @@ h4 {
   display: grid;
   gap: 14px;
   grid-template-columns: 1.4fr 1fr 1fr;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .card {
@@ -201,7 +250,7 @@ select:hover {
 
 textarea {
   resize: vertical;
-  min-height: 130px;
+  min-height: 80px;
 }
 
 .drop-zone {
@@ -272,6 +321,11 @@ textarea {
 .separator-preview-meta {
   color: var(--muted);
   font-size: 0.82rem;
+  display: inline;
+}
+
+.separator-preview-meta + .separator-preview-meta::before {
+  content: " | ";
 }
 
 button {
@@ -341,11 +395,12 @@ textarea:focus-visible {
 
 .telemetry {
   animation: rise 180ms ease-out;
+  padding: 10px 14px;
 }
 
 .bar-wrap {
-  margin-top: 6px;
-  height: 10px;
+  margin-top: 4px;
+  height: 8px;
   width: 100%;
   background: #0a142f;
   border: 1px solid var(--line);
@@ -361,17 +416,17 @@ textarea:focus-visible {
 }
 
 .metrics {
-  margin-top: 10px;
+  margin-top: 6px;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 4px 8px;
   font-family: "JetBrains Mono", monospace;
   color: var(--muted);
-  font-size: 0.88rem;
+  font-size: 0.82rem;
 }
 
 .message {
-  margin: 10px 0 0;
+  margin: 6px 0 0;
 }
 
 .errors {
@@ -557,6 +612,88 @@ textarea:focus-visible {
 .summary-footer .button-row {
   margin-top: 0;
   flex-wrap: wrap;
+}
+
+/* ─── Collapsible accordion (WordChecker, Meta) ─────────────── */
+
+.accordion {
+  margin-top: 10px;
+  border-top: 1px solid var(--line);
+  padding-top: 6px;
+}
+
+.accordion summary {
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 0.95rem;
+  padding: 6px 0;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+}
+
+.accordion summary::-webkit-details-marker {
+  display: none;
+}
+
+.accordion summary::before {
+  content: "\25B6";
+  font-size: 0.7rem;
+  transition: transform 180ms ease;
+}
+
+.accordion[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.accordion-body {
+  padding-top: 6px;
+}
+
+/* ─── Collapsible meta ──────────────────────────────────────── */
+
+.meta-accordion {
+  margin-top: 8px;
+}
+
+.meta-accordion summary {
+  cursor: pointer;
+  font-size: 0.82rem;
+  color: var(--muted);
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  user-select: none;
+}
+
+.meta-accordion summary::-webkit-details-marker {
+  display: none;
+}
+
+.meta-accordion summary::before {
+  content: "\25B6";
+  font-size: 0.6rem;
+  transition: transform 180ms ease;
+}
+
+.meta-accordion[open] summary::before {
+  transform: rotate(90deg);
+}
+
+/* ─── Column wrapper for Processing + WordChecker ───────────── */
+
+.col-processing {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  gap: 0;
+}
+
+.col-processing > .card {
+  flex: 1 1 auto;
 }
 
 @keyframes rise {
