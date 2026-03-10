@@ -168,7 +168,11 @@ const SEPARATOR_PRESETS: SeparatorPreset[] = [
 ];
 
 // Stable request object — avoids allocating a new object on every poll tick.
-const NEXT_EVENTS_REQ = { req: { maxEvents: 64, timeoutMs: 250 } } as const;
+// timeoutMs: 0 — next_events is a blocking Tauri command (recv_timeout on an mpsc Receiver).
+// A non-zero timeout blocks a thread for that duration, which delays native dialog IPC calls
+// (open/save dialogs) queued behind it. With 0ms the poll returns immediately via try_recv()
+// semantics; the 300ms JS interval provides sufficient pacing with no perceptible event latency.
+const NEXT_EVENTS_REQ = { req: { maxEvents: 64, timeoutMs: 0 } } as const;
 
 // ─── Job state management ─────────────────────────────────────────────────────
 
