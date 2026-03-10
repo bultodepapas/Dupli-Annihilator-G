@@ -35,12 +35,11 @@ if (enableUpdater) {
   if (parsed.bundle && Object.prototype.hasOwnProperty.call(parsed.bundle, "createUpdaterArtifacts")) {
     delete parsed.bundle.createUpdaterArtifacts;
   }
-  if (parsed.plugins && typeof parsed.plugins === "object" && parsed.plugins.updater) {
-    delete parsed.plugins.updater;
-    if (Object.keys(parsed.plugins).length === 0) {
-      delete parsed.plugins;
-    }
-  }
+  // tauri-plugin-updater requires a non-null config object to be present in
+  // tauri.conf.json at startup, even when the updater is not in use. Without
+  // it, the plugin panics with "invalid type: null, expected struct Config".
+  parsed.plugins = parsed.plugins ?? {};
+  parsed.plugins.updater = { active: false };
   console.log("Updater disabled (missing TAURI_UPDATER_PUBKEY and/or TAURI_SIGNING_PRIVATE_KEY).");
 }
 
