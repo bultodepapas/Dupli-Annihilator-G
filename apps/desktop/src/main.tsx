@@ -526,6 +526,68 @@ async function resolveDefaultOutputPath(): Promise<string | null> {
   }
 }
 
+type TelemetryFooterProps = {
+  progress: ProgressSnapshot;
+  validationErrors: readonly string[];
+  runStatus: RunStatus;
+  message: string;
+  tr: (key: I18nKey, params?: Record<string, string | number>) => string;
+};
+
+const TelemetryFooter = React.memo(function TelemetryFooter({
+  progress,
+  validationErrors,
+  runStatus,
+  message,
+  tr,
+}: TelemetryFooterProps) {
+  const progressPercent =
+    progress.filesTotal > 0 ? Math.min(100, (progress.filesDone / progress.filesTotal) * 100) : 0;
+
+  return (
+    <footer className="telemetry card">
+      <h2>{tr("section.telemetry")}</h2>
+      {validationErrors.length > 0 && runStatus !== "running" ? (
+        <div className="errors">
+          {validationErrors.map((err) => (
+            <div key={err}>{err}</div>
+          ))}
+        </div>
+      ) : null}
+      <div className="bar-wrap">
+        <div className="bar" style={{ width: `${progressPercent}%` }} />
+      </div>
+      <div className="metrics">
+        <div>
+          {tr("metric.stage")}: {progress.stage}
+        </div>
+        <div>
+          {tr("metric.files")}: {progress.filesDone}/{progress.filesTotal}
+        </div>
+        <div>
+          {tr("metric.tokens")}: {progress.tokensSeen}
+        </div>
+        <div>
+          {tr("metric.unique")}: {progress.uniqueTokens}
+        </div>
+        <div>
+          {tr("metric.duplicates")}: {progress.duplicates}
+        </div>
+        <div>
+          {tr("metric.tps")}: {progress.throughputTps}
+        </div>
+        <div>
+          {tr("metric.elapsed_ms")}: {progress.elapsedMs}
+        </div>
+        <div>
+          {tr("metric.eta_ms")}: {progress.etaMs ?? "-"}
+        </div>
+      </div>
+      <p className="message">{message}</p>
+    </footer>
+  );
+});
+
 function App() {
   const [locale, setLocale] = React.useState<Locale>(INITIAL_LOCALE);
   const tr = React.useCallback(
@@ -1135,9 +1197,6 @@ function App() {
     return () => window.clearTimeout(timer);
   }, [appInfo?.appVersion, checkForUpdates]);
 
-  const progressPercent =
-    progress.filesTotal > 0 ? Math.min(100, (progress.filesDone / progress.filesTotal) * 100) : 0;
-
   return (
     <div className="app">
       <header className="topbar">
@@ -1580,46 +1639,13 @@ function App() {
       </main>
 
       {showSummaryScreen ? null : (
-        <footer className="telemetry card">
-          <h2>{tr("section.telemetry")}</h2>
-          {validationErrors.length > 0 && runStatus !== "running" ? (
-            <div className="errors">
-              {validationErrors.map((err) => (
-                <div key={err}>{err}</div>
-              ))}
-            </div>
-          ) : null}
-          <div className="bar-wrap">
-            <div className="bar" style={{ width: `${progressPercent}%` }} />
-          </div>
-          <div className="metrics">
-            <div>
-              {tr("metric.stage")}: {progress.stage}
-            </div>
-            <div>
-              {tr("metric.files")}: {progress.filesDone}/{progress.filesTotal}
-            </div>
-            <div>
-              {tr("metric.tokens")}: {progress.tokensSeen}
-            </div>
-            <div>
-              {tr("metric.unique")}: {progress.uniqueTokens}
-            </div>
-            <div>
-              {tr("metric.duplicates")}: {progress.duplicates}
-            </div>
-            <div>
-              {tr("metric.tps")}: {progress.throughputTps}
-            </div>
-            <div>
-              {tr("metric.elapsed_ms")}: {progress.elapsedMs}
-            </div>
-            <div>
-              {tr("metric.eta_ms")}: {progress.etaMs ?? "-"}
-            </div>
-          </div>
-          <p className="message">{message}</p>
-        </footer>
+        <TelemetryFooter
+          progress={progress}
+          validationErrors={validationErrors}
+          runStatus={runStatus}
+          message={message}
+          tr={tr}
+        />
       )}
     </div>
   );
