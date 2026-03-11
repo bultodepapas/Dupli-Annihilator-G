@@ -35,7 +35,7 @@ export const pt: Dictionary = {
   "field.raw_separator": "Separador bruto (nao interpretar escapes)",
   "field.allow_overwrite": "Permitir sobrescrever sem confirmacao",
   "field.language": "Idioma",
-  "hint.drop_files": "Solte arquivos ou pastas aqui do Explorer/Finder (TXT, CSV, PDF…)",
+  "hint.drop_files": "Solte arquivos ou pastas aqui do Explorer/Finder (TXT, CSV, PDF, EPUB…)",
   "tooltip.processing.mode":
     "Estrategia de execucao: auto escolhe por voce, ram e mais rapido, disk usa menos memoria.",
   "tooltip.processing.ordering": "Como as linhas unicas sao ordenadas no arquivo de saida.",
@@ -58,6 +58,13 @@ export const pt: Dictionary = {
 
   "flag.trim": "trim",
   "flag.drop_empty": "drop_empty",
+  "flag.drop_by_length": "drop_by_length",
+  "flag.per_file_stats": "per_file_stats",
+  "field.word_length_filter": "Word length filter (chars)",
+  "tooltip.processing.drop_length":
+    "Drop tokens whose character count falls within [min..max] inclusive. Both values required. Range: 1–10.",
+  "tooltip.processing.per_file_stats":
+    "Collect per-file breakdown: token count, duplicates, and file size per input. RAM mode only; Disk mode returns null.",
 
   "meta.license": "Licenciado sob PolyForm Small Business 1.0.0 — Licenca comercial necessaria para grandes organizacoes",
   "meta.app": "app",
@@ -145,6 +152,13 @@ export const pt: Dictionary = {
   "summary.metric.disk_mode": "Modo alfabetico em disco",
   "summary.no_stage_data": "Sem dados de tempo por etapa.",
   "summary.no_warnings": "Sem avisos.",
+  "summary.section.per_file": "Per-File Breakdown",
+  "summary.per_file.file": "File",
+  "summary.per_file.size": "Size",
+  "summary.per_file.tokens_seen": "Tokens",
+  "summary.per_file.duplicates": "Duplicates",
+  "summary.per_file.unique_new": "Unique new",
+  "summary.per_file.not_collected": "Not collected (enable per_file_stats or use RAM mode).",
   "update.available_pill": "ATUALIZACAO {version}",
   "update.banner_title": "Nova versao disponivel: {version}",
   "update.banner_body": "Versao atual: {current}. Versao mais recente: {latest}.",

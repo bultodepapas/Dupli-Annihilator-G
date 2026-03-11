@@ -57,6 +57,15 @@ type ProgressSnapshot = {
   etaMs: number | null;
 };
 
+type FileStatsSnapshot = {
+  path: string;
+  fileBytes: number | null;
+  tokensSeen: number;
+  duplicates: number;
+  uniqueNew: number;
+  filteredByLength: number;
+};
+
 type RunSummary = {
   jobId: number;
   status: "success" | "error" | "canceled";
@@ -80,6 +89,8 @@ type RunSummary = {
   diskRunBytes: number | null;
   trim: boolean;
   dropEmpty: boolean;
+  dropLengthMin: number | null;
+  dropLengthMax: number | null;
   outputSeparatorRaw: string;
   outputSeparatorPreview: string;
   elapsedMs: number;
@@ -89,6 +100,7 @@ type RunSummary = {
   tempBytesTotal: number | null;
   warnings: string[];
   errorMessage: string | null;
+  perFile: FileStatsSnapshot[] | null;
 };
 
 type RunStatus = "idle" | "running" | "done" | "error" | "canceled";
@@ -104,6 +116,10 @@ type FormState = {
   diskAlphabeticalMode: "fast_bucket_local" | "global_perfect";
   trim: boolean;
   dropEmpty: boolean;
+  dropByLength: boolean;
+  dropLengthMin: number;
+  dropLengthMax: number;
+  perFileStats: boolean;
   diskBuckets: number;
   diskRunBytes: number;
 };
@@ -119,6 +135,10 @@ const DEFAULT_FORM: FormState = {
   diskAlphabeticalMode: "fast_bucket_local",
   trim: true,
   dropEmpty: true,
+  dropByLength: false,
+  dropLengthMin: 1,
+  dropLengthMax: 3,
+  perFileStats: false,
   diskBuckets: 256,
   diskRunBytes: 256 * 1024 * 1024,
 };
@@ -985,6 +1005,44 @@ const SummaryScreen = React.memo(function SummaryScreen({
         </section>
       </div>
 
+      {(summary.perFile !== undefined) && (
+        <section className="card summary-card" style={{ gridColumn: "1 / -1" }}>
+          <h3>{tr("summary.section.per_file")}</h3>
+          {summary.perFile && summary.perFile.length > 0 ? (
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: "left", padding: "0.3rem 0.5rem" }}>{tr("summary.per_file.file")}</th>
+                    <th style={{ textAlign: "right", padding: "0.3rem 0.5rem" }}>{tr("summary.per_file.size")}</th>
+                    <th style={{ textAlign: "right", padding: "0.3rem 0.5rem" }}>{tr("summary.per_file.tokens_seen")}</th>
+                    <th style={{ textAlign: "right", padding: "0.3rem 0.5rem" }}>{tr("summary.per_file.duplicates")}</th>
+                    <th style={{ textAlign: "right", padding: "0.3rem 0.5rem" }}>{tr("summary.per_file.unique_new")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {summary.perFile.map((f) => (
+                    <tr key={f.path} style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+                      <td style={{ padding: "0.3rem 0.5rem", wordBreak: "break-all" }}>
+                        <code>{f.path.split(/[\\/]/).pop() ?? f.path}</code>
+                      </td>
+                      <td style={{ textAlign: "right", padding: "0.3rem 0.5rem" }}>
+                        {f.fileBytes !== null ? formatBytes(f.fileBytes) : "—"}
+                      </td>
+                      <td style={{ textAlign: "right", padding: "0.3rem 0.5rem" }}>{formatInt(f.tokensSeen)}</td>
+                      <td style={{ textAlign: "right", padding: "0.3rem 0.5rem" }}>{formatInt(f.duplicates)}</td>
+                      <td style={{ textAlign: "right", padding: "0.3rem 0.5rem" }}>{formatInt(f.uniqueNew)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="summary-empty">{tr("summary.per_file.not_collected")}</div>
+          )}
+        </section>
+      )}
+
       <footer className="card summary-footer">
         <div className="button-row">
           <button className="secondary" onClick={onOpenOutput}>{tr("button.open_output")}</button>
@@ -1180,7 +1238,56 @@ const ProcessingSection = React.memo(function ProcessingSection({
           />
           {tr("flag.drop_empty")}
         </label>
+        <label title={tr("tooltip.processing.drop_length")}>
+          <input
+            title={tr("tooltip.processing.drop_length")}
+            type="checkbox"
+            checked={form.dropByLength}
+            onChange={(e) => onFormChange((f) => ({ ...f, dropByLength: e.target.checked }))}
+          />
+          {tr("flag.drop_by_length")}
+        </label>
+        <label title={tr("tooltip.processing.per_file_stats")}>
+          <input
+            title={tr("tooltip.processing.per_file_stats")}
+            type="checkbox"
+            checked={form.perFileStats}
+            onChange={(e) => onFormChange((f) => ({ ...f, perFileStats: e.target.checked }))}
+          />
+          {tr("flag.per_file_stats")}
+        </label>
       </div>
+
+      {form.dropByLength && (
+        <div className="row" title={tr("tooltip.processing.drop_length")}>
+          <label className="field">
+            <span>{tr("field.word_length_filter")}</span>
+            <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+              <input
+                type="number"
+                min={1}
+                max={10}
+                value={form.dropLengthMin}
+                onChange={(e) =>
+                  onFormChange((f) => ({ ...f, dropLengthMin: Number(e.target.value) }))
+                }
+                style={{ width: "5rem" }}
+              />
+              <span>–</span>
+              <input
+                type="number"
+                min={1}
+                max={10}
+                value={form.dropLengthMax}
+                onChange={(e) =>
+                  onFormChange((f) => ({ ...f, dropLengthMax: Number(e.target.value) }))
+                }
+                style={{ width: "5rem" }}
+              />
+            </div>
+          </label>
+        </div>
+      )}
     </section>
   );
 });
@@ -1684,6 +1791,9 @@ function App() {
           ordering: form.ordering,
           trim: form.trim,
           dropEmpty: form.dropEmpty,
+          dropLengthMin: form.dropByLength ? form.dropLengthMin : null,
+          dropLengthMax: form.dropByLength ? form.dropLengthMax : null,
+          perFileStats: form.perFileStats,
           diskBuckets: form.diskBuckets,
           diskAlphabeticalMode: form.diskAlphabeticalMode,
           diskRunBytes: form.diskRunBytes,

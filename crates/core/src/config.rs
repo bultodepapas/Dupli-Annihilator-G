@@ -38,6 +38,9 @@ pub struct Config {
     pub disk_buckets: usize,
     pub disk_alphabetical_mode: DiskAlphabeticalMode,
     pub disk_run_bytes: usize,
+    /// When `true`, the engine collects per-file token and duplicate counts.
+    /// Only available in RAM mode; has no effect (and produces `None`) in Disk mode.
+    pub per_file_stats: bool,
 }
 
 impl Default for Config {
@@ -55,6 +58,7 @@ impl Default for Config {
             disk_buckets: 256,
             disk_alphabetical_mode: DiskAlphabeticalMode::FastBucketLocal,
             disk_run_bytes: 256 * 1024 * 1024,
+            per_file_stats: false,
         }
     }
 }

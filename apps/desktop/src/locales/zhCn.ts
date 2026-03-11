@@ -35,7 +35,7 @@ export const zhCn: Dictionary = {
   "field.raw_separator": "原始分隔符（不解析转义）",
   "field.allow_overwrite": "允许无确认覆盖",
   "field.language": "语言",
-  "hint.drop_files": "从 Explorer/Finder 拖放文件或文件夹到这里 (TXT, CSV, PDF…)",
+  "hint.drop_files": "从 Explorer/Finder 拖放文件或文件夹到这里 (TXT, CSV, PDF, EPUB…)",
   "tooltip.processing.mode": "执行策略：auto 自动选择，ram 最快，disk 占用内存更少。",
   "tooltip.processing.ordering": "唯一行在输出文件中的排序方式。",
   "tooltip.processing.disk_alphabetical_mode":
@@ -56,6 +56,13 @@ export const zhCn: Dictionary = {
 
   "flag.trim": "去除首尾空格",
   "flag.drop_empty": "跳过空行",
+  "flag.drop_by_length": "drop_by_length",
+  "flag.per_file_stats": "per_file_stats",
+  "field.word_length_filter": "Word length filter (chars)",
+  "tooltip.processing.drop_length":
+    "Drop tokens whose character count falls within [min..max] inclusive. Both values required. Range: 1–10.",
+  "tooltip.processing.per_file_stats":
+    "Collect per-file breakdown: token count, duplicates, and file size per input. RAM mode only; Disk mode returns null.",
 
   "meta.license": "基于 PolyForm Small Business 1.0.0 许可 — 大型组织需要商业许可",
   "meta.app": "应用",
@@ -143,6 +150,13 @@ export const zhCn: Dictionary = {
   "summary.metric.disk_mode": "Disk alphabetical mode",
   "summary.no_stage_data": "No stage timing available.",
   "summary.no_warnings": "No warnings.",
+  "summary.section.per_file": "Per-File Breakdown",
+  "summary.per_file.file": "File",
+  "summary.per_file.size": "Size",
+  "summary.per_file.tokens_seen": "Tokens",
+  "summary.per_file.duplicates": "Duplicates",
+  "summary.per_file.unique_new": "Unique new",
+  "summary.per_file.not_collected": "Not collected (enable per_file_stats or use RAM mode).",
   "update.available_pill": "UPDATE {version}",
   "update.banner_title": "New version available: {version}",
   "update.banner_body": "Current version: {current}. Latest version: {latest}.",

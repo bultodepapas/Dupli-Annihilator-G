@@ -4,9 +4,10 @@ use crate::{
     dedupe_ram::RamStore,
     disk::DiskBuckets,
     disk_sort,
+    epub_reader,
     pdf_reader,
     progress::{ProgressEvent, ProgressSink},
-    stats::Stats,
+    stats::{FileStats, Stats},
     text_line_reader::LossyLineReader,
     token_iter::TokenIter,
     writer::OutputWriter,
@@ -29,52 +30,74 @@ pub fn run_with_control<P: ProgressSink, C: CancelCheck>(
     config.validate()?;
     ensure_not_canceled(&cancel)?;
 
-    // Resolve any PDF inputs to temporary plain-text files before the engine
+    // Resolve any PDF/EPUB inputs to temporary plain-text files before the engine
     // loop runs.  The returned `_temp_files` vec keeps the NamedTempFiles alive
     // for the entire duration of the job; they are deleted when it drops.
-    let (resolved, _temp_files) = resolve_pdf_inputs(config, &progress, &cancel)?;
+    let (resolved, _temp_files, failed_pdfs) = resolve_rich_inputs(config, &progress, &cancel)?;
 
-    match resolved.mode {
+    let mut stats = match resolved.mode {
         Mode::Ram => run_ram(&resolved, &progress, &cancel),
         Mode::Disk => run_disk(&resolved, &progress, &cancel),
         Mode::Auto => run_ram(&resolved, &progress, &cancel),
-    }
+    }?;
+
+    stats.failed_pdfs = failed_pdfs;
+    Ok(stats)
 }
 
-/// Scans `config.inputs` for `.pdf` files, extracts their text into temporary
-/// files, and returns a cloned `Config` whose `inputs` list replaces every PDF
-/// path with the corresponding temp-file path.  Non-PDF paths are forwarded
-/// unchanged.
+/// Scans `config.inputs` for rich-format files (PDF, EPUB), extracts their
+/// text into temporary plain-text files, and returns a cloned `Config` whose
+/// `inputs` list replaces every rich-format path with the corresponding
+/// temp-file path.  Plain-text paths are forwarded unchanged.
 ///
-/// Returns `(resolved_config, temp_files)`.  The caller must hold `temp_files`
-/// alive for as long as the resolved config's paths are in use.
-fn resolve_pdf_inputs<P: ProgressSink, C: CancelCheck>(
+/// Returns `(resolved_config, temp_files, failures)`.  The caller must hold
+/// `temp_files` alive for as long as the resolved config's paths are in use.
+/// Files that fail to extract are skipped; their `(path, error)` pairs are
+/// returned so the caller can surface them as warnings.
+fn resolve_rich_inputs<P: ProgressSink, C: CancelCheck>(
     config: &Config,
     progress: &P,
     cancel: &C,
-) -> anyhow::Result<(Config, Vec<NamedTempFile>)> {
-    let pdf_count = config
+) -> anyhow::Result<(Config, Vec<NamedTempFile>, Vec<(PathBuf, String)>)> {
+    let rich_count = config
         .inputs
         .iter()
-        .filter(|p| pdf_reader::is_pdf(p))
+        .filter(|p| pdf_reader::is_pdf(p) || epub_reader::is_epub(p))
         .count();
 
-    if pdf_count == 0 {
-        return Ok((config.clone(), Vec::new()));
+    if rich_count == 0 {
+        return Ok((config.clone(), Vec::new(), Vec::new()));
     }
 
-    progress.on_event(ProgressEvent::Stage("ExtractingPdf"));
+    progress.on_event(ProgressEvent::Stage("ExtractingText"));
 
-    let mut temp_files: Vec<NamedTempFile> = Vec::with_capacity(pdf_count);
+    let mut temp_files: Vec<NamedTempFile> = Vec::with_capacity(rich_count);
     let mut resolved_inputs: Vec<PathBuf> = Vec::with_capacity(config.inputs.len());
+    let mut failures: Vec<(PathBuf, String)> = Vec::new();
 
     for path in &config.inputs {
         ensure_not_canceled(cancel)?;
 
         if pdf_reader::is_pdf(path) {
-            let tmp = pdf_reader::pdf_to_temp_text(path)?;
-            resolved_inputs.push(tmp.path().to_path_buf());
-            temp_files.push(tmp);
+            match pdf_reader::pdf_to_temp_text(path) {
+                Ok(tmp) => {
+                    resolved_inputs.push(tmp.path().to_path_buf());
+                    temp_files.push(tmp);
+                }
+                Err(err) => {
+                    failures.push((path.clone(), format!("{err:#}")));
+                }
+            }
+        } else if epub_reader::is_epub(path) {
+            match epub_reader::epub_to_temp_text(path) {
+                Ok(tmp) => {
+                    resolved_inputs.push(tmp.path().to_path_buf());
+                    temp_files.push(tmp);
+                }
+                Err(err) => {
+                    failures.push((path.clone(), format!("{err:#}")));
+                }
+            }
         } else {
             resolved_inputs.push(path.clone());
         }
@@ -83,7 +106,7 @@ fn resolve_pdf_inputs<P: ProgressSink, C: CancelCheck>(
     let mut resolved = config.clone();
     resolved.inputs = resolved_inputs;
 
-    Ok((resolved, temp_files))
+    Ok((resolved, temp_files, failures))
 }
 
 fn run_ram<P: ProgressSink, C: CancelCheck>(
@@ -103,6 +126,11 @@ fn run_ram<P: ProgressSink, C: CancelCheck>(
 
     let mut stats = Stats {
         files: config.inputs.len(),
+        per_file: if config.per_file_stats {
+            Some(Vec::with_capacity(config.inputs.len()))
+        } else {
+            None
+        },
         ..Default::default()
     };
 
@@ -112,6 +140,12 @@ fn run_ram<P: ProgressSink, C: CancelCheck>(
             index: idx + 1,
             total: config.inputs.len(),
         });
+
+        // Per-file counters (only used when per_file_stats is enabled).
+        let mut pf_tokens_seen: u64 = 0;
+        let mut pf_duplicates: u64 = 0;
+        let mut pf_unique_new: u64 = 0;
+        let mut pf_filtered: u64 = 0;
 
         let file = File::open(path)?;
         let mut reader = LossyLineReader::new(BufReader::new(file));
@@ -126,6 +160,7 @@ fn run_ram<P: ProgressSink, C: CancelCheck>(
 
             for raw in TokenIter::new(&line) {
                 stats.tokens_seen += 1;
+                pf_tokens_seen += 1;
                 if stats.tokens_seen % 8_192 == 0 {
                     ensure_not_canceled(cancel)?;
                 }
@@ -142,21 +177,36 @@ fn run_ram<P: ProgressSink, C: CancelCheck>(
                 }
                 if config.should_drop_by_length(token) {
                     stats.filtered_by_length += 1;
+                    pf_filtered += 1;
                     continue;
                 }
 
                 if store.insert(token) {
                     stats.unique_tokens += 1;
+                    pf_unique_new += 1;
                     if stats.unique_tokens % 100_000 == 0 {
                         progress.on_event(ProgressEvent::UniqueTokens(stats.unique_tokens));
                     }
                 } else {
                     stats.duplicates += 1;
+                    pf_duplicates += 1;
                     if stats.duplicates % 100_000 == 0 {
                         progress.on_event(ProgressEvent::Duplicates(stats.duplicates));
                     }
                 }
             }
+        }
+
+        if let Some(ref mut per_file) = stats.per_file {
+            let file_bytes = std::fs::metadata(path).map(|m| m.len()).ok();
+            per_file.push(FileStats {
+                path: path.clone(),
+                file_bytes,
+                tokens_seen: pf_tokens_seen,
+                duplicates: pf_duplicates,
+                unique_new: pf_unique_new,
+                filtered_by_length: pf_filtered,
+            });
         }
 
         progress.on_event(ProgressEvent::FileFinished {

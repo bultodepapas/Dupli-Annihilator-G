@@ -4,6 +4,7 @@ pub mod dedupe_ram;
 pub mod disk;
 pub mod disk_sort;
 pub mod engine;
+pub mod epub_reader;
 pub mod pdf_reader;
 pub mod progress;
 pub mod word_checker;
@@ -16,5 +17,5 @@ pub use cancel::{is_canceled_error, CancelCheck, Canceled, CancellationToken, No
 pub use config::{Config, DiskAlphabeticalMode, Mode, OutputOrdering};
 pub use engine::{run, run_with_control};
 pub use progress::{NoProgress, ProgressEvent, ProgressSink};
-pub use stats::Stats;
+pub use stats::{FileStats, Stats};
 pub use word_checker::WordChecker;

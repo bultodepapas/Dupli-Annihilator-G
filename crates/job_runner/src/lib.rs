@@ -1,8 +1,8 @@
 use anyhow::anyhow;
 use chrono::{SecondsFormat, Utc};
 use dedupe_core::{
-    is_canceled_error, run_with_control, CancellationToken, Config, DiskAlphabeticalMode, Mode,
-    OutputOrdering, ProgressEvent, ProgressSink, Stats,
+    is_canceled_error, run_with_control, CancellationToken, Config, DiskAlphabeticalMode,
+    FileStats, Mode, OutputOrdering, ProgressEvent, ProgressSink, Stats,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -27,6 +27,33 @@ pub enum JobState {
     Canceled,
 }
 
+/// Per-file breakdown exposed in the job snapshot.
+/// All counts are `None` when `Config::per_file_stats` is `false` or when
+/// running in Disk mode.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FileStatsSnapshot {
+    pub path: String,
+    /// File size in bytes, or `null` if metadata was unavailable.
+    pub file_bytes: Option<u64>,
+    pub tokens_seen: u64,
+    pub duplicates: u64,
+    pub unique_new: u64,
+    pub filtered_by_length: u64,
+}
+
+impl FileStatsSnapshot {
+    fn from_file_stats(fs: FileStats) -> Self {
+        Self {
+            path: fs.path.to_string_lossy().into_owned(),
+            file_bytes: fs.file_bytes,
+            tokens_seen: fs.tokens_seen,
+            duplicates: fs.duplicates,
+            unique_new: fs.unique_new,
+            filtered_by_length: fs.filtered_by_length,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StatsSnapshot {
     pub files: usize,
@@ -35,10 +62,24 @@ pub struct StatsSnapshot {
     pub duplicates: u64,
     pub filtered_by_length: u64,
     pub elapsed_ms: u128,
+    /// PDFs that failed text extraction, formatted as human-readable strings.
+    pub failed_pdfs: Vec<String>,
+    /// Per-file breakdown, or `null` when not collected.
+    pub per_file: Option<Vec<FileStatsSnapshot>>,
 }
 
 impl StatsSnapshot {
     fn from_stats(stats: Stats) -> Self {
+        let failed_pdfs = stats
+            .failed_pdfs
+            .iter()
+            .map(|(p, e)| format!("PDF extraction failed: {}: {}", p.display(), e))
+            .collect();
+        let per_file = stats.per_file.map(|v| {
+            v.into_iter()
+                .map(FileStatsSnapshot::from_file_stats)
+                .collect()
+        });
         Self {
             files: stats.files,
             tokens_seen: stats.tokens_seen,
@@ -46,6 +87,8 @@ impl StatsSnapshot {
             duplicates: stats.duplicates,
             filtered_by_length: stats.filtered_by_length,
             elapsed_ms: stats.elapsed.as_millis(),
+            failed_pdfs,
+            per_file,
         }
     }
 }
@@ -94,6 +137,9 @@ pub struct RunSummary {
     pub temp_bytes_total: Option<u64>,
     pub warnings: Vec<String>,
     pub error_message: Option<String>,
+    /// Per-file breakdown, or `null` when `Config::per_file_stats` is `false`
+    /// or in Disk mode.
+    pub per_file: Option<Vec<FileStatsSnapshot>>,
 }
 
 #[derive(Debug, Clone)]
@@ -369,6 +415,8 @@ impl ProgressSnapshot {
             duplicates: self.duplicates,
             filtered_by_length: 0,
             elapsed_ms: self.elapsed_ms,
+            failed_pdfs: Vec::new(),
+            per_file: None,
         }
     }
 }
@@ -663,8 +711,13 @@ fn build_run_summary(
         },
         stage_durations_ms,
         temp_bytes_total: None,
-        warnings: build_warnings(config, status, reduction_pct, uniq_pct),
+        warnings: {
+            let mut w = build_warnings(config, status, reduction_pct, uniq_pct);
+            w.extend(stats.failed_pdfs.iter().cloned());
+            w
+        },
         error_message,
+        per_file: stats.per_file.clone(),
     }
 }
 

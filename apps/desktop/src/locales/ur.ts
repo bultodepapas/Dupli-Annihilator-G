@@ -35,7 +35,7 @@ export const ur: Dictionary = {
   "field.raw_separator": "را جداکار (escape parse نہ کریں)",
   "field.allow_overwrite": "تصدیق کے بغیر overwrite کی اجازت",
   "field.language": "زبان",
-  "hint.drop_files": "Explorer/Finder سے فائلیں یا فولڈر یہاں چھوڑیں (TXT, CSV, PDF…)",
+  "hint.drop_files": "Explorer/Finder سے فائلیں یا فولڈر یہاں چھوڑیں (TXT, CSV, PDF, EPUB…)",
   "tooltip.processing.mode": "ایگزیکیوشن حکمت عملی: auto خود منتخب کرتا ہے، ram سب سے تیز ہے، disk کم میموری لیتا ہے۔",
   "tooltip.processing.ordering": "آؤٹ پٹ فائل میں unique لائنیں کس ترتیب سے ہوں گی۔",
   "tooltip.processing.disk_alphabetical_mode":
@@ -56,6 +56,13 @@ export const ur: Dictionary = {
 
   "flag.trim": "trim",
   "flag.drop_empty": "drop_empty",
+  "flag.drop_by_length": "drop_by_length",
+  "flag.per_file_stats": "per_file_stats",
+  "field.word_length_filter": "Word length filter (chars)",
+  "tooltip.processing.drop_length":
+    "Drop tokens whose character count falls within [min..max] inclusive. Both values required. Range: 1–10.",
+  "tooltip.processing.per_file_stats":
+    "Collect per-file breakdown: token count, duplicates, and file size per input. RAM mode only; Disk mode returns null.",
 
   "meta.license": "PolyForm Small Business 1.0.0 کے تحت لائسنس یافتہ — بڑی تنظیموں کے لیے تجارتی لائسنس ضروری ہے",
   "meta.app": "app",
@@ -143,6 +150,13 @@ export const ur: Dictionary = {
   "summary.metric.disk_mode": "Disk alphabetical mode",
   "summary.no_stage_data": "No stage timing available.",
   "summary.no_warnings": "No warnings.",
+  "summary.section.per_file": "Per-File Breakdown",
+  "summary.per_file.file": "File",
+  "summary.per_file.size": "Size",
+  "summary.per_file.tokens_seen": "Tokens",
+  "summary.per_file.duplicates": "Duplicates",
+  "summary.per_file.unique_new": "Unique new",
+  "summary.per_file.not_collected": "Not collected (enable per_file_stats or use RAM mode).",
   "update.available_pill": "UPDATE {version}",
   "update.banner_title": "New version available: {version}",
   "update.banner_body": "Current version: {current}. Latest version: {latest}.",

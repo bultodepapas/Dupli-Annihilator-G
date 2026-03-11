@@ -35,7 +35,7 @@ export const ru: Dictionary = {
   "field.raw_separator": "Сырой разделитель (не обрабатывать escape)",
   "field.allow_overwrite": "Разрешить перезапись без подтверждения",
   "field.language": "Язык",
-  "hint.drop_files": "Перетащите файлы или папки сюда из Explorer/Finder (TXT, CSV, PDF…)",
+  "hint.drop_files": "Перетащите файлы или папки сюда из Explorer/Finder (TXT, CSV, PDF, EPUB…)",
   "tooltip.processing.mode":
     "Стратегия выполнения: auto выбирает автоматически, ram самый быстрый, disk использует меньше памяти.",
   "tooltip.processing.ordering": "Как упорядочиваются уникальные строки в выходном файле.",
@@ -57,6 +57,13 @@ export const ru: Dictionary = {
 
   "flag.trim": "trim",
   "flag.drop_empty": "drop_empty",
+  "flag.drop_by_length": "drop_by_length",
+  "flag.per_file_stats": "per_file_stats",
+  "field.word_length_filter": "Word length filter (chars)",
+  "tooltip.processing.drop_length":
+    "Drop tokens whose character count falls within [min..max] inclusive. Both values required. Range: 1–10.",
+  "tooltip.processing.per_file_stats":
+    "Collect per-file breakdown: token count, duplicates, and file size per input. RAM mode only; Disk mode returns null.",
 
   "meta.license": "Лицензия PolyForm Small Business 1.0.0 — Коммерческая лицензия требуется для крупных организаций",
   "meta.app": "app",
@@ -144,6 +151,13 @@ export const ru: Dictionary = {
   "summary.metric.disk_mode": "Disk alphabetical mode",
   "summary.no_stage_data": "No stage timing available.",
   "summary.no_warnings": "No warnings.",
+  "summary.section.per_file": "Per-File Breakdown",
+  "summary.per_file.file": "File",
+  "summary.per_file.size": "Size",
+  "summary.per_file.tokens_seen": "Tokens",
+  "summary.per_file.duplicates": "Duplicates",
+  "summary.per_file.unique_new": "Unique new",
+  "summary.per_file.not_collected": "Not collected (enable per_file_stats or use RAM mode).",
   "update.available_pill": "UPDATE {version}",
   "update.banner_title": "New version available: {version}",
   "update.banner_body": "Current version: {current}. Latest version: {latest}.",

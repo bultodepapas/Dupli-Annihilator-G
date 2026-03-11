@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use std::time::Duration;
 
-const COMPATIBLE_EXTENSIONS: &[&str] = &["txt", "csv", "tsv", "log", "pdf"];
+const COMPATIBLE_EXTENSIONS: &[&str] = &["txt", "csv", "tsv", "log", "pdf", "epub"];
 
 fn collect_compatible_files(dir: &std::path::Path, out: &mut Vec<PathBuf>) -> anyhow::Result<()> {
     for entry in std::fs::read_dir(dir)
@@ -103,6 +103,8 @@ pub struct StartJobConfig {
     pub disk_alphabetical_mode: ApiDiskAlphabeticalMode,
     #[serde(default = "default_disk_run_bytes")]
     pub disk_run_bytes: usize,
+    #[serde(default)]
+    pub per_file_stats: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -346,6 +348,7 @@ impl StartJobConfig {
             disk_buckets: self.disk_buckets,
             disk_alphabetical_mode: map_disk_mode(self.disk_alphabetical_mode),
             disk_run_bytes: self.disk_run_bytes,
+            per_file_stats: self.per_file_stats,
         })
     }
 }
