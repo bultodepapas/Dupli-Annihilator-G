@@ -483,6 +483,8 @@ textarea:focus-visible {
 
 .summary-main {
   display: block;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .summary-shell {
