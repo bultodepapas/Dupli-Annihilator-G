@@ -26,8 +26,9 @@ pub fn epub_to_temp_text(path: &Path) -> anyhow::Result<NamedTempFile> {
     let mut tmp =
         NamedTempFile::new().context("failed to create temporary file for EPUB text extraction")?;
 
-    // Clone the spine so we can call mutable methods on `doc` inside the loop.
-    let spine: Vec<String> = doc.spine.clone();
+    // Clone spine idrefs so we can call mutable methods on `doc` inside the loop.
+    // epub crate v2 exposes spine as Vec<SpineItem>; each item has an `idref` field.
+    let spine: Vec<String> = doc.spine.iter().map(|s| s.idref.clone()).collect();
 
     for id in &spine {
         if let Some((content, _mime)) = doc.get_resource(id) {
