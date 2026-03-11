@@ -33,6 +33,7 @@ pub struct StatsSnapshot {
     pub tokens_seen: u64,
     pub unique_tokens: u64,
     pub duplicates: u64,
+    pub filtered_by_length: u64,
     pub elapsed_ms: u128,
 }
 
@@ -43,6 +44,7 @@ impl StatsSnapshot {
             tokens_seen: stats.tokens_seen,
             unique_tokens: stats.unique_tokens,
             duplicates: stats.duplicates,
+            filtered_by_length: stats.filtered_by_length,
             elapsed_ms: stats.elapsed.as_millis(),
         }
     }
@@ -67,6 +69,7 @@ pub struct RunSummary {
     pub tokens_seen: u64,
     pub unique_tokens: u64,
     pub duplicates: u64,
+    pub filtered_by_length: u64,
     pub reduction_pct: f64,
     pub uniq_pct: f64,
     pub input_bytes_total: u64,
@@ -80,6 +83,8 @@ pub struct RunSummary {
     pub disk_run_bytes: Option<usize>,
     pub trim: bool,
     pub drop_empty: bool,
+    pub drop_length_min: Option<usize>,
+    pub drop_length_max: Option<usize>,
     pub output_separator_raw: String,
     pub output_separator_preview: String,
     pub elapsed_ms: u128,
@@ -362,6 +367,7 @@ impl ProgressSnapshot {
             tokens_seen: self.tokens_seen,
             unique_tokens: self.unique_tokens,
             duplicates: self.duplicates,
+            filtered_by_length: 0,
             elapsed_ms: self.elapsed_ms,
         }
     }
@@ -618,6 +624,7 @@ fn build_run_summary(
         tokens_seen: stats.tokens_seen,
         unique_tokens: stats.unique_tokens,
         duplicates: stats.duplicates,
+        filtered_by_length: stats.filtered_by_length,
         reduction_pct,
         uniq_pct,
         input_bytes_total,
@@ -643,6 +650,8 @@ fn build_run_summary(
         },
         trim: config.trim,
         drop_empty: config.drop_empty,
+        drop_length_min: config.drop_length_min,
+        drop_length_max: config.drop_length_max,
         output_separator_raw: escape_separator_raw(&config.output_separator),
         output_separator_preview: separator_preview(&config.output_separator),
         elapsed_ms: stats.elapsed_ms,

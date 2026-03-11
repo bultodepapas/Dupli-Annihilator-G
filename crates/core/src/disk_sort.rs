@@ -78,6 +78,10 @@ fn generate_runs<P: ProgressSink, C: CancelCheck>(
                 if config.drop_empty && token.is_empty() {
                     continue;
                 }
+                if config.should_drop_by_length(token) {
+                    stats.filtered_by_length += 1;
+                    continue;
+                }
 
                 bytes_acc += token.len() + 1;
                 buf.push(token.to_string());

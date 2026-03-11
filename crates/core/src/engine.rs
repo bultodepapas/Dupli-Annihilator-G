@@ -140,6 +140,10 @@ fn run_ram<P: ProgressSink, C: CancelCheck>(
                 if config.drop_empty && token.is_empty() {
                     continue;
                 }
+                if config.should_drop_by_length(token) {
+                    stats.filtered_by_length += 1;
+                    continue;
+                }
 
                 if store.insert(token) {
                     stats.unique_tokens += 1;

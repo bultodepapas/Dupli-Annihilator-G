@@ -90,6 +90,10 @@ impl DiskBuckets {
                     if config.drop_empty && token.is_empty() {
                         continue;
                     }
+                    if config.should_drop_by_length(token) {
+                        stats.filtered_by_length += 1;
+                        continue;
+                    }
 
                     let bi = Self::bucket_index(token, self.bucket_writers.len());
                     let writer = &mut self.bucket_writers[bi];

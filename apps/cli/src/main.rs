@@ -65,6 +65,14 @@ struct Cli {
     #[arg(long = "drop-empty", default_value_t = true, action = ArgAction::Set)]
     drop_empty: bool,
 
+    /// Drop tokens whose character length falls in [min, max]. Range: 1..=10.
+    #[arg(long = "drop-length-min", value_parser = clap::value_parser!(usize))]
+    drop_length_min: Option<usize>,
+
+    /// Drop tokens whose character length falls in [min, max]. Range: 1..=10.
+    #[arg(long = "drop-length-max", value_parser = clap::value_parser!(usize))]
+    drop_length_max: Option<usize>,
+
     #[arg(long = "disk-buckets", default_value_t = 256)]
     disk_buckets: usize,
 
@@ -95,6 +103,8 @@ fn main() -> Result<()> {
                 ordering: map_ordering(cli.ordering),
                 trim: cli.trim,
                 drop_empty: cli.drop_empty,
+                drop_length_min: cli.drop_length_min,
+                drop_length_max: cli.drop_length_max,
                 disk_buckets: cli.disk_buckets,
                 disk_alphabetical_mode: map_disk_mode(cli.disk_alphabetical_mode),
                 disk_run_bytes: cli.disk_run_bytes,
@@ -156,11 +166,12 @@ fn main() -> Result<()> {
             }
             BackendJobEvent::Done { stats, .. } => {
                 println!(
-                    "done files={} tokens_seen={} unique={} duplicates={} elapsed_ms={}",
+                    "done files={} tokens_seen={} unique={} duplicates={} filtered_by_length={} elapsed_ms={}",
                     stats.files,
                     stats.tokens_seen,
                     stats.unique_tokens,
                     stats.duplicates,
+                    stats.filtered_by_length,
                     stats.elapsed_ms
                 );
                 break;

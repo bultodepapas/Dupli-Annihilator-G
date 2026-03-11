@@ -17,6 +17,8 @@ fn make_cfg(
         ordering,
         trim: true,
         drop_empty: true,
+        drop_length_min: None,
+        drop_length_max: None,
         disk_buckets: 64,
         disk_alphabetical_mode: DiskAlphabeticalMode::FastBucketLocal,
         disk_run_bytes: 2 * 1024 * 1024,

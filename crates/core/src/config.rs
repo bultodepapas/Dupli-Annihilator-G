@@ -29,6 +29,12 @@ pub struct Config {
     pub ordering: OutputOrdering,
     pub trim: bool,
     pub drop_empty: bool,
+    /// Optional: drop tokens whose character length is >= this value.
+    /// Valid range: 1..=10.  Both min and max must be set to activate.
+    pub drop_length_min: Option<usize>,
+    /// Optional: drop tokens whose character length is <= this value.
+    /// Valid range: 1..=10.  Both min and max must be set to activate.
+    pub drop_length_max: Option<usize>,
     pub disk_buckets: usize,
     pub disk_alphabetical_mode: DiskAlphabeticalMode,
     pub disk_run_bytes: usize,
@@ -44,6 +50,8 @@ impl Default for Config {
             ordering: OutputOrdering::PreserveFirstSeen,
             trim: true,
             drop_empty: true,
+            drop_length_min: None,
+            drop_length_max: None,
             disk_buckets: 256,
             disk_alphabetical_mode: DiskAlphabeticalMode::FastBucketLocal,
             disk_run_bytes: 256 * 1024 * 1024,
@@ -63,11 +71,39 @@ impl Config {
             "output separator cannot be empty"
         );
 
+        if let (Some(min), Some(max)) = (self.drop_length_min, self.drop_length_max) {
+            anyhow::ensure!(
+                min >= 1 && min <= 10,
+                "drop_length_min must be between 1 and 10"
+            );
+            anyhow::ensure!(
+                max >= 1 && max <= 10,
+                "drop_length_max must be between 1 and 10"
+            );
+            anyhow::ensure!(
+                min <= max,
+                "drop_length_min ({min}) must be <= drop_length_max ({max})"
+            );
+        }
+
         if matches!(self.mode, Mode::Disk) {
             anyhow::ensure!(self.disk_buckets >= 8, "disk_buckets too small");
             anyhow::ensure!(self.disk_run_bytes >= 1_000_000, "disk_run_bytes too small");
         }
 
         Ok(())
+    }
+
+    /// Returns `true` if the token should be dropped based on its character
+    /// length.  Only active when both `drop_length_min` and `drop_length_max`
+    /// are set.
+    #[inline]
+    pub fn should_drop_by_length(&self, token: &str) -> bool {
+        if let (Some(min), Some(max)) = (self.drop_length_min, self.drop_length_max) {
+            let len = token.chars().count();
+            len >= min && len <= max
+        } else {
+            false
+        }
     }
 }

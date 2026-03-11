@@ -93,6 +93,10 @@ pub struct StartJobConfig {
     pub trim: bool,
     #[serde(default = "default_drop_empty")]
     pub drop_empty: bool,
+    #[serde(default)]
+    pub drop_length_min: Option<usize>,
+    #[serde(default)]
+    pub drop_length_max: Option<usize>,
     #[serde(default = "default_disk_buckets")]
     pub disk_buckets: usize,
     #[serde(default = "default_disk_alphabetical_mode")]
@@ -337,6 +341,8 @@ impl StartJobConfig {
             ordering: map_ordering(self.ordering),
             trim: self.trim,
             drop_empty: self.drop_empty,
+            drop_length_min: self.drop_length_min,
+            drop_length_max: self.drop_length_max,
             disk_buckets: self.disk_buckets,
             disk_alphabetical_mode: map_disk_mode(self.disk_alphabetical_mode),
             disk_run_bytes: self.disk_run_bytes,
