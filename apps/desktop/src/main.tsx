@@ -473,6 +473,24 @@ function parseRunSummary(raw: Record<string, unknown>): RunSummary | null {
       raw.temp_bytes_total === null || raw.temp_bytes_total === undefined ? null : asNumber(raw.temp_bytes_total),
     warnings: Array.isArray(raw.warnings) ? raw.warnings.map((w) => String(w)) : [],
     errorMessage: raw.error_message ? asString(raw.error_message) : null,
+    dropLengthMin:
+      raw.drop_length_min === null || raw.drop_length_min === undefined
+        ? null
+        : asNumber(raw.drop_length_min),
+    dropLengthMax:
+      raw.drop_length_max === null || raw.drop_length_max === undefined
+        ? null
+        : asNumber(raw.drop_length_max),
+    perFile: Array.isArray(raw.per_file)
+      ? (raw.per_file as Record<string, unknown>[]).map((f) => ({
+          path: asString(f.path),
+          fileBytes: f.file_bytes === null || f.file_bytes === undefined ? null : asNumber(f.file_bytes),
+          tokensSeen: asNumber(f.tokens_seen),
+          duplicates: asNumber(f.duplicates),
+          uniqueNew: asNumber(f.unique_new),
+          filteredByLength: asNumber(f.filtered_by_length),
+        }))
+      : null,
   };
 }
 
