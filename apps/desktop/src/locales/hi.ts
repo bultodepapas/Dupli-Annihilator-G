@@ -156,6 +156,7 @@ export const hi: Dictionary = {
   "summary.per_file.tokens_seen": "Tokens",
   "summary.per_file.duplicates": "Duplicates",
   "summary.per_file.unique_new": "Unique new",
+  "summary.per_file.filtered": "फ़िल्टर",
   "summary.per_file.not_collected": "Not collected (enable per_file_stats or use RAM mode).",
   "update.available_pill": "UPDATE {version}",
   "update.banner_title": "New version available: {version}",

@@ -158,6 +158,7 @@ export const es: Dictionary = {
   "summary.per_file.tokens_seen": "Tokens",
   "summary.per_file.duplicates": "Duplicados",
   "summary.per_file.unique_new": "Nuevos únicos",
+  "summary.per_file.filtered": "Filtradas",
   "summary.per_file.not_collected": "No recopilado (activa per_file_stats o usa modo RAM).",
   "update.available_pill": "UPDATE {version}",
   "update.banner_title": "New version available: {version}",

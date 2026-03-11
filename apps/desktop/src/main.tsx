@@ -101,6 +101,7 @@ type RunSummary = {
   warnings: string[];
   errorMessage: string | null;
   perFile: FileStatsSnapshot[] | null;
+  filteredByLength: number;
 };
 
 type RunStatus = "idle" | "running" | "done" | "error" | "canceled";
@@ -491,6 +492,7 @@ function parseRunSummary(raw: Record<string, unknown>): RunSummary | null {
           filteredByLength: asNumber(f.filtered_by_length),
         }))
       : null,
+    filteredByLength: asNumber(raw.filtered_by_length),
   };
 }
 
@@ -964,6 +966,9 @@ const SummaryScreen = React.memo(function SummaryScreen({
             <div>{tr("summary.metric.normalization")}</div>
             <div>
               trim={summary.trim ? "on" : "off"} | drop_empty={summary.dropEmpty ? "on" : "off"}
+              {summary.dropLengthMin !== null
+                ? ` | drop_length=${summary.dropLengthMin}–${summary.dropLengthMax} (${formatInt(summary.filteredByLength)} filtered)`
+                : ""}
             </div>
             <div>{tr("summary.metric.app_version")}</div>
             <div>{appInfo?.appVersion ?? "-"}</div>
@@ -1036,6 +1041,9 @@ const SummaryScreen = React.memo(function SummaryScreen({
                     <th style={{ textAlign: "right", padding: "0.3rem 0.5rem" }}>{tr("summary.per_file.tokens_seen")}</th>
                     <th style={{ textAlign: "right", padding: "0.3rem 0.5rem" }}>{tr("summary.per_file.duplicates")}</th>
                     <th style={{ textAlign: "right", padding: "0.3rem 0.5rem" }}>{tr("summary.per_file.unique_new")}</th>
+                    {summary.dropLengthMin !== null && (
+                      <th style={{ textAlign: "right", padding: "0.3rem 0.5rem" }}>{tr("summary.per_file.filtered")}</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -1050,6 +1058,9 @@ const SummaryScreen = React.memo(function SummaryScreen({
                       <td style={{ textAlign: "right", padding: "0.3rem 0.5rem" }}>{formatInt(f.tokensSeen)}</td>
                       <td style={{ textAlign: "right", padding: "0.3rem 0.5rem" }}>{formatInt(f.duplicates)}</td>
                       <td style={{ textAlign: "right", padding: "0.3rem 0.5rem" }}>{formatInt(f.uniqueNew)}</td>
+                      {summary.dropLengthMin !== null && (
+                        <td style={{ textAlign: "right", padding: "0.3rem 0.5rem" }}>{formatInt(f.filteredByLength)}</td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -1620,6 +1631,10 @@ function App() {
       lines.push(`separator_preview: ${summary.outputSeparatorPreview}`);
       lines.push(`trim: ${summary.trim ? "on" : "off"}`);
       lines.push(`drop_empty: ${summary.dropEmpty ? "on" : "off"}`);
+      if (summary.dropLengthMin !== null) {
+        lines.push(`drop_length: ${summary.dropLengthMin}–${summary.dropLengthMax}`);
+        lines.push(`filtered_by_length: ${summary.filteredByLength}`);
+      }
       if (summary.warnings.length > 0) {
         lines.push("warnings:");
         for (const warning of summary.warnings) {
