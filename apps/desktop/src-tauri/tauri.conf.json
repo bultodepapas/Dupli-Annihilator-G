@@ -15,7 +15,8 @@
         "title": "Dupli-Annihilator-G",
         "width": 1280,
         "height": 800,
-        "resizable": true
+        "resizable": true,
+        "maximized": true
       }
     ]
   },
