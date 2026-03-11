@@ -223,6 +223,34 @@ h4 {
   margin-top: 4px;
 }
 
+.flags-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.flags-grid label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  cursor: pointer;
+  font-size: 0.88rem;
+  transition: border-color 120ms ease;
+}
+
+.flags-grid label:hover {
+  border-color: #4a6abf;
+}
+
+.flags-grid input[type="checkbox"] {
+  width: auto;
+  flex-shrink: 0;
+}
+
 input,
 textarea,
 select,
@@ -689,7 +717,7 @@ textarea:focus-visible {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  gap: 0;
+  gap: 10px;
 }
 
 .col-processing > .card {

@@ -1206,49 +1206,53 @@ const ProcessingSection = React.memo(function ProcessingSection({
         </label>
       </div>
 
-      <label className="field" title={tr("tooltip.processing.disk_alphabetical_mode")}>
-        <span title={tr("tooltip.processing.disk_alphabetical_mode")}>
-          {tr("field.disk_alphabetical_mode")}
-        </span>
-        <select
-          title={tr("tooltip.processing.disk_alphabetical_mode")}
-          value={form.diskAlphabeticalMode}
-          onChange={(e) =>
-            onFormChange((f) => ({
-              ...f,
-              diskAlphabeticalMode: e.target.value as FormState["diskAlphabeticalMode"],
-            }))
-          }
-        >
-          <option value="fast_bucket_local">{tr("option.disk_mode.fast_bucket_local")}</option>
-          <option value="global_perfect">{tr("option.disk_mode.global_perfect")}</option>
-        </select>
-      </label>
+      {form.mode === "disk" && (
+        <>
+          <label className="field" title={tr("tooltip.processing.disk_alphabetical_mode")}>
+            <span title={tr("tooltip.processing.disk_alphabetical_mode")}>
+              {tr("field.disk_alphabetical_mode")}
+            </span>
+            <select
+              title={tr("tooltip.processing.disk_alphabetical_mode")}
+              value={form.diskAlphabeticalMode}
+              onChange={(e) =>
+                onFormChange((f) => ({
+                  ...f,
+                  diskAlphabeticalMode: e.target.value as FormState["diskAlphabeticalMode"],
+                }))
+              }
+            >
+              <option value="fast_bucket_local">{tr("option.disk_mode.fast_bucket_local")}</option>
+              <option value="global_perfect">{tr("option.disk_mode.global_perfect")}</option>
+            </select>
+          </label>
 
-      <div className="row">
-        <label className="field" title={tr("tooltip.processing.disk_buckets")}>
-          <span title={tr("tooltip.processing.disk_buckets")}>{tr("field.disk_buckets")}</span>
-          <input
-            title={tr("tooltip.processing.disk_buckets")}
-            type="number"
-            min={8}
-            value={form.diskBuckets}
-            onChange={(e) => onFormChange((f) => ({ ...f, diskBuckets: Number(e.target.value) }))}
-          />
-        </label>
-        <label className="field" title={tr("tooltip.processing.disk_run_bytes")}>
-          <span title={tr("tooltip.processing.disk_run_bytes")}>{tr("field.disk_run_bytes")}</span>
-          <input
-            title={tr("tooltip.processing.disk_run_bytes")}
-            type="number"
-            min={1_000_000}
-            value={form.diskRunBytes}
-            onChange={(e) => onFormChange((f) => ({ ...f, diskRunBytes: Number(e.target.value) }))}
-          />
-        </label>
-      </div>
+          <div className="row">
+            <label className="field" title={tr("tooltip.processing.disk_buckets")}>
+              <span title={tr("tooltip.processing.disk_buckets")}>{tr("field.disk_buckets")}</span>
+              <input
+                title={tr("tooltip.processing.disk_buckets")}
+                type="number"
+                min={8}
+                value={form.diskBuckets}
+                onChange={(e) => onFormChange((f) => ({ ...f, diskBuckets: Number(e.target.value) }))}
+              />
+            </label>
+            <label className="field" title={tr("tooltip.processing.disk_run_bytes")}>
+              <span title={tr("tooltip.processing.disk_run_bytes")}>{tr("field.disk_run_bytes")}</span>
+              <input
+                title={tr("tooltip.processing.disk_run_bytes")}
+                type="number"
+                min={1_000_000}
+                value={form.diskRunBytes}
+                onChange={(e) => onFormChange((f) => ({ ...f, diskRunBytes: Number(e.target.value) }))}
+              />
+            </label>
+          </div>
+        </>
+      )}
 
-      <div className="row flags">
+      <div className="flags-grid">
         <label title={tr("tooltip.processing.trim")}>
           <input
             title={tr("tooltip.processing.trim")}
@@ -1288,34 +1292,32 @@ const ProcessingSection = React.memo(function ProcessingSection({
       </div>
 
       {form.dropByLength && (
-        <div className="row" title={tr("tooltip.processing.drop_length")}>
-          <label className="field">
-            <span>{tr("field.word_length_filter")}</span>
-            <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-              <input
-                type="number"
-                min={1}
-                max={10}
-                value={form.dropLengthMin}
-                onChange={(e) =>
-                  onFormChange((f) => ({ ...f, dropLengthMin: Number(e.target.value) }))
-                }
-                style={{ width: "5rem" }}
-              />
-              <span>–</span>
-              <input
-                type="number"
-                min={1}
-                max={10}
-                value={form.dropLengthMax}
-                onChange={(e) =>
-                  onFormChange((f) => ({ ...f, dropLengthMax: Number(e.target.value) }))
-                }
-                style={{ width: "5rem" }}
-              />
-            </div>
-          </label>
-        </div>
+        <label className="field" style={{ marginTop: "6px" }} title={tr("tooltip.processing.drop_length")}>
+          <span>{tr("field.word_length_filter")}</span>
+          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+            <input
+              type="number"
+              min={1}
+              max={10}
+              value={form.dropLengthMin}
+              onChange={(e) =>
+                onFormChange((f) => ({ ...f, dropLengthMin: Number(e.target.value) }))
+              }
+              style={{ width: "5rem" }}
+            />
+            <span>–</span>
+            <input
+              type="number"
+              min={1}
+              max={10}
+              value={form.dropLengthMax}
+              onChange={(e) =>
+                onFormChange((f) => ({ ...f, dropLengthMax: Number(e.target.value) }))
+              }
+              style={{ width: "5rem" }}
+            />
+          </div>
+        </label>
       )}
     </section>
   );
@@ -2378,25 +2380,23 @@ function App() {
                 tr={tr}
                 onFormChange={setForm}
               />
-              <details className="accordion card">
-                <summary>{tr("section.checker")}</summary>
-                <div className="accordion-body">
-                  <WordCheckerPanel
-                    checkerPath={checkerPath}
-                    checkerStatus={checkerStatus}
-                    checkerWordCount={checkerWordCount}
-                    checkerWord={checkerWord}
-                    checkerResult={checkerResult}
-                    checkerMessage={checkerMessage}
-                    tr={tr}
-                    onPathChange={setCheckerPath}
-                    onPickFile={() => void pickCheckerFile()}
-                    onLoad={() => void loadWordlist()}
-                    onWordChange={setCheckerWord}
-                    onCheck={() => void checkWord()}
-                  />
-                </div>
-              </details>
+              <section className="card">
+                <h2>{tr("section.checker")}</h2>
+                <WordCheckerPanel
+                  checkerPath={checkerPath}
+                  checkerStatus={checkerStatus}
+                  checkerWordCount={checkerWordCount}
+                  checkerWord={checkerWord}
+                  checkerResult={checkerResult}
+                  checkerMessage={checkerMessage}
+                  tr={tr}
+                  onPathChange={setCheckerPath}
+                  onPickFile={() => void pickCheckerFile()}
+                  onLoad={() => void loadWordlist()}
+                  onWordChange={setCheckerWord}
+                  onCheck={() => void checkWord()}
+                />
+              </section>
             </div>
             <OutputSection
               form={form}
