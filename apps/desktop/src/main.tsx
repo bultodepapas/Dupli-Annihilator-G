@@ -907,170 +907,177 @@ const SummaryScreen = React.memo(function SummaryScreen({
         <div className={`summary-badge ${summaryBadge.cls}`}>{summaryBadge.text}</div>
       </header>
 
-      <div className="summary-grid">
-        <section className="card summary-card">
-          <h3>{tr("summary.section.key_results")}</h3>
-          <div className="summary-hero-value">{formatInt(summary.uniqueTokens)}</div>
-          <div className="summary-hero-label">{tr("summary.metric.unique_output")}</div>
-          <div className="summary-kpis">
-            <div>
-              <strong>{formatInt(summary.tokensSeen)}</strong>
-              <span>{tr("summary.metric.total_scanned")}</span>
+      <div className="summary-body">
+        <div className="summary-grid">
+          {/* Card 1: Key Results */}
+          <section className="card summary-card">
+            <h3>{tr("summary.section.key_results")}</h3>
+            <div className="summary-hero-value">{formatInt(summary.uniqueTokens)}</div>
+            <div className="summary-hero-label">{tr("summary.metric.unique_output")}</div>
+            <div className="summary-kpis">
+              <div>
+                <strong>{formatInt(summary.tokensSeen)}</strong>
+                <span>{tr("summary.metric.total_scanned")}</span>
+              </div>
+              <div>
+                <strong>{formatInt(summary.duplicates)}</strong>
+                <span>{tr("summary.metric.duplicates_removed")}</span>
+              </div>
+              <div>
+                <strong>{formatPct(summary.reductionPct)}</strong>
+                <span>{tr("summary.metric.reduction")}</span>
+              </div>
+              <div>
+                <strong>{formatPct(summary.uniqPct)}</strong>
+                <span>{tr("summary.metric.uniq_rate")}</span>
+              </div>
             </div>
-            <div>
-              <strong>{formatInt(summary.duplicates)}</strong>
-              <span>{tr("summary.metric.duplicates_removed")}</span>
+            <div className="summary-gauge-wrap">
+              <div className="summary-gauge-label">{tr("summary.metric.reduction_ratio")}</div>
+              <div className="bar-wrap">
+                <div className="bar" style={{ width: reductionBarWidth }} />
+              </div>
             </div>
-            <div>
-              <strong>{formatPct(summary.reductionPct)}</strong>
-              <span>{tr("summary.metric.reduction")}</span>
-            </div>
-            <div>
-              <strong>{formatPct(summary.uniqPct)}</strong>
-              <span>{tr("summary.metric.uniq_rate")}</span>
-            </div>
-          </div>
-          <div className="summary-gauge-wrap">
-            <div className="summary-gauge-label">{tr("summary.metric.reduction_ratio")}</div>
-            <div className="bar-wrap">
-              <div className="bar" style={{ width: reductionBarWidth }} />
-            </div>
-          </div>
+          </section>
 
-          <h4>{tr("summary.section.output")}</h4>
-          <div className="summary-meta-grid">
-            <div>{tr("summary.metric.output_path")}</div>
-            <code>{summary.outputPath || "-"}</code>
-            <div>{tr("summary.metric.output_bytes")}</div>
-            <div>{formatBytes(summary.outputBytes)}</div>
-            <div>{tr("summary.metric.separator")}</div>
-            <div>
-              <code>{summary.outputSeparatorRaw || "-"}</code> ({summary.outputSeparatorPreview || "-"})
+          {/* Card 2: Output + Performance */}
+          <section className="card summary-card">
+            <h4>{tr("summary.section.output")}</h4>
+            <div className="summary-meta-grid">
+              <div>{tr("summary.metric.output_path")}</div>
+              <code>{summary.outputPath || "-"}</code>
+              <div>{tr("summary.metric.output_bytes")}</div>
+              <div>{formatBytes(summary.outputBytes)}</div>
+              <div>{tr("summary.metric.separator")}</div>
+              <div>
+                <code>{summary.outputSeparatorRaw || "-"}</code> ({summary.outputSeparatorPreview || "-"})
+              </div>
             </div>
-          </div>
-        </section>
 
-        <section className="card summary-card">
-          <h3>{tr("summary.section.performance")}</h3>
-          <div className="summary-meta-grid">
-            <div>{tr("summary.metric.elapsed")}</div>
-            <div>{formatElapsed(summary.elapsedMs)}</div>
-            <div>{tr("summary.metric.avg_tps")}</div>
-            <div>{formatInt(summary.avgThroughputTps)}</div>
-            <div>{tr("summary.metric.peak_tps")}</div>
-            <div>{summary.peakThroughputTps ? formatInt(summary.peakThroughputTps) : "-"}</div>
-            <div>{tr("summary.metric.input_bytes")}</div>
-            <div>{formatBytes(summary.inputBytesTotal)}</div>
-            <div>{tr("summary.metric.mode_ordering")}</div>
-            <div>{prettyMode(summary)} / {summary.ordering}</div>
-            <div>{tr("summary.metric.normalization")}</div>
-            <div>
-              trim={summary.trim ? "on" : "off"} | drop_empty={summary.dropEmpty ? "on" : "off"}
-              {summary.dropLengthMin !== null
-                ? ` | drop_length=${summary.dropLengthMin}–${summary.dropLengthMax} (${formatInt(summary.filteredByLength)} filtered)`
-                : ""}
+            <h4 style={{ marginTop: "10px" }}>{tr("summary.section.performance")}</h4>
+            <div className="summary-meta-grid">
+              <div>{tr("summary.metric.elapsed")}</div>
+              <div>{formatElapsed(summary.elapsedMs)}</div>
+              <div>{tr("summary.metric.avg_tps")}</div>
+              <div>{formatInt(summary.avgThroughputTps)}</div>
+              <div>{tr("summary.metric.peak_tps")}</div>
+              <div>{summary.peakThroughputTps ? formatInt(summary.peakThroughputTps) : "-"}</div>
+              <div>{tr("summary.metric.input_bytes")}</div>
+              <div>{formatBytes(summary.inputBytesTotal)}</div>
+              <div>{tr("summary.metric.mode_ordering")}</div>
+              <div>{prettyMode(summary)} / {summary.ordering}</div>
+              <div>{tr("summary.metric.normalization")}</div>
+              <div>
+                trim={summary.trim ? "on" : "off"} | drop_empty={summary.dropEmpty ? "on" : "off"}
+                {summary.dropLengthMin !== null
+                  ? ` | drop_length=${summary.dropLengthMin}–${summary.dropLengthMax} (${formatInt(summary.filteredByLength)} filtered)`
+                  : ""}
+              </div>
+              <div>{tr("summary.metric.app_version")}</div>
+              <div>{appInfo?.appVersion ?? "-"}</div>
+              <div>{tr("summary.metric.backend_version")}</div>
+              <div>{appInfo?.backendVersion ?? "-"}</div>
+              <div>{tr("summary.metric.update_channel")}</div>
+              <div>{appInfo?.updateChannel ?? "stable"}</div>
+              {summary.diskAlphabeticalMode ? (
+                <>
+                  <div>{tr("summary.metric.disk_mode")}</div>
+                  <div>{summary.diskAlphabeticalMode}</div>
+                </>
+              ) : null}
             </div>
-            <div>{tr("summary.metric.app_version")}</div>
-            <div>{appInfo?.appVersion ?? "-"}</div>
-            <div>{tr("summary.metric.backend_version")}</div>
-            <div>{appInfo?.backendVersion ?? "-"}</div>
-            <div>{tr("summary.metric.update_channel")}</div>
-            <div>{appInfo?.updateChannel ?? "stable"}</div>
-            {summary.diskAlphabeticalMode ? (
-              <>
-                <div>{tr("summary.metric.disk_mode")}</div>
-                <div>{summary.diskAlphabeticalMode}</div>
-              </>
-            ) : null}
-          </div>
+          </section>
 
-          <details className="summary-timeline" open={summaryTopStages.length > 0}>
-            <summary>{tr("summary.section.timeline")}</summary>
-            {summaryTopStages.length > 0 ? (
-              <div className="summary-stage-table">
-                {summaryTopStages.map(([stage, duration]) => (
-                  <div key={stage} className="summary-stage-row summary-stage-top">
-                    <span>{stage}</span>
-                    <strong>{formatElapsed(duration)}</strong>
-                  </div>
+          {/* Card 3: Timeline + Diagnostics */}
+          <section className="card summary-card">
+            <details className="summary-timeline" open={summaryTopStages.length > 0}>
+              <summary>{tr("summary.section.timeline")}</summary>
+              {summaryTopStages.length > 0 ? (
+                <div className="summary-stage-table">
+                  {summaryTopStages.map(([stage, duration]) => (
+                    <div key={stage} className="summary-stage-row summary-stage-top">
+                      <span>{stage}</span>
+                      <strong>{formatElapsed(duration)}</strong>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="summary-empty">{tr("summary.no_stage_data")}</div>
+              )}
+              {summaryStageRows.length > 3 ? (
+                <div className="summary-stage-table">
+                  {summaryStageRows.slice(3).map(([stage, duration]) => (
+                    <div key={stage} className="summary-stage-row">
+                      <span>{stage}</span>
+                      <span>{formatElapsed(duration)}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </details>
+
+            <h4 style={{ marginTop: "10px" }}>{tr("summary.section.diagnostics")}</h4>
+            {summary.warnings.length > 0 ? (
+              <div className="warnings">
+                {summary.warnings.map((warning) => (
+                  <div key={warning}>{warning}</div>
                 ))}
               </div>
             ) : (
-              <div className="summary-empty">{tr("summary.no_stage_data")}</div>
+              <div className="summary-empty">{tr("summary.no_warnings")}</div>
             )}
-            {summaryStageRows.length > 3 ? (
-              <div className="summary-stage-table">
-                {summaryStageRows.slice(3).map(([stage, duration]) => (
-                  <div key={stage} className="summary-stage-row">
-                    <span>{stage}</span>
-                    <span>{formatElapsed(duration)}</span>
-                  </div>
-                ))}
+            {summary.errorMessage ? (
+              <div className="errors">
+                <div>{summary.errorMessage}</div>
               </div>
             ) : null}
-          </details>
+          </section>
+        </div>
 
-          <h4>{tr("summary.section.diagnostics")}</h4>
-          {summary.warnings.length > 0 ? (
-            <div className="warnings">
-              {summary.warnings.map((warning) => (
-                <div key={warning}>{warning}</div>
-              ))}
-            </div>
-          ) : (
-            <div className="summary-empty">{tr("summary.no_warnings")}</div>
-          )}
-          {summary.errorMessage ? (
-            <div className="errors">
-              <div>{summary.errorMessage}</div>
-            </div>
-          ) : null}
-        </section>
-      </div>
-
-      {(summary.perFile !== undefined) && (
-        <section className="card summary-card" style={{ gridColumn: "1 / -1" }}>
-          <h3>{tr("summary.section.per_file")}</h3>
-          {summary.perFile && summary.perFile.length > 0 ? (
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
-                <thead>
-                  <tr>
-                    <th style={{ textAlign: "left", padding: "0.3rem 0.5rem" }}>{tr("summary.per_file.file")}</th>
-                    <th style={{ textAlign: "right", padding: "0.3rem 0.5rem" }}>{tr("summary.per_file.size")}</th>
-                    <th style={{ textAlign: "right", padding: "0.3rem 0.5rem" }}>{tr("summary.per_file.tokens_seen")}</th>
-                    <th style={{ textAlign: "right", padding: "0.3rem 0.5rem" }}>{tr("summary.per_file.duplicates")}</th>
-                    <th style={{ textAlign: "right", padding: "0.3rem 0.5rem" }}>{tr("summary.per_file.unique_new")}</th>
-                    {summary.dropLengthMin !== null && (
-                      <th style={{ textAlign: "right", padding: "0.3rem 0.5rem" }}>{tr("summary.per_file.filtered")}</th>
-                    )}
-                  </tr>
-                </thead>
-                <tbody>
-                  {summary.perFile.map((f) => (
-                    <tr key={f.path} style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
-                      <td style={{ padding: "0.3rem 0.5rem", wordBreak: "break-all" }}>
-                        <code>{f.path.split(/[\\/]/).pop() ?? f.path}</code>
-                      </td>
-                      <td style={{ textAlign: "right", padding: "0.3rem 0.5rem" }}>
-                        {f.fileBytes !== null ? formatBytes(f.fileBytes) : "—"}
-                      </td>
-                      <td style={{ textAlign: "right", padding: "0.3rem 0.5rem" }}>{formatInt(f.tokensSeen)}</td>
-                      <td style={{ textAlign: "right", padding: "0.3rem 0.5rem" }}>{formatInt(f.duplicates)}</td>
-                      <td style={{ textAlign: "right", padding: "0.3rem 0.5rem" }}>{formatInt(f.uniqueNew)}</td>
+        {(summary.perFile !== undefined) && (
+          <section className="card summary-card">
+            <h3>{tr("summary.section.per_file")}</h3>
+            {summary.perFile && summary.perFile.length > 0 ? (
+              <div className="summary-per-file-table">
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                  <thead>
+                    <tr>
+                      <th style={{ textAlign: "left", padding: "0.3rem 0.5rem" }}>{tr("summary.per_file.file")}</th>
+                      <th style={{ textAlign: "right", padding: "0.3rem 0.5rem" }}>{tr("summary.per_file.size")}</th>
+                      <th style={{ textAlign: "right", padding: "0.3rem 0.5rem" }}>{tr("summary.per_file.tokens_seen")}</th>
+                      <th style={{ textAlign: "right", padding: "0.3rem 0.5rem" }}>{tr("summary.per_file.duplicates")}</th>
+                      <th style={{ textAlign: "right", padding: "0.3rem 0.5rem" }}>{tr("summary.per_file.unique_new")}</th>
                       {summary.dropLengthMin !== null && (
-                        <td style={{ textAlign: "right", padding: "0.3rem 0.5rem" }}>{formatInt(f.filteredByLength)}</td>
+                        <th style={{ textAlign: "right", padding: "0.3rem 0.5rem" }}>{tr("summary.per_file.filtered")}</th>
                       )}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="summary-empty">{tr("summary.per_file.not_collected")}</div>
-          )}
-        </section>
-      )}
+                  </thead>
+                  <tbody>
+                    {summary.perFile.map((f) => (
+                      <tr key={f.path} style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+                        <td style={{ padding: "0.3rem 0.5rem", wordBreak: "break-all" }}>
+                          <code>{f.path.split(/[\\/]/).pop() ?? f.path}</code>
+                        </td>
+                        <td style={{ textAlign: "right", padding: "0.3rem 0.5rem" }}>
+                          {f.fileBytes !== null ? formatBytes(f.fileBytes) : "—"}
+                        </td>
+                        <td style={{ textAlign: "right", padding: "0.3rem 0.5rem" }}>{formatInt(f.tokensSeen)}</td>
+                        <td style={{ textAlign: "right", padding: "0.3rem 0.5rem" }}>{formatInt(f.duplicates)}</td>
+                        <td style={{ textAlign: "right", padding: "0.3rem 0.5rem" }}>{formatInt(f.uniqueNew)}</td>
+                        {summary.dropLengthMin !== null && (
+                          <td style={{ textAlign: "right", padding: "0.3rem 0.5rem" }}>{formatInt(f.filteredByLength)}</td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="summary-empty">{tr("summary.per_file.not_collected")}</div>
+            )}
+          </section>
+        )}
+      </div>
 
       <footer className="card summary-footer">
         <div className="button-row">

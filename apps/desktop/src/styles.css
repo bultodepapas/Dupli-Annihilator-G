@@ -482,14 +482,24 @@ textarea:focus-visible {
 }
 
 .summary-main {
-  display: block;
-  overflow-y: auto;
-  min-height: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
 .summary-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+}
+
+.summary-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   display: grid;
-  gap: 14px;
+  gap: 10px;
+  align-content: start;
 }
 
 .summary-header {
@@ -497,13 +507,25 @@ textarea:focus-visible {
   justify-content: space-between;
   align-items: flex-start;
   gap: 12px;
+  padding: 10px 14px;
 }
 
 .summary-kicker {
   color: var(--accent);
   letter-spacing: 1px;
   text-transform: uppercase;
-  margin-bottom: 4px;
+  font-size: 0.7rem;
+  margin-bottom: 2px;
+}
+
+.summary-header h3 {
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.summary-header .subtitle {
+  font-size: 0.82rem;
+  margin: 2px 0 0;
 }
 
 .summary-badge {
@@ -513,6 +535,7 @@ textarea:focus-visible {
   font-weight: 700;
   letter-spacing: 0.6px;
   border: 1px solid;
+  flex-shrink: 0;
 }
 
 .summary-badge-success {
@@ -535,16 +558,16 @@ textarea:focus-visible {
 
 .summary-grid {
   display: grid;
-  gap: 14px;
-  grid-template-columns: 1.2fr 1fr;
+  gap: 10px;
+  grid-template-columns: 1fr 1.3fr 1fr;
 }
 
 .summary-card {
-  min-height: 100%;
+  /* equal height handled by grid stretch */
 }
 
 .summary-hero-value {
-  font-size: 2rem;
+  font-size: 1.75rem;
   font-weight: 700;
   line-height: 1.1;
 }
@@ -555,16 +578,16 @@ textarea:focus-visible {
 }
 
 .summary-kpis {
-  margin-top: 10px;
+  margin-top: 8px;
   display: grid;
-  gap: 8px;
+  gap: 6px;
   grid-template-columns: 1fr 1fr;
 }
 
 .summary-kpis div {
   border: 1px solid var(--line);
   border-radius: 10px;
-  padding: 8px 10px;
+  padding: 6px 8px;
   background: #0d1530;
   display: grid;
   gap: 2px;
@@ -580,7 +603,7 @@ textarea:focus-visible {
 }
 
 .summary-gauge-wrap {
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
 .summary-gauge-label {
@@ -591,9 +614,9 @@ textarea:focus-visible {
 .summary-meta-grid {
   display: grid;
   grid-template-columns: minmax(0, 160px) 1fr;
-  gap: 6px 10px;
+  gap: 4px 8px;
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: 0.85rem;
 }
 
 .summary-meta-grid code {
@@ -603,7 +626,7 @@ textarea:focus-visible {
 }
 
 .summary-timeline {
-  margin-top: 12px;
+  margin-top: 8px;
 }
 
 .summary-timeline summary {
@@ -611,15 +634,15 @@ textarea:focus-visible {
 }
 
 .summary-stage-table {
-  margin-top: 8px;
+  margin-top: 6px;
   display: grid;
-  gap: 6px;
+  gap: 4px;
 }
 
 .summary-stage-row {
   border: 1px solid var(--line);
   border-radius: 9px;
-  padding: 7px 9px;
+  padding: 5px 8px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -634,9 +657,19 @@ textarea:focus-visible {
 }
 
 .summary-empty {
-  margin-top: 8px;
+  margin-top: 6px;
   color: var(--muted);
   font-size: 0.88rem;
+}
+
+.summary-per-file-table {
+  max-height: 200px;
+  overflow-y: auto;
+  overflow-x: auto;
+}
+
+.summary-footer {
+  flex-shrink: 0;
 }
 
 .summary-footer .button-row {
@@ -734,6 +767,12 @@ textarea:focus-visible {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@media (max-width: 1200px) {
+  .summary-grid {
+    grid-template-columns: 1.2fr 1fr;
   }
 }
 
