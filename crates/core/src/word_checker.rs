@@ -21,9 +21,7 @@ impl WordChecker {
         let mut line = String::new();
         while reader.read_line(&mut line)? > 0 {
             for token in TokenIter::new(&line) {
-                if !words.contains(token) {
-                    words.insert(token.into());
-                }
+                words.insert(token.into());
             }
         }
         Ok(Self { words })

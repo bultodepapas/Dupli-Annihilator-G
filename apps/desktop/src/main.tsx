@@ -97,7 +97,6 @@ type RunSummary = {
   avgThroughputTps: number;
   peakThroughputTps: number | null;
   stageDurationsMs: Record<string, number> | null;
-  tempBytesTotal: number | null;
   warnings: string[];
   errorMessage: string | null;
   perFile: FileStatsSnapshot[] | null;
@@ -470,8 +469,6 @@ function parseRunSummary(raw: Record<string, unknown>): RunSummary | null {
         ? null
         : asNumber(raw.peak_throughput_tps),
     stageDurationsMs,
-    tempBytesTotal:
-      raw.temp_bytes_total === null || raw.temp_bytes_total === undefined ? null : asNumber(raw.temp_bytes_total),
     warnings: Array.isArray(raw.warnings) ? raw.warnings.map((w) => String(w)) : [],
     errorMessage: raw.error_message ? asString(raw.error_message) : null,
     dropLengthMin:

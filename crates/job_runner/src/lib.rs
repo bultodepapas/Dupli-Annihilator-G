@@ -1,8 +1,8 @@
 use anyhow::anyhow;
 use chrono::{SecondsFormat, Utc};
 use dedupe_core::{
-    is_canceled_error, run_with_control, CancellationToken, Config, DiskAlphabeticalMode,
-    FileStats, Mode, OutputOrdering, ProgressEvent, ProgressSink, Stats,
+    effective_mode, is_canceled_error, run_with_control, CancellationToken, Config,
+    DiskAlphabeticalMode, FileStats, Mode, OutputOrdering, ProgressEvent, ProgressSink, Stats,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -16,6 +16,17 @@ use std::sync::{
 use std::time::{Duration, Instant};
 
 pub type JobId = u64;
+
+/// Typed error for job-concurrency violations.
+///
+/// Returned (wrapped in `anyhow::Error`) by [`JobManager::start_job`] when a
+/// job is already active.  Callers can `downcast_ref::<JobError>()` to
+/// distinguish this from generic runtime failures without string matching.
+#[derive(Debug, thiserror::Error)]
+pub enum JobError {
+    #[error("another job is already running")]
+    Busy,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum JobState {
@@ -134,7 +145,6 @@ pub struct RunSummary {
     pub avg_throughput_tps: u64,
     pub peak_throughput_tps: Option<u64>,
     pub stage_durations_ms: Option<BTreeMap<String, u128>>,
-    pub temp_bytes_total: Option<u64>,
     pub warnings: Vec<String>,
     pub error_message: Option<String>,
     /// Per-file breakdown, or `null` when `Config::per_file_stats` is `false`
@@ -254,7 +264,7 @@ impl JobManager {
             .map_err(|_| anyhow!("active job lock poisoned"))?;
         Self::prune_finished_locked(&mut active);
         if active.is_some() {
-            return Err(anyhow!("another job is already running"));
+            return Err(JobError::Busy.into());
         }
 
         let job_id = self.inner.next_id.fetch_add(1, Ordering::Relaxed) + 1;
@@ -269,49 +279,56 @@ impl JobManager {
 
         let tx = self.inner.tx.clone();
         let inner = Arc::clone(&self.inner);
+        // Resolve Auto mode before spawning so all terminal paths (success /
+        // cancel / error) report the same effective mode in the summary.
+        let chosen_mode = effective_mode(&config);
         std::thread::spawn(move || {
             let _ = tx.send(JobEvent::Started { job_id });
 
             let started_at = Utc::now();
             let input_bytes_total = sum_existing_input_bytes(&config);
             let sink = Arc::new(BridgeSink::new(job_id, tx.clone()));
-            let result = run_with_control(&config, SharedSink(Arc::clone(&sink)), cancel.clone());
+            let result = run_with_control(&config, Arc::clone(&sink), cancel.clone());
             let finished_at = Utc::now();
             let bridge = sink.finalize_report();
             let output_bytes = file_len_or_zero(&config.output);
 
-            let (status, stats_for_summary, error_message) = match result {
+            // Resolve terminal status and build the event payload before
+            // touching shared state, so the critical section stays minimal.
+            let (status, terminal_event, stats_for_summary, error_message) = match result {
                 Ok(stats) => {
                     let snap = StatsSnapshot::from_stats(stats);
-                    let _ = tx.send(JobEvent::Done {
+                    let event = JobEvent::Done {
                         job_id,
                         stats: snap.clone(),
-                    });
-                    (RunTerminalStatus::Success, snap, None)
+                    };
+                    (RunTerminalStatus::Success, event, snap, None)
                 }
                 Err(err) => {
                     if is_canceled_error(&err) || cancel.is_canceled() {
-                        let _ = tx.send(JobEvent::Canceled { job_id });
+                        let snap = bridge.snapshot.to_stats_snapshot();
                         (
                             RunTerminalStatus::Canceled,
-                            bridge.snapshot.to_stats_snapshot(),
+                            JobEvent::Canceled { job_id },
+                            snap,
                             None,
                         )
                     } else {
                         let message = format!("{err:#}");
-                        let _ = tx.send(JobEvent::Error {
+                        let snap = bridge.snapshot.to_stats_snapshot();
+                        let event = JobEvent::Error {
                             job_id,
                             message: message.clone(),
-                        });
-                        (
-                            RunTerminalStatus::Error,
-                            bridge.snapshot.to_stats_snapshot(),
-                            Some(message),
-                        )
+                        };
+                        (RunTerminalStatus::Error, event, snap, Some(message))
                     }
                 }
             };
 
+            // Mark the job as done and clear the active slot BEFORE sending
+            // the terminal event.  Consumers that call is_running() immediately
+            // after receiving Done / Canceled / Error will observe the correct
+            // idle state with no race window.
             done.store(true, Ordering::Release);
             if let Ok(mut current) = inner.active.lock() {
                 if current.as_ref().map(|job| job.id) == Some(job_id) {
@@ -319,12 +336,15 @@ impl JobManager {
                 }
             }
 
+            let _ = tx.send(terminal_event);
+
             let summary = build_run_summary(
                 job_id,
                 status,
                 started_at,
                 finished_at,
                 &config,
+                chosen_mode,
                 &bridge,
                 &stats_for_summary,
                 input_bytes_total,
@@ -401,6 +421,7 @@ struct ProgressSnapshot {
     tokens_seen: u64,
     unique_tokens: u64,
     duplicates: u64,
+    filtered_by_length: u64,
     throughput_tps: u64,
     elapsed_ms: u128,
     eta_ms: Option<u128>,
@@ -413,7 +434,7 @@ impl ProgressSnapshot {
             tokens_seen: self.tokens_seen,
             unique_tokens: self.unique_tokens,
             duplicates: self.duplicates,
-            filtered_by_length: 0,
+            filtered_by_length: self.filtered_by_length,
             elapsed_ms: self.elapsed_ms,
             failed_pdfs: Vec::new(),
             per_file: None,
@@ -441,9 +462,6 @@ struct BridgeSink {
     tx: Sender<JobEvent>,
     state: Mutex<BridgeState>,
 }
-
-#[derive(Debug, Clone)]
-struct SharedSink(Arc<BridgeSink>);
 
 impl BridgeSink {
     const MIN_PROGRESS_INTERVAL: Duration = Duration::from_millis(125);
@@ -614,6 +632,9 @@ impl ProgressSink for BridgeSink {
             ProgressEvent::Duplicates(v) => {
                 state.snapshot.duplicates = v;
             }
+            ProgressEvent::FilteredByLength(v) => {
+                state.snapshot.filtered_by_length = v;
+            }
         }
 
         let elapsed_since_emit = now.duration_since(state.last_emit_at);
@@ -627,11 +648,6 @@ impl ProgressSink for BridgeSink {
     }
 }
 
-impl ProgressSink for SharedSink {
-    fn on_event(&self, event: ProgressEvent) {
-        ProgressSink::on_event(self.0.as_ref(), event);
-    }
-}
 
 fn build_run_summary(
     job_id: JobId,
@@ -639,6 +655,7 @@ fn build_run_summary(
     started_at: chrono::DateTime<Utc>,
     finished_at: chrono::DateTime<Utc>,
     config: &Config,
+    chosen_mode: Mode,
     bridge: &BridgeReport,
     stats: &StatsSnapshot,
     input_bytes_total: u64,
@@ -654,7 +671,8 @@ fn build_run_summary(
         0
     };
     let mode = mode_name(config.mode).to_string();
-    let mode_effective = mode_effective_name(config.mode).to_string();
+    // chosen_mode is the actual mode used (Auto has been resolved to Ram or Disk).
+    let mode_effective = mode_effective_name(chosen_mode).to_string();
     let ordering = ordering_name(config.ordering).to_string();
     let stage_durations_ms = if bridge.stage_durations_ms.is_empty() {
         None
@@ -710,9 +728,8 @@ fn build_run_summary(
             None
         },
         stage_durations_ms,
-        temp_bytes_total: None,
         warnings: {
-            let mut w = build_warnings(config, status, reduction_pct, uniq_pct);
+            let mut w = build_warnings(config, chosen_mode, status, reduction_pct, uniq_pct);
             w.extend(stats.failed_pdfs.iter().cloned());
             w
         },
@@ -723,6 +740,7 @@ fn build_run_summary(
 
 fn build_warnings(
     config: &Config,
+    chosen_mode: Mode,
     status: RunTerminalStatus,
     reduction_pct: f64,
     uniq_pct: f64,
@@ -733,10 +751,17 @@ fn build_warnings(
         out.push("UnorderedFast: output order is not guaranteed.".to_string());
     }
 
-    if matches!(config.mode, Mode::Disk)
+    if matches!(chosen_mode, Mode::Disk)
         && matches!(config.ordering, OutputOrdering::PreserveFirstSeen)
     {
         out.push("DISK + PreserveFirstSeen: global order is not guaranteed.".to_string());
+    }
+
+    if config.per_file_stats && matches!(chosen_mode, Mode::Disk) {
+        out.push(
+            "per_file_stats is not supported in Disk mode; per_file will be null in the summary."
+                .to_string(),
+        );
     }
 
     if config.output_separator.chars().count() > 1 {
@@ -793,6 +818,7 @@ fn mode_name(mode: Mode) -> &'static str {
 
 fn mode_effective_name(mode: Mode) -> &'static str {
     match mode {
+        // effective_mode() guarantees Auto is resolved before this is called.
         Mode::Auto => "ram",
         Mode::Ram => "ram",
         Mode::Disk => "disk",

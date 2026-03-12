@@ -17,6 +17,7 @@ fn make_ram_config(input: std::path::PathBuf, output: std::path::PathBuf) -> Con
         disk_buckets: 64,
         disk_alphabetical_mode: DiskAlphabeticalMode::FastBucketLocal,
         disk_run_bytes: 2 * 1024 * 1024,
+        per_file_stats: false,
     }
 }
 
@@ -34,6 +35,7 @@ fn make_disk_config(input: std::path::PathBuf, output: std::path::PathBuf) -> Co
         disk_buckets: 64,
         disk_alphabetical_mode: DiskAlphabeticalMode::GlobalPerfect,
         disk_run_bytes: 1_000_000,
+        per_file_stats: false,
     }
 }
 

@@ -169,7 +169,7 @@ fn merge_runs_to_output<C: CancelCheck>(
         if last_written.as_deref() != Some(token.as_str()) {
             out.write_token(&token)?;
             stats.unique_tokens += 1;
-            last_written = Some(token.clone());
+            last_written = Some(token);
         } else {
             stats.duplicates += 1;
         }

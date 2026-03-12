@@ -5,12 +5,15 @@ fn is_delim(c: char) -> bool {
 
 pub struct TokenIter<'a> {
     s: &'a str,
-    pos: usize,
+    chars: std::str::CharIndices<'a>,
 }
 
 impl<'a> TokenIter<'a> {
     pub fn new(s: &'a str) -> Self {
-        Self { s, pos: 0 }
+        Self {
+            s,
+            chars: s.char_indices(),
+        }
     }
 }
 
@@ -18,31 +21,24 @@ impl<'a> Iterator for TokenIter<'a> {
     type Item = &'a str;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let len = self.s.len();
-
-        while self.pos < len {
-            let c = self.s[self.pos..].chars().next()?;
-            if is_delim(c) {
-                self.pos += c.len_utf8();
-            } else {
-                break;
+        // Skip leading delimiter characters; find the byte offset of the first
+        // non-delimiter (= start of the next token).
+        let start = loop {
+            let (i, c) = self.chars.next()?;
+            if !is_delim(c) {
+                break i;
             }
-        }
+        };
 
-        if self.pos >= len {
-            return None;
-        }
-
-        let start = self.pos;
-
-        while self.pos < len {
-            let c = self.s[self.pos..].chars().next()?;
-            if is_delim(c) {
-                break;
+        // Consume non-delimiter characters to find where the token ends.
+        let end = loop {
+            match self.chars.next() {
+                None => break self.s.len(),
+                Some((i, c)) if is_delim(c) => break i,
+                Some(_) => {}
             }
-            self.pos += c.len_utf8();
-        }
+        };
 
-        Some(&self.s[start..self.pos])
+        Some(&self.s[start..end])
     }
 }

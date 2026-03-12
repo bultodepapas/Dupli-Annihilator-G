@@ -7,7 +7,7 @@ use dedupe_backend::{
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::time::Duration;
-use std::{fs, process::Command};
+use std::fs;
 
 struct AppState {
     backend: BackendService,
@@ -145,20 +145,7 @@ fn open_external_url(req: OpenExternalUrlRequest) -> Result<(), String> {
 }
 
 fn open_path_with_default_app(path: &str) -> Result<(), String> {
-    let status = if cfg!(target_os = "windows") {
-        Command::new("cmd").args(["/C", "start", "", path]).status()
-    } else if cfg!(target_os = "macos") {
-        Command::new("open").arg(path).status()
-    } else {
-        Command::new("xdg-open").arg(path).status()
-    }
-    .map_err(|e| format!("failed to open path '{}': {e}", path))?;
-
-    if status.success() {
-        Ok(())
-    } else {
-        Err(format!("open command failed for '{}': exit={status}", path))
-    }
+    open::that(path).map_err(|e| format!("failed to open '{}': {e}", path))
 }
 
 fn main() {

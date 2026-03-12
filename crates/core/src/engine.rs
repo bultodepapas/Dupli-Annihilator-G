@@ -2,7 +2,7 @@ use crate::{
     cancel::{ensure_not_canceled, CancelCheck, NoCancel},
     config::{Config, DiskAlphabeticalMode, Mode, OutputOrdering},
     dedupe_ram::RamStore,
-    disk::DiskBuckets,
+    disk::WritableBuckets,
     disk_sort,
     epub_reader,
     pdf_reader,
@@ -35,14 +35,60 @@ pub fn run_with_control<P: ProgressSink, C: CancelCheck>(
     // for the entire duration of the job; they are deleted when it drops.
     let (resolved, _temp_files, failed_pdfs) = resolve_rich_inputs(config, &progress, &cancel)?;
 
-    let mut stats = match resolved.mode {
+    let chosen = effective_mode(config);
+    let mut stats = match chosen {
         Mode::Ram => run_ram(&resolved, &progress, &cancel),
         Mode::Disk => run_disk(&resolved, &progress, &cancel),
-        Mode::Auto => run_ram(&resolved, &progress, &cancel),
+        Mode::Auto => unreachable!("effective_mode never returns Mode::Auto"),
     }?;
 
     stats.failed_pdfs = failed_pdfs;
     Ok(stats)
+}
+
+/// Returns the mode that will actually be used when running `config`.
+///
+/// For [`Mode::Ram`] and [`Mode::Disk`] this is the mode itself.  For
+/// [`Mode::Auto`] the function queries available system memory and compares it
+/// against the total size of the input files:
+///
+/// - If inputs exceed **50 %** of available RAM the engine switches to
+///   [`Mode::Disk`] to avoid OOM conditions (the hash-set overhead typically
+///   adds 1.5–2× the raw token volume on top of the input size).
+/// - Otherwise [`Mode::Ram`] is chosen.
+///
+/// The function never returns [`Mode::Auto`].
+pub fn effective_mode(config: &Config) -> Mode {
+    match config.mode {
+        Mode::Ram | Mode::Disk => config.mode,
+        Mode::Auto => resolve_auto_mode(config),
+    }
+}
+
+/// Implements the adaptive heuristic for [`Mode::Auto`].
+fn resolve_auto_mode(config: &Config) -> Mode {
+    use sysinfo::{MemoryRefreshKind, RefreshKind, System};
+
+    // Sum original input file sizes (best-effort; unreadable files count as 0).
+    let total_input_bytes: u64 = config
+        .inputs
+        .iter()
+        .filter_map(|p| std::fs::metadata(p).ok())
+        .map(|m| m.len())
+        .sum();
+
+    let sys = System::new_with_specifics(
+        RefreshKind::nothing().with_memory(MemoryRefreshKind::everything()),
+    );
+    let available_bytes = sys.available_memory();
+
+    // Use Disk when inputs exceed 50 % of available RAM. The conservative
+    // threshold accounts for the hash-set overhead on top of the raw data.
+    if available_bytes > 0 && total_input_bytes > available_bytes / 2 {
+        Mode::Disk
+    } else {
+        Mode::Ram
+    }
 }
 
 /// Scans `config.inputs` for rich-format files (PDF, EPUB), extracts their
@@ -59,19 +105,17 @@ fn resolve_rich_inputs<P: ProgressSink, C: CancelCheck>(
     progress: &P,
     cancel: &C,
 ) -> anyhow::Result<(Config, Vec<NamedTempFile>, Vec<(PathBuf, String)>)> {
-    let rich_count = config
+    if !config
         .inputs
         .iter()
-        .filter(|p| pdf_reader::is_pdf(p) || epub_reader::is_epub(p))
-        .count();
-
-    if rich_count == 0 {
+        .any(|p| pdf_reader::is_pdf(p) || epub_reader::is_epub(p))
+    {
         return Ok((config.clone(), Vec::new(), Vec::new()));
     }
 
     progress.on_event(ProgressEvent::Stage("ExtractingText"));
 
-    let mut temp_files: Vec<NamedTempFile> = Vec::with_capacity(rich_count);
+    let mut temp_files: Vec<NamedTempFile> = Vec::new();
     let mut resolved_inputs: Vec<PathBuf> = Vec::with_capacity(config.inputs.len());
     let mut failures: Vec<(PathBuf, String)> = Vec::new();
 
@@ -178,6 +222,11 @@ fn run_ram<P: ProgressSink, C: CancelCheck>(
                 if config.should_drop_by_length(token) {
                     stats.filtered_by_length += 1;
                     pf_filtered += 1;
+                    if stats.filtered_by_length % 100_000 == 0 {
+                        progress.on_event(ProgressEvent::FilteredByLength(
+                            stats.filtered_by_length,
+                        ));
+                    }
                     continue;
                 }
 
@@ -250,8 +299,8 @@ fn run_disk<P: ProgressSink, C: CancelCheck>(
     if matches!(config.ordering, OutputOrdering::Alphabetical) {
         match config.disk_alphabetical_mode {
             DiskAlphabeticalMode::FastBucketLocal => {
-                let mut buckets = DiskBuckets::new(config.disk_buckets)?;
-                buckets.partition_inputs(config, progress, &mut stats, cancel)?;
+                let buckets = WritableBuckets::new(config.disk_buckets)?;
+                let buckets = buckets.partition_inputs(config, progress, &mut stats, cancel)?;
                 buckets.reduce_to_output(config, progress, &mut stats, cancel)?;
             }
             DiskAlphabeticalMode::GlobalPerfect => {
@@ -260,8 +309,8 @@ fn run_disk<P: ProgressSink, C: CancelCheck>(
             }
         }
     } else {
-        let mut buckets = DiskBuckets::new(config.disk_buckets)?;
-        buckets.partition_inputs(config, progress, &mut stats, cancel)?;
+        let buckets = WritableBuckets::new(config.disk_buckets)?;
+        let buckets = buckets.partition_inputs(config, progress, &mut stats, cancel)?;
         buckets.reduce_to_output(config, progress, &mut stats, cancel)?;
     }
 

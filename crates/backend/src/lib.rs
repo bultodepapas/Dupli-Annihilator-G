@@ -1,6 +1,6 @@
 use anyhow::Context;
 use dedupe_core::{Config, DiskAlphabeticalMode, Mode, OutputOrdering, WordChecker};
-use dedupe_job_runner::{JobEvent, JobId, JobManager};
+use dedupe_job_runner::{JobError, JobEvent, JobId, JobManager};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -8,22 +8,37 @@ use std::time::Duration;
 
 const COMPATIBLE_EXTENSIONS: &[&str] = &["txt", "csv", "tsv", "log", "pdf", "epub"];
 
-fn collect_compatible_files(dir: &std::path::Path, out: &mut Vec<PathBuf>) -> anyhow::Result<()> {
-    for entry in std::fs::read_dir(dir)
-        .with_context(|| format!("cannot read directory: {}", dir.display()))?
-    {
-        let entry =
-            entry.with_context(|| format!("error reading entry in: {}", dir.display()))?;
-        let path = entry.path();
-        let file_type = entry
-            .file_type()
-            .with_context(|| format!("cannot stat: {}", path.display()))?;
-        if file_type.is_dir() {
-            collect_compatible_files(&path, out)?;
-        } else if file_type.is_file() {
-            if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
-                if COMPATIBLE_EXTENSIONS.contains(&ext.to_ascii_lowercase().as_str()) {
-                    out.push(path);
+/// Typed error for invalid user-supplied input paths.
+///
+/// Wrapped in `anyhow::Error` by [`expand_path`] so that
+/// [`map_anyhow_to_command_error`] can `downcast_ref` without string matching.
+#[derive(Debug, thiserror::Error)]
+enum InputError {
+    #[error("no compatible files found in folder: {0}")]
+    NoCompatibleFiles(String),
+}
+
+fn collect_compatible_files(root: &std::path::Path, out: &mut Vec<PathBuf>) -> anyhow::Result<()> {
+    // Iterative BFS/DFS using an explicit stack — avoids stack overflow on
+    // deeply nested directory trees that would blow the call stack recursively.
+    let mut dirs = vec![root.to_path_buf()];
+    while let Some(dir) = dirs.pop() {
+        for entry in std::fs::read_dir(&dir)
+            .with_context(|| format!("cannot read directory: {}", dir.display()))?
+        {
+            let entry =
+                entry.with_context(|| format!("error reading entry in: {}", dir.display()))?;
+            let path = entry.path();
+            let file_type = entry
+                .file_type()
+                .with_context(|| format!("cannot stat: {}", path.display()))?;
+            if file_type.is_dir() {
+                dirs.push(path);
+            } else if file_type.is_file() {
+                if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+                    if COMPATIBLE_EXTENSIONS.contains(&ext.to_ascii_lowercase().as_str()) {
+                        out.push(path);
+                    }
                 }
             }
         }
@@ -42,7 +57,7 @@ fn expand_path(path: PathBuf) -> anyhow::Result<Vec<PathBuf>> {
         collect_compatible_files(&path, &mut found)?;
         found.sort();
         if found.is_empty() {
-            anyhow::bail!("no compatible files found in folder: {}", path.display());
+            return Err(InputError::NoCompatibleFiles(path.display().to_string()).into());
         }
         return Ok(found);
     }
@@ -180,6 +195,12 @@ pub struct BackendService {
     checker: Mutex<Option<WordChecker>>,
 }
 
+impl Default for BackendService {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BackendService {
     pub fn new() -> Self {
         Self {
@@ -194,7 +215,11 @@ impl BackendService {
             .config
             .into_core_config()
             .map_err(map_anyhow_to_command_error)?;
-        cfg.validate().map_err(map_anyhow_to_command_error)?;
+        cfg.validate().map_err(|e| CommandError {
+            category: "invalid_config".to_string(),
+            message: e.to_string(),
+            detail: None,
+        })?;
         if !allow_overwrite && cfg.output.exists() {
             return Err(CommandError {
                 category: "output_exists".to_string(),
@@ -237,12 +262,20 @@ impl BackendService {
         let wc = WordChecker::load(std::path::Path::new(&path))
             .map_err(map_anyhow_to_command_error)?;
         let word_count = wc.len();
-        *self.checker.lock().unwrap() = Some(wc);
+        *self.checker.lock().map_err(|_| CommandError {
+            category: "internal_error".to_string(),
+            message: "wordlist checker lock poisoned".to_string(),
+            detail: None,
+        })? = Some(wc);
         Ok(LoadCheckerResponse { word_count })
     }
 
     pub fn check_word(&self, word: String) -> Result<CheckWordResponse, CommandError> {
-        let guard = self.checker.lock().unwrap();
+        let guard = self.checker.lock().map_err(|_| CommandError {
+            category: "internal_error".to_string(),
+            message: "wordlist checker lock poisoned".to_string(),
+            detail: None,
+        })?;
         match guard.as_ref() {
             None => Err(CommandError {
                 category: "checker_not_loaded".to_string(),
@@ -386,16 +419,9 @@ fn map_disk_mode(mode: ApiDiskAlphabeticalMode) -> DiskAlphabeticalMode {
 
 fn map_anyhow_to_command_error(err: anyhow::Error) -> CommandError {
     let message = err.to_string();
-    let lower = message.to_ascii_lowercase();
-    let category = if lower.contains("already running") {
+    let category = if err.downcast_ref::<JobError>().is_some() {
         "job_busy"
-    } else if lower.contains("no input files")
-        || lower.contains("no compatible files")
-        || lower.contains("output path is required")
-        || lower.contains("separator")
-        || lower.contains("disk_buckets")
-        || lower.contains("disk_run_bytes")
-    {
+    } else if err.downcast_ref::<InputError>().is_some() {
         "invalid_config"
     } else {
         "runtime_error"

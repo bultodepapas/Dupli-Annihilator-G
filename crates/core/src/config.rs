@@ -1,5 +1,29 @@
 use std::path::PathBuf;
 
+/// Typed error returned by [`Config::validate`].
+///
+/// Using a concrete enum (rather than anyhow string messages) lets callers
+/// downcast and categorize errors without fragile substring matching.
+#[derive(Debug, thiserror::Error)]
+pub enum ConfigError {
+    #[error("no input files provided")]
+    NoInputs,
+    #[error("output path is required")]
+    NoOutput,
+    #[error("output separator cannot be empty")]
+    EmptySeparator,
+    #[error("drop_length_min must be between 1 and 10")]
+    DropLengthMinOutOfRange,
+    #[error("drop_length_max must be between 1 and 10")]
+    DropLengthMaxOutOfRange,
+    #[error("drop_length_min ({0}) must be <= drop_length_max ({1})")]
+    DropLengthRangeInverted(usize, usize),
+    #[error("disk_buckets too small")]
+    DiskBucketsTooSmall,
+    #[error("disk_run_bytes too small")]
+    DiskRunBytesTooSmall,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Mode {
     Auto,
@@ -29,11 +53,14 @@ pub struct Config {
     pub ordering: OutputOrdering,
     pub trim: bool,
     pub drop_empty: bool,
-    /// Optional: drop tokens whose character length is >= this value.
-    /// Valid range: 1..=10.  Both min and max must be set to activate.
+    /// The lower bound of the length-filter range (inclusive).
+    /// When both `drop_length_min` and `drop_length_max` are set, tokens whose
+    /// character length satisfies `min <= len <= max` are dropped.
+    /// Valid range: 1..=10.
     pub drop_length_min: Option<usize>,
-    /// Optional: drop tokens whose character length is <= this value.
-    /// Valid range: 1..=10.  Both min and max must be set to activate.
+    /// The upper bound of the length-filter range (inclusive).
+    /// See `drop_length_min` for the complete behaviour description.
+    /// Valid range: 1..=10.
     pub drop_length_max: Option<usize>,
     pub disk_buckets: usize,
     pub disk_alphabetical_mode: DiskAlphabeticalMode,
@@ -64,35 +91,36 @@ impl Default for Config {
 }
 
 impl Config {
-    pub fn validate(&self) -> anyhow::Result<()> {
-        anyhow::ensure!(!self.inputs.is_empty(), "no input files provided");
-        anyhow::ensure!(
-            !self.output.as_os_str().is_empty(),
-            "output path is required"
-        );
-        anyhow::ensure!(
-            !self.output_separator.is_empty(),
-            "output separator cannot be empty"
-        );
+    pub fn validate(&self) -> Result<(), ConfigError> {
+        if self.inputs.is_empty() {
+            return Err(ConfigError::NoInputs);
+        }
+        if self.output.as_os_str().is_empty() {
+            return Err(ConfigError::NoOutput);
+        }
+        if self.output_separator.is_empty() {
+            return Err(ConfigError::EmptySeparator);
+        }
 
         if let (Some(min), Some(max)) = (self.drop_length_min, self.drop_length_max) {
-            anyhow::ensure!(
-                min >= 1 && min <= 10,
-                "drop_length_min must be between 1 and 10"
-            );
-            anyhow::ensure!(
-                max >= 1 && max <= 10,
-                "drop_length_max must be between 1 and 10"
-            );
-            anyhow::ensure!(
-                min <= max,
-                "drop_length_min ({min}) must be <= drop_length_max ({max})"
-            );
+            if !(1..=10).contains(&min) {
+                return Err(ConfigError::DropLengthMinOutOfRange);
+            }
+            if !(1..=10).contains(&max) {
+                return Err(ConfigError::DropLengthMaxOutOfRange);
+            }
+            if min > max {
+                return Err(ConfigError::DropLengthRangeInverted(min, max));
+            }
         }
 
         if matches!(self.mode, Mode::Disk) {
-            anyhow::ensure!(self.disk_buckets >= 8, "disk_buckets too small");
-            anyhow::ensure!(self.disk_run_bytes >= 1_000_000, "disk_run_bytes too small");
+            if self.disk_buckets < 8 {
+                return Err(ConfigError::DiskBucketsTooSmall);
+            }
+            if self.disk_run_bytes < 1_000_000 {
+                return Err(ConfigError::DiskRunBytesTooSmall);
+            }
         }
 
         Ok(())

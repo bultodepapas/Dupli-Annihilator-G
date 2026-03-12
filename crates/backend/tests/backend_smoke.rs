@@ -22,6 +22,7 @@ fn make_ram_request(input: String, output: String) -> StartJobRequest {
             disk_buckets: 64,
             disk_alphabetical_mode: ApiDiskAlphabeticalMode::FastBucketLocal,
             disk_run_bytes: 2 * 1024 * 1024,
+            per_file_stats: false,
         },
     }
 }
@@ -43,6 +44,7 @@ fn make_disk_request(input: String, output: String) -> StartJobRequest {
             disk_buckets: 64,
             disk_alphabetical_mode: ApiDiskAlphabeticalMode::GlobalPerfect,
             disk_run_bytes: 1_000_000,
+            per_file_stats: false,
         },
     }
 }
@@ -185,6 +187,7 @@ fn invalid_config_fails_fast_on_start() {
                 disk_buckets: 64,
                 disk_alphabetical_mode: ApiDiskAlphabeticalMode::FastBucketLocal,
                 disk_run_bytes: 2 * 1024 * 1024,
+                per_file_stats: false,
             },
         })
         .expect_err("invalid config should fail before background start");

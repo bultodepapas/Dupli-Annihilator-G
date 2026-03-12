@@ -108,6 +108,7 @@ fn main() -> Result<()> {
                 disk_buckets: cli.disk_buckets,
                 disk_alphabetical_mode: map_disk_mode(cli.disk_alphabetical_mode),
                 disk_run_bytes: cli.disk_run_bytes,
+                per_file_stats: false,
             },
         })
         .map_err(|e| anyhow!("failed to start job [{}]: {}", e.category, e.message))?;

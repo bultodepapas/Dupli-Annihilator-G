@@ -53,6 +53,10 @@ pub fn epub_to_temp_text(path: &Path) -> anyhow::Result<NamedTempFile> {
 ///
 /// Each closing `>` is replaced with a space so that words from adjacent tags
 /// (e.g. `<b>foo</b><i>bar</i>`) are not merged into a single token.
+///
+/// After tag removal, the most common named HTML/XML entities are decoded so
+/// that text like `&amp;`, `&nbsp;`, `&lt;`, etc. do not produce junk tokens
+/// (`amp`, `nbsp`, `lt`) in the deduplication output.
 fn strip_tags(html: &str) -> String {
     let mut out = String::with_capacity(html.len());
     let mut in_tag = false;
@@ -69,5 +73,30 @@ fn strip_tags(html: &str) -> String {
         }
     }
 
-    out
+    decode_html_entities(out)
+}
+
+/// Decodes the most common named HTML/XML entities in a `String` in place.
+///
+/// Handles: `&amp;` `&lt;` `&gt;` `&quot;` `&apos;` `&nbsp;`.
+/// Numeric character references (`&#NNN;` / `&#xHH;`) and uncommon named
+/// entities are left unchanged — they are rare in typical EPUB prose.
+fn decode_html_entities(mut text: String) -> String {
+    // Process in a single left-to-right pass to avoid repeated allocations.
+    // The replacements are ordered so `&amp;` is applied last, preventing
+    // double-decoding of e.g. `&amp;lt;` → `&lt;` → `<`.
+    macro_rules! replace {
+        ($t:ident, $from:expr, $to:expr) => {
+            if $t.contains($from) {
+                $t = $t.replace($from, $to);
+            }
+        };
+    }
+    replace!(text, "&nbsp;", " ");
+    replace!(text, "&lt;",   "<");
+    replace!(text, "&gt;",   ">");
+    replace!(text, "&quot;", "\"");
+    replace!(text, "&apos;", "'");
+    replace!(text, "&amp;",  "&");
+    text
 }

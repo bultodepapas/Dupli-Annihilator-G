@@ -6,6 +6,8 @@ pub enum ProgressEvent {
     TokensSeen(u64),
     UniqueTokens(u64),
     Duplicates(u64),
+    /// Running total of tokens dropped by the length filter.
+    FilteredByLength(u64),
 }
 
 pub trait ProgressSink: Send + Sync + 'static {
@@ -16,3 +18,11 @@ pub trait ProgressSink: Send + Sync + 'static {
 pub struct NoProgress;
 
 impl ProgressSink for NoProgress {}
+
+/// Blanket impl so `Arc<T: ProgressSink>` can be passed anywhere a
+/// `ProgressSink` is expected, without requiring a newtype wrapper.
+impl<T: ProgressSink> ProgressSink for std::sync::Arc<T> {
+    fn on_event(&self, event: ProgressEvent) {
+        T::on_event(self.as_ref(), event);
+    }
+}

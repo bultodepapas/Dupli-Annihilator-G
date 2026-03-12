@@ -8,19 +8,29 @@ use crate::{
     token_iter::TokenIter,
     writer::OutputWriter,
 };
-use ahash::AHasher;
 use std::fs::File;
-use std::hash::Hasher;
-use std::io::{BufRead, BufReader, BufWriter, Write};
+use std::io::{BufReader, BufWriter, Write};
 use std::path::PathBuf;
 
-pub struct DiskBuckets {
+/// Typestate: bucket files are open for writing.
+/// Consumed by [`WritableBuckets::partition_inputs`], which flushes and drops
+/// all writers before returning a [`ReducibleBuckets`].  This ensures no write
+/// handle is alive when the reduce phase opens the same files for reading —
+/// important on Windows where a file open for writing blocks readers.
+pub struct WritableBuckets {
     _dir: tempfile::TempDir,
     bucket_paths: Vec<PathBuf>,
     bucket_writers: Vec<BufWriter<File>>,
+    hasher_state: ahash::RandomState,
 }
 
-impl DiskBuckets {
+/// Typestate: bucket files have been written and closed; ready for reading.
+pub struct ReducibleBuckets {
+    _dir: tempfile::TempDir,
+    bucket_paths: Vec<PathBuf>,
+}
+
+impl WritableBuckets {
     pub fn new(n: usize) -> anyhow::Result<Self> {
         let dir = tempfile::tempdir()?;
         let mut bucket_paths = Vec::with_capacity(n);
@@ -37,23 +47,24 @@ impl DiskBuckets {
             _dir: dir,
             bucket_paths,
             bucket_writers,
+            hasher_state: ahash::RandomState::new(),
         })
     }
 
     #[inline]
-    fn bucket_index(token: &str, n: usize) -> usize {
-        let mut hasher = AHasher::default();
-        hasher.write(token.as_bytes());
-        (hasher.finish() as usize) % n
+    fn bucket_index(token: &str, n: usize, state: &ahash::RandomState) -> usize {
+        (state.hash_one(token) as usize) % n
     }
 
+    /// Partitions all input tokens into hash buckets and returns a
+    /// [`ReducibleBuckets`] with all write handles closed.
     pub fn partition_inputs<P: ProgressSink, C: CancelCheck>(
-        &mut self,
+        mut self,
         config: &Config,
         progress: &P,
         stats: &mut Stats,
         cancel: &C,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<ReducibleBuckets> {
         progress.on_event(ProgressEvent::Stage("PartitioningBuckets"));
 
         for (idx, path) in config.inputs.iter().enumerate() {
@@ -92,10 +103,15 @@ impl DiskBuckets {
                     }
                     if config.should_drop_by_length(token) {
                         stats.filtered_by_length += 1;
+                        if stats.filtered_by_length % 100_000 == 0 {
+                            progress.on_event(ProgressEvent::FilteredByLength(
+                                stats.filtered_by_length,
+                            ));
+                        }
                         continue;
                     }
 
-                    let bi = Self::bucket_index(token, self.bucket_writers.len());
+                    let bi = Self::bucket_index(token, self.bucket_writers.len(), &self.hasher_state);
                     let writer = &mut self.bucket_writers[bi];
                     writer.write_all(token.as_bytes())?;
                     writer.write_all(b"\n")?;
@@ -112,9 +128,16 @@ impl DiskBuckets {
             writer.flush()?;
         }
 
-        Ok(())
+        // Drop all write handles before returning — `self.bucket_writers` is
+        // not moved into `ReducibleBuckets`, so it is dropped here.
+        Ok(ReducibleBuckets {
+            _dir: self._dir,
+            bucket_paths: self.bucket_paths,
+        })
     }
+}
 
+impl ReducibleBuckets {
     pub fn reduce_to_output<P: ProgressSink, C: CancelCheck>(
         &self,
         config: &Config,
@@ -133,7 +156,8 @@ impl DiskBuckets {
             });
 
             let file = File::open(path)?;
-            let reader = BufReader::new(file);
+            let mut reader = LossyLineReader::new(BufReader::new(file));
+            let mut line = String::new();
 
             let mut store = match config.ordering {
                 OutputOrdering::UnorderedFast => RamStore::new_unordered(),
@@ -143,20 +167,21 @@ impl DiskBuckets {
             };
 
             let mut bucket_tokens: u64 = 0;
-            for line in reader.lines() {
+            loop {
+                let n = reader.read_line(&mut line)?;
+                if n == 0 {
+                    break;
+                }
                 bucket_tokens += 1;
                 if bucket_tokens % 8_192 == 0 {
                     ensure_not_canceled(cancel)?;
                 }
-                let mut token = line?;
-                if config.trim {
-                    token = token.trim().to_string();
-                }
-                if config.drop_empty && token.is_empty() {
-                    continue;
-                }
+                // Bucket files are pre-filtered by partition_inputs: tokens are
+                // already trimmed, non-empty, and length-filtered. No re-checking needed.
+                // Trim the trailing newline preserved by LossyLineReader::read_line.
+                let token = line.trim_end_matches(|c: char| c == '\n' || c == '\r');
 
-                if store.insert(&token) {
+                if store.insert(token) {
                     stats.unique_tokens += 1;
                     if stats.unique_tokens % 100_000 == 0 {
                         progress.on_event(ProgressEvent::UniqueTokens(stats.unique_tokens));
@@ -185,7 +210,6 @@ impl DiskBuckets {
             });
         }
 
-        progress.on_event(ProgressEvent::Stage("WritingOutput"));
         out.finish()?;
         Ok(())
     }
