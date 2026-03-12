@@ -65,6 +65,7 @@ jobs:
         os:
           - windows-latest
           - macos-latest
+          - ubuntu-22.04
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -77,6 +78,16 @@ jobs:
       - name: Checkout (default ref)
         if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.tag == '' }}
         uses: actions/checkout@v4
+
+      - name: Install Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -174,6 +185,11 @@ jobs:
             release-assets/**/*.dmg
             release-assets/**/*.app.tar.gz
             release-assets/**/*.app.tar.gz.sig
+            release-assets/**/*.AppImage
+            release-assets/**/*.AppImage.tar.gz
+            release-assets/**/*.AppImage.tar.gz.sig
+            release-assets/**/*.deb
+            release-assets/**/*.rpm
             release-assets/**/*.sig
             release-assets/**/latest.json
             release-assets/**/latest*.json

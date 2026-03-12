@@ -1877,8 +1877,9 @@ function App() {
         multiple: true,
         directory: false,
         filters: [
-          { name: "All supported", extensions: ["txt", "csv", "tsv", "log", "pdf"] },
+          { name: "All supported", extensions: ["txt", "csv", "tsv", "log", "pdf", "epub"] },
           { name: "PDF", extensions: ["pdf"] },
+          { name: "EPUB", extensions: ["epub"] },
           { name: "Text / CSV", extensions: ["txt", "csv", "tsv", "log"] },
         ],
       });
