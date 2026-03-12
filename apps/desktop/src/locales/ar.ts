@@ -198,4 +198,16 @@ export const ar: Dictionary = {
   "checker.result_found": "FOUND",
   "checker.result_not_found": "NOT FOUND",
   "checker.check_failed": "Check failed: {detail}",
+
+  "section.frequency": "تحليل التكرار",
+  "freq.inputs_placeholder": "ملفات الإدخال (مسار مطلق واحد لكل سطر)...",
+  "freq.top_n_label": "Top N",
+  "freq.analyze": "تحليل",
+  "freq.analyzing": "جارٍ التحليل...",
+  "freq.result_summary": "{unique} فريد · {seen} المجموع",
+  "freq.col_rank": "#",
+  "freq.col_token": "رمز",
+  "freq.col_count": "العدد",
+  "freq.no_results": "لا توجد نتائج.",
+  "freq.error": "فشل التحليل: {detail}",
 };

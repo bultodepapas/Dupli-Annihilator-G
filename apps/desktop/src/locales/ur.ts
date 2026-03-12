@@ -198,4 +198,16 @@ export const ur: Dictionary = {
   "checker.result_found": "FOUND",
   "checker.result_not_found": "NOT FOUND",
   "checker.check_failed": "Check failed: {detail}",
+
+  "section.frequency": "تعدد تجزیہ",
+  "freq.inputs_placeholder": "ان پٹ فائلیں (فی لائن ایک مکمل راستہ)...",
+  "freq.top_n_label": "Top N",
+  "freq.analyze": "تجزیہ",
+  "freq.analyzing": "تجزیہ ہو رہا ہے...",
+  "freq.result_summary": "{unique} منفرد · {seen} کل",
+  "freq.col_rank": "#",
+  "freq.col_token": "ٹوکن",
+  "freq.col_count": "تعداد",
+  "freq.no_results": "کوئی نتیجہ نہیں۔",
+  "freq.error": "تجزیہ ناکام: {detail}",
 };

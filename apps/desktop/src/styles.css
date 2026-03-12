@@ -759,6 +759,75 @@ textarea:focus-visible {
   flex: 1 1 auto;
 }
 
+/* ─── Frequency Analysis panel ───────────────────────────────── */
+
+.freq-topn-label {
+  font-size: 0.88rem;
+  color: var(--muted);
+  white-space: nowrap;
+  align-self: center;
+}
+
+.freq-topn-input {
+  width: 72px;
+  flex-shrink: 0;
+}
+
+.freq-table-wrap {
+  margin-top: 8px;
+  max-height: 260px;
+  overflow-y: auto;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+
+.freq-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.82rem;
+}
+
+.freq-th {
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+  color: var(--muted);
+  font-weight: 600;
+  padding: 5px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+
+.freq-row:nth-child(even) {
+  background: var(--panel-2);
+}
+
+.freq-row:hover {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.freq-td {
+  padding: 4px 8px;
+  color: var(--txt);
+}
+
+.freq-rank {
+  width: 36px;
+  color: var(--muted);
+}
+
+.freq-token {
+  word-break: break-all;
+}
+
+.freq-count {
+  width: 80px;
+  text-align: right;
+  color: var(--accent);
+}
+
 @keyframes rise {
   from {
     opacity: 0;

@@ -198,4 +198,16 @@ export const bn: Dictionary = {
   "checker.result_found": "FOUND",
   "checker.result_not_found": "NOT FOUND",
   "checker.check_failed": "Check failed: {detail}",
+
+  "section.frequency": "ফ্রিকোয়েন্সি বিশ্লেষণ",
+  "freq.inputs_placeholder": "ইনপুট ফাইলসমূহ (প্রতি লাইনে একটি পূর্ণ পথ)...",
+  "freq.top_n_label": "Top N",
+  "freq.analyze": "বিশ্লেষণ",
+  "freq.analyzing": "বিশ্লেষণ হচ্ছে...",
+  "freq.result_summary": "{unique} অনন্য · {seen} মোট",
+  "freq.col_rank": "#",
+  "freq.col_token": "টোকেন",
+  "freq.col_count": "গণনা",
+  "freq.no_results": "কোনো ফলাফল নেই।",
+  "freq.error": "বিশ্লেষণ ব্যর্থ: {detail}",
 };

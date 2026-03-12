@@ -1446,6 +1446,123 @@ const OutputSection = React.memo(function OutputSection({
   );
 });
 
+// ─── FrequencyPanel ───────────────────────────────────────────────────────────
+
+type FrequencyEntry = { token: string; count: number };
+type FrequencyResponse = {
+  entries: FrequencyEntry[];
+  tokensSeen: number;
+  uniqueTokens: number;
+};
+
+type FrequencyPanelProps = {
+  freqInputs: string;
+  freqTopN: number;
+  freqStatus: "idle" | "analyzing" | "done" | "error";
+  freqResult: FrequencyResponse | null;
+  freqMessage: string;
+  tr: (key: I18nKey, params?: Record<string, string | number>) => string;
+  onInputsChange: (v: string) => void;
+  onTopNChange: (v: number) => void;
+  onPickFiles: () => void;
+  onAnalyze: () => void;
+};
+
+const FrequencyPanel = React.memo(function FrequencyPanel({
+  freqInputs,
+  freqTopN,
+  freqStatus,
+  freqResult,
+  freqMessage,
+  tr,
+  onInputsChange,
+  onTopNChange,
+  onPickFiles,
+  onAnalyze,
+}: FrequencyPanelProps) {
+  const busy = freqStatus === "analyzing";
+  const hasInputs = freqInputs.trim().length > 0;
+
+  return (
+    <>
+      <div className="button-row">
+        <input
+          className="path-input"
+          value={freqInputs}
+          onChange={(e) => onInputsChange(e.target.value)}
+          placeholder={tr("freq.inputs_placeholder")}
+          disabled={busy}
+        />
+        <button className="secondary" type="button" onClick={onPickFiles} disabled={busy}>
+          {tr("button.add_files")}
+        </button>
+      </div>
+
+      <div className="button-row" style={{ marginTop: 6 }}>
+        <label className="freq-topn-label">{tr("freq.top_n_label")}</label>
+        <input
+          className="freq-topn-input"
+          type="number"
+          min={1}
+          max={10000}
+          value={freqTopN}
+          onChange={(e) => onTopNChange(Math.max(1, Math.min(10000, Number(e.target.value) || 1)))}
+          disabled={busy}
+        />
+        <button
+          className="primary"
+          type="button"
+          onClick={onAnalyze}
+          disabled={busy || !hasInputs}
+        >
+          {busy ? tr("freq.analyzing") : tr("freq.analyze")}
+        </button>
+      </div>
+
+      {freqMessage && (
+        <p className="message" style={{ color: freqStatus === "error" ? "var(--err, #ffd4d9)" : undefined }}>
+          {freqMessage}
+        </p>
+      )}
+
+      {freqResult && freqStatus === "done" && (
+        <>
+          <p className="message" style={{ color: "var(--muted)", marginBottom: 6 }}>
+            {tr("freq.result_summary", {
+              unique: freqResult.uniqueTokens.toLocaleString(),
+              seen: freqResult.tokensSeen.toLocaleString(),
+            })}
+          </p>
+          {freqResult.entries.length === 0 ? (
+            <p className="summary-empty">{tr("freq.no_results")}</p>
+          ) : (
+            <div className="freq-table-wrap">
+              <table className="freq-table">
+                <thead>
+                  <tr>
+                    <th className="freq-th freq-rank">{tr("freq.col_rank")}</th>
+                    <th className="freq-th freq-token">{tr("freq.col_token")}</th>
+                    <th className="freq-th freq-count">{tr("freq.col_count")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {freqResult.entries.map((e, i) => (
+                    <tr key={e.token} className="freq-row">
+                      <td className="freq-td freq-rank">{i + 1}</td>
+                      <td className="freq-td freq-token">{e.token}</td>
+                      <td className="freq-td freq-count">{e.count.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+    </>
+  );
+});
+
 // ─── WordCheckerPanel ─────────────────────────────────────────────────────────
 
 type WordCheckerPanelProps = {
@@ -1573,6 +1690,12 @@ function App() {
   const [checkerWord, setCheckerWord] = React.useState<string>("");
   const [checkerResult, setCheckerResult] = React.useState<"found" | "not_found" | null>(null);
   const [checkerMessage, setCheckerMessage] = React.useState<string>("");
+
+  const [freqInputs, setFreqInputs] = React.useState<string>("");
+  const [freqTopN, setFreqTopN] = React.useState<number>(50);
+  const [freqStatus, setFreqStatus] = React.useState<"idle" | "analyzing" | "done" | "error">("idle");
+  const [freqResult, setFreqResult] = React.useState<FrequencyResponse | null>(null);
+  const [freqMessage, setFreqMessage] = React.useState<string>("");
 
   const [bannerDismissed, setBannerDismissed] = React.useState(false);
 
@@ -2297,6 +2420,44 @@ function App() {
     }
   }, [checkerWord, checkerStatus]);
 
+  const pickFreqFiles = React.useCallback(async () => {
+    try {
+      const selected = await open({
+        multiple: true,
+        directory: false,
+        filters: [{ name: "All supported", extensions: ["txt", "csv", "tsv", "log", "pdf", "epub"] }],
+      });
+      if (!selected) return;
+      const paths = Array.isArray(selected) ? selected : [selected];
+      if (paths.length === 0) return;
+      setFreqInputs((prev) => {
+        const existing = prev.trim();
+        const joined = paths.join("\n");
+        return existing ? `${existing}\n${joined}` : joined;
+      });
+    } catch (err) {
+      setFreqMessage(String(err));
+    }
+  }, []);
+
+  const runFrequencyAnalysis = React.useCallback(async () => {
+    const inputs = freqInputs.split("\n").map((s) => s.trim()).filter(Boolean);
+    if (inputs.length === 0) return;
+    setFreqStatus("analyzing");
+    setFreqResult(null);
+    setFreqMessage("");
+    try {
+      const res = await invoke<FrequencyResponse>("run_frequency_analysis", {
+        req: { inputs, topN: freqTopN, trim: true, dropEmpty: true },
+      });
+      setFreqResult(res);
+      setFreqStatus("done");
+    } catch (err) {
+      setFreqStatus("error");
+      setFreqMessage(t(localeRef.current, "freq.error", { detail: String(err) }));
+    }
+  }, [freqInputs, freqTopN]);
+
   const onLocaleChange = React.useCallback((l: Locale) => {
     setLocale(l);
   }, []);
@@ -2400,6 +2561,21 @@ function App() {
                   onLoad={() => void loadWordlist()}
                   onWordChange={setCheckerWord}
                   onCheck={() => void checkWord()}
+                />
+              </section>
+              <section className="card">
+                <h2>{tr("section.frequency")}</h2>
+                <FrequencyPanel
+                  freqInputs={freqInputs}
+                  freqTopN={freqTopN}
+                  freqStatus={freqStatus}
+                  freqResult={freqResult}
+                  freqMessage={freqMessage}
+                  tr={tr}
+                  onInputsChange={setFreqInputs}
+                  onTopNChange={setFreqTopN}
+                  onPickFiles={() => void pickFreqFiles()}
+                  onAnalyze={() => void runFrequencyAnalysis()}
                 />
               </section>
             </div>

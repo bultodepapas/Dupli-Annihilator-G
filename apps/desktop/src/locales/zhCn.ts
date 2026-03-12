@@ -198,4 +198,16 @@ export const zhCn: Dictionary = {
   "checker.result_found": "FOUND",
   "checker.result_not_found": "NOT FOUND",
   "checker.check_failed": "Check failed: {detail}",
+
+  "section.frequency": "词频分析",
+  "freq.inputs_placeholder": "输入文件（每行一个绝对路径）...",
+  "freq.top_n_label": "Top N",
+  "freq.analyze": "分析",
+  "freq.analyzing": "分析中...",
+  "freq.result_summary": "{unique} 个唯一 · {seen} 个总计",
+  "freq.col_rank": "#",
+  "freq.col_token": "词元",
+  "freq.col_count": "次数",
+  "freq.no_results": "无结果。",
+  "freq.error": "分析失败：{detail}",
 };

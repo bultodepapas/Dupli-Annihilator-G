@@ -199,4 +199,16 @@ export const ru: Dictionary = {
   "checker.result_found": "FOUND",
   "checker.result_not_found": "NOT FOUND",
   "checker.check_failed": "Check failed: {detail}",
+
+  "section.frequency": "Частотный анализ",
+  "freq.inputs_placeholder": "Входные файлы (один абсолютный путь в строке)...",
+  "freq.top_n_label": "Top N",
+  "freq.analyze": "АНАЛИЗ",
+  "freq.analyzing": "АНАЛИЗ...",
+  "freq.result_summary": "{unique} уникальных · {seen} всего",
+  "freq.col_rank": "#",
+  "freq.col_token": "Токен",
+  "freq.col_count": "Кол-во",
+  "freq.no_results": "Нет результатов.",
+  "freq.error": "Анализ не выполнен: {detail}",
 };

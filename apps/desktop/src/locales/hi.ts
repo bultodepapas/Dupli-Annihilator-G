@@ -198,4 +198,16 @@ export const hi: Dictionary = {
   "checker.result_found": "FOUND",
   "checker.result_not_found": "NOT FOUND",
   "checker.check_failed": "Check failed: {detail}",
+
+  "section.frequency": "आवृत्ति विश्लेषण",
+  "freq.inputs_placeholder": "इनपुट फ़ाइलें (प्रति पंक्ति एक पूर्ण पथ)...",
+  "freq.top_n_label": "Top N",
+  "freq.analyze": "विश्लेषण",
+  "freq.analyzing": "विश्लेषण हो रहा है...",
+  "freq.result_summary": "{unique} अद्वितीय · {seen} कुल",
+  "freq.col_rank": "#",
+  "freq.col_token": "टोकन",
+  "freq.col_count": "गिनती",
+  "freq.no_results": "कोई परिणाम नहीं।",
+  "freq.error": "विश्लेषण विफल: {detail}",
 };

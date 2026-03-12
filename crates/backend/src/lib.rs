@@ -1,5 +1,8 @@
 use anyhow::Context;
-use dedupe_core::{Config, DiskAlphabeticalMode, Mode, OutputOrdering, WordChecker};
+use dedupe_core::{
+    token_frequency, Config, DiskAlphabeticalMode, Mode, NoCancel, NoProgress, OutputOrdering,
+    WordChecker,
+};
 use dedupe_job_runner::{JobError, JobEvent, JobId, JobManager};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -190,6 +193,53 @@ pub struct CheckWordResponse {
     pub word_count: usize,
 }
 
+/// Request payload for [`BackendService::run_frequency_analysis`].
+///
+/// Only the filter fields that `token_frequency` uses are exposed here.
+/// Mode, ordering, and output path are irrelevant (no file is written).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FrequencyRequest {
+    /// Input file paths or directory paths (expanded with the same rules as
+    /// [`StartJobConfig`]).
+    pub inputs: Vec<String>,
+    /// Strip leading/trailing whitespace from each token (default: `true`).
+    #[serde(default = "default_trim")]
+    pub trim: bool,
+    /// Drop empty tokens after trimming (default: `true`).
+    #[serde(default = "default_drop_empty")]
+    pub drop_empty: bool,
+    /// Drop tokens whose character length is within `[min, max]` (inclusive).
+    #[serde(default)]
+    pub drop_length_min: Option<usize>,
+    #[serde(default)]
+    pub drop_length_max: Option<usize>,
+    /// Return only the N most-frequent tokens.  `None` returns all tokens.
+    #[serde(default)]
+    pub top_n: Option<usize>,
+}
+
+/// One entry in the frequency table.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct FrequencyEntry {
+    pub token: String,
+    pub count: u64,
+}
+
+/// Response payload for [`BackendService::run_frequency_analysis`].
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct FrequencyResponse {
+    /// Frequency table, sorted descending by count, ties broken alphabetically.
+    /// Truncated to `top_n` entries when that field was set in the request.
+    pub entries: Vec<FrequencyEntry>,
+    /// Total tokens observed across all input files (before any filters).
+    pub tokens_seen: u64,
+    /// Total distinct tokens found (= full table length before `top_n` cap).
+    pub unique_tokens: u64,
+}
+
 pub struct BackendService {
     manager: JobManager,
     checker: Mutex<Option<WordChecker>>,
@@ -287,6 +337,68 @@ impl BackendService {
                 word_count: wc.len(),
             }),
         }
+    }
+
+    /// Run a synchronous frequency analysis over the given inputs and return
+    /// a ranked token → count table.
+    ///
+    /// This call **blocks** the calling thread until all inputs are read —
+    /// the same behaviour as [`Self::load_wordlist_for_checker`].  For very
+    /// large corpora consider keeping the input list small or using a
+    /// background job via [`Self::start_job`] with a future async variant.
+    pub fn run_frequency_analysis(
+        &self,
+        req: FrequencyRequest,
+    ) -> Result<FrequencyResponse, CommandError> {
+        // Expand and validate inputs (identical path to into_core_config).
+        let mut inputs: Vec<std::path::PathBuf> = Vec::new();
+        for raw in req.inputs {
+            let files =
+                expand_path(std::path::PathBuf::from(raw)).map_err(map_anyhow_to_command_error)?;
+            inputs.extend(files);
+        }
+        if inputs.is_empty() {
+            return Err(CommandError {
+                category: "invalid_config".to_string(),
+                message: "no input files provided".to_string(),
+                detail: None,
+            });
+        }
+
+        // Build a minimal Config — output path intentionally left empty because
+        // token_frequency never writes a file and does not call Config::validate().
+        let config = Config {
+            inputs,
+            trim: req.trim,
+            drop_empty: req.drop_empty,
+            drop_length_min: req.drop_length_min,
+            drop_length_max: req.drop_length_max,
+            ..Config::default()
+        };
+
+        let raw =
+            token_frequency(&config, &NoProgress, &NoCancel).map_err(map_anyhow_to_command_error)?;
+
+        // Derive aggregate stats before consuming the vec.
+        let unique_tokens = raw.len() as u64;
+        let tokens_seen: u64 = raw.iter().map(|(_, c)| c).sum();
+
+        let take = req.top_n.unwrap_or(usize::MAX);
+        let entries: Vec<FrequencyEntry> = raw
+            .into_iter()
+            .take(take)
+            .map(|(token, count)| FrequencyEntry {
+                // Box<str> → String: From<Box<str>> for String is in std.
+                token: String::from(token),
+                count,
+            })
+            .collect();
+
+        Ok(FrequencyResponse {
+            entries,
+            tokens_seen,
+            unique_tokens,
+        })
     }
 
     pub fn try_next_emitted_event(&self) -> Option<EmittedEvent> {

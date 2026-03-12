@@ -197,6 +197,18 @@ export const en = {
   "checker.result_found": "FOUND",
   "checker.result_not_found": "NOT FOUND",
   "checker.check_failed": "Check failed: {detail}",
+
+  "section.frequency": "Frequency Analysis",
+  "freq.inputs_placeholder": "Input files (one absolute path per line)...",
+  "freq.top_n_label": "Top N",
+  "freq.analyze": "ANALYZE",
+  "freq.analyzing": "ANALYZING...",
+  "freq.result_summary": "{unique} unique · {seen} total",
+  "freq.col_rank": "#",
+  "freq.col_token": "Token",
+  "freq.col_count": "Count",
+  "freq.no_results": "No results.",
+  "freq.error": "Analysis failed: {detail}",
 } as const;
 
 export type TranslationKey = keyof typeof en;

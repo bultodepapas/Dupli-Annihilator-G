@@ -200,4 +200,16 @@ export const es: Dictionary = {
   "checker.result_found": "FOUND",
   "checker.result_not_found": "NOT FOUND",
   "checker.check_failed": "Check failed: {detail}",
+
+  "section.frequency": "Análisis de frecuencia",
+  "freq.inputs_placeholder": "Archivos de entrada (una ruta por línea)...",
+  "freq.top_n_label": "Top N",
+  "freq.analyze": "ANALIZAR",
+  "freq.analyzing": "ANALIZANDO...",
+  "freq.result_summary": "{unique} únicos · {seen} total",
+  "freq.col_rank": "#",
+  "freq.col_token": "Token",
+  "freq.col_count": "Cantidad",
+  "freq.no_results": "Sin resultados.",
+  "freq.error": "Análisis fallido: {detail}",
 };
