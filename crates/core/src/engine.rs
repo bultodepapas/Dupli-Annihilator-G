@@ -12,6 +12,7 @@ use crate::{
     token_iter::TokenIter,
     writer::OutputWriter,
 };
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::PathBuf;
@@ -33,11 +34,12 @@ pub fn run_with_control<P: ProgressSink, C: CancelCheck>(
     // Resolve any PDF/EPUB inputs to temporary plain-text files before the engine
     // loop runs.  The returned `_temp_files` vec keeps the NamedTempFiles alive
     // for the entire duration of the job; they are deleted when it drops.
-    let (resolved, _temp_files, failed_pdfs) = resolve_rich_inputs(config, &progress, &cancel)?;
+    let (resolved, _temp_files, failed_pdfs, path_aliases) =
+        resolve_rich_inputs(config, &progress, &cancel)?;
 
     let chosen = effective_mode(config);
     let mut stats = match chosen {
-        Mode::Ram => run_ram(&resolved, &progress, &cancel),
+        Mode::Ram => run_ram(&resolved, &progress, &cancel, &path_aliases),
         Mode::Disk => run_disk(&resolved, &progress, &cancel),
         Mode::Auto => unreachable!("effective_mode never returns Mode::Auto"),
     }?;
@@ -104,13 +106,13 @@ fn resolve_rich_inputs<P: ProgressSink, C: CancelCheck>(
     config: &Config,
     progress: &P,
     cancel: &C,
-) -> anyhow::Result<(Config, Vec<NamedTempFile>, Vec<(PathBuf, String)>)> {
+) -> anyhow::Result<(Config, Vec<NamedTempFile>, Vec<(PathBuf, String)>, HashMap<PathBuf, PathBuf>)> {
     if !config
         .inputs
         .iter()
         .any(|p| pdf_reader::is_pdf(p) || epub_reader::is_epub(p))
     {
-        return Ok((config.clone(), Vec::new(), Vec::new()));
+        return Ok((config.clone(), Vec::new(), Vec::new(), HashMap::new()));
     }
 
     progress.on_event(ProgressEvent::Stage("ExtractingText"));
@@ -118,6 +120,9 @@ fn resolve_rich_inputs<P: ProgressSink, C: CancelCheck>(
     let mut temp_files: Vec<NamedTempFile> = Vec::new();
     let mut resolved_inputs: Vec<PathBuf> = Vec::with_capacity(config.inputs.len());
     let mut failures: Vec<(PathBuf, String)> = Vec::new();
+    // Maps temp-file path → original input path so per-file stats show the
+    // real file name instead of a system temp path like ".tmpXgIdbM".
+    let mut path_aliases: HashMap<PathBuf, PathBuf> = HashMap::new();
 
     for path in &config.inputs {
         ensure_not_canceled(cancel)?;
@@ -125,7 +130,9 @@ fn resolve_rich_inputs<P: ProgressSink, C: CancelCheck>(
         if pdf_reader::is_pdf(path) {
             match pdf_reader::pdf_to_temp_text(path) {
                 Ok(tmp) => {
-                    resolved_inputs.push(tmp.path().to_path_buf());
+                    let temp_path = tmp.path().to_path_buf();
+                    path_aliases.insert(temp_path.clone(), path.clone());
+                    resolved_inputs.push(temp_path);
                     temp_files.push(tmp);
                 }
                 Err(err) => {
@@ -135,7 +142,9 @@ fn resolve_rich_inputs<P: ProgressSink, C: CancelCheck>(
         } else if epub_reader::is_epub(path) {
             match epub_reader::epub_to_temp_text(path) {
                 Ok(tmp) => {
-                    resolved_inputs.push(tmp.path().to_path_buf());
+                    let temp_path = tmp.path().to_path_buf();
+                    path_aliases.insert(temp_path.clone(), path.clone());
+                    resolved_inputs.push(temp_path);
                     temp_files.push(tmp);
                 }
                 Err(err) => {
@@ -150,13 +159,14 @@ fn resolve_rich_inputs<P: ProgressSink, C: CancelCheck>(
     let mut resolved = config.clone();
     resolved.inputs = resolved_inputs;
 
-    Ok((resolved, temp_files, failures))
+    Ok((resolved, temp_files, failures, path_aliases))
 }
 
 fn run_ram<P: ProgressSink, C: CancelCheck>(
     config: &Config,
     progress: &P,
     cancel: &C,
+    path_aliases: &HashMap<PathBuf, PathBuf>,
 ) -> anyhow::Result<Stats> {
     let started = Instant::now();
     progress.on_event(ProgressEvent::Stage("Tokenizing"));
@@ -247,9 +257,12 @@ fn run_ram<P: ProgressSink, C: CancelCheck>(
         }
 
         if let Some(ref mut per_file) = stats.per_file {
-            let file_bytes = std::fs::metadata(path).map(|m| m.len()).ok();
+            // Use the original input path (pre-temp-extraction) when available
+            // so the per-file breakdown shows the real file name, not ".tmpXXX".
+            let display_path = path_aliases.get(path).cloned().unwrap_or_else(|| path.clone());
+            let file_bytes = std::fs::metadata(&display_path).map(|m| m.len()).ok();
             per_file.push(FileStats {
-                path: path.clone(),
+                path: display_path,
                 file_bytes,
                 tokens_seen: pf_tokens_seen,
                 duplicates: pf_duplicates,
