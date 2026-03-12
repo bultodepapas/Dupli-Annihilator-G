@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  Built with Rust &bull; Powered by Tauri 2 &bull; Available on Windows & macOS
+  Built with Rust &bull; Powered by Tauri 2 &bull; Available on Windows, macOS & Linux
 </p>
 
 ---
@@ -34,7 +34,7 @@ It is built entirely on **Rust**, which means it processes data at native speed 
 | **Handles any file size** | Small files run entirely in RAM. For massive datasets, switch to DISK mode: the engine partitions data into buckets or performs external merge sort, so you're never limited by available memory. |
 | **Deterministic results** | Choose your ordering: preserve first-seen order, sort alphabetically, or use unordered mode for maximum throughput. The output is always consistent and reproducible. |
 | **Real-time feedback** | Watch progress, throughput (tokens/sec), elapsed time, and ETA update live as the engine works. |
-| **Cross-platform** | Native installers for Windows (`.exe` / `.msi`) and macOS (`.dmg` / `.app`). No runtime dependencies. |
+| **Cross-platform** | Native installers for Windows (`.exe` / `.msi`), macOS (`.dmg` / `.app`), and Linux (`.AppImage` / `.deb`). No runtime dependencies. |
 | **10 languages** | UI available in English, Spanish, French, Portuguese, Chinese, Hindi, Arabic, Bengali, Russian, and Urdu. |
 
 ---
