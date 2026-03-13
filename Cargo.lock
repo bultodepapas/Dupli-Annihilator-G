@@ -299,7 +299,7 @@ dependencies = [
 
 [[package]]
 name = "dedupe_backend"
-version = "2.9.5"
+version = "2.9.6"
 dependencies = [
  "anyhow",
  "dedupe_core",
@@ -312,7 +312,7 @@ dependencies = [
 
 [[package]]
 name = "dedupe_cli"
-version = "2.9.5"
+version = "2.9.6"
 dependencies = [
  "anyhow",
  "clap",
@@ -322,7 +322,7 @@ dependencies = [
 
 [[package]]
 name = "dedupe_core"
-version = "2.9.5"
+version = "2.9.6"
 dependencies = [
  "ahash",
  "anyhow",
@@ -338,7 +338,7 @@ dependencies = [
 
 [[package]]
 name = "dedupe_job_runner"
-version = "2.9.5"
+version = "2.9.6"
 dependencies = [
  "anyhow",
  "chrono",
