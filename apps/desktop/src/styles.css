@@ -92,6 +92,10 @@ body {
   transform: translateY(1px);
 }
 
+.topbar-focus .topbar-actions {
+  gap: 8px;
+}
+
 .topbar-focus .topbar-btn,
 .topbar-focus .lang-control,
 .topbar-focus .lang-control select,
@@ -102,6 +106,23 @@ body {
 .topbar-focus .topbar-btn,
 .topbar-focus .lang-control select {
   box-shadow: none;
+}
+
+.topbar-focus .topbar-btn,
+.topbar-focus .update-pill,
+.topbar-focus .status-chip {
+  padding: 6px 11px;
+  font-size: 0.8rem;
+}
+
+.topbar-focus .lang-control {
+  gap: 6px;
+  font-size: 0.84rem;
+}
+
+.topbar-focus .lang-control select {
+  min-width: 116px;
+  padding: 5px 8px;
 }
 
 .topbar-focus .status-chip {
@@ -270,6 +291,7 @@ h4 {
   grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(320px, 1fr);
   overflow: hidden;
   align-items: stretch;
+  align-content: start;
   position: relative;
 }
 
@@ -310,9 +332,11 @@ h4 {
 
 .workspace-focus {
   min-width: 0;
+  min-height: 0;
   position: relative;
   z-index: 2;
   display: flex;
+  align-items: stretch;
   align-self: stretch;
   transition: transform 220ms ease;
 }
@@ -370,9 +394,28 @@ h4 {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  min-height: 0;
+  justify-content: flex-start;
+}
+
+.output-focus-layout {
+  display: grid;
+  gap: 12px;
+  min-height: 0;
+  align-content: start;
+}
+
+.output-focus-header-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.18fr) minmax(300px, 0.92fr);
+  gap: 12px;
+  align-items: stretch;
 }
 
 .output-focus-hero {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   padding-bottom: 12px;
   border-bottom: 1px solid rgba(102, 164, 255, 0.18);
   margin-bottom: 0;
@@ -418,6 +461,14 @@ h4 {
   padding: 12px;
 }
 
+.output-focus-target-shell,
+.output-focus-config-shell,
+.output-focus-actions-shell {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 .output-focus-target {
   margin-top: 8px;
   border: 1px solid rgba(113, 212, 255, 0.16);
@@ -445,17 +496,20 @@ h4 {
   display: grid;
   grid-template-columns: 1.15fr 0.95fr;
   gap: 12px;
+  align-items: stretch;
 }
 
 .output-config-grid {
   margin-top: 8px;
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 7px;
+  align-content: start;
 }
 
 .output-config-item {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
   border-radius: 10px;
@@ -464,8 +518,21 @@ h4 {
   border: 1px solid rgba(98, 151, 240, 0.1);
 }
 
+.output-config-item span {
+  min-width: 0;
+}
+
 .output-focus-preview {
   margin-top: 8px;
+  min-height: 40px;
+  padding: 8px 10px;
+  font-size: 0.82rem;
+}
+
+.output-focus-preview-meta {
+  margin-top: 6px;
+  font-size: 0.78rem;
+  line-height: 1.3;
 }
 
 .output-focus-actions {
@@ -506,6 +573,17 @@ h4 {
 
 .output-meta-accordion {
   margin-top: auto;
+}
+
+.output-card-focus .meta-accordion summary {
+  padding: 6px 10px;
+  font-size: 0.78rem;
+}
+
+.output-card-focus .meta {
+  margin-top: 8px;
+  gap: 3px;
+  font-size: 0.8rem;
 }
 
 .field {
@@ -747,16 +825,25 @@ textarea:focus-visible {
     0 18px 44px rgba(1, 6, 18, 0.5),
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
   backdrop-filter: blur(16px);
+  padding: 10px 12px;
 }
 
 .telemetry-focus .bar-wrap {
   background: rgba(7, 13, 29, 0.88);
   border-color: rgba(94, 151, 245, 0.36);
+  height: 6px;
 }
 
 .telemetry-focus-shell {
   display: grid;
   gap: 10px;
+  min-height: 0;
+  align-content: start;
+}
+
+.telemetry-focus-shell h2 {
+  margin: 0;
+  font-size: 0.92rem;
 }
 
 .telemetry-primary-grid,
@@ -776,15 +863,15 @@ textarea:focus-visible {
 .telemetry-metric-card {
   border: 1px solid rgba(100, 157, 245, 0.14);
   border-radius: 12px;
-  padding: 8px 10px;
+  padding: 6px 8px;
   background: rgba(7, 13, 29, 0.64);
   display: grid;
-  gap: 3px;
+  gap: 2px;
 }
 
 .telemetry-metric-card span {
   color: #91a9d9;
-  font-size: 0.74rem;
+  font-size: 0.7rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
@@ -792,19 +879,19 @@ textarea:focus-visible {
 .telemetry-metric-card strong {
   color: var(--txt);
   font-family: "JetBrains Mono", monospace;
-  font-size: 1rem;
+  font-size: 0.92rem;
 }
 
 .telemetry-metric-card-primary strong {
-  font-size: 1.08rem;
+  font-size: 1rem;
 }
 
 .telemetry-progress-meta {
   display: flex;
   justify-content: flex-end;
-  margin-bottom: -4px;
+  margin-bottom: -2px;
   color: #bcd2f8;
-  font-size: 0.8rem;
+  font-size: 0.76rem;
   font-family: "JetBrains Mono", monospace;
 }
 
@@ -815,8 +902,8 @@ textarea:focus-visible {
 .telemetry-current-input {
   margin: 0;
   color: #b9cdf1;
-  font-size: 0.84rem;
-  line-height: 1.35;
+  font-size: 0.8rem;
+  line-height: 1.25;
   display: flex;
   gap: 6px;
   align-items: baseline;
@@ -1392,6 +1479,10 @@ textarea:focus-visible {
   .telemetry-secondary-grid {
     grid-template-columns: 1fr;
   }
+
+  .output-focus-header-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 640px) {
@@ -1441,6 +1532,311 @@ textarea:focus-visible {
   }
   .workspace-focus::before {
     inset: 10px -8px -14px;
+  }
+}
+
+@media (max-height: 900px) {
+  .app-running {
+    padding: 14px;
+    gap: 10px;
+  }
+
+  .app-running .topbar {
+    gap: 10px;
+    align-items: center;
+  }
+
+  .app-running h1 {
+    font-size: 1.7rem;
+  }
+
+  .app-running .subtitle {
+    font-size: 0.84rem;
+  }
+
+  .app-running .workspace {
+    gap: 10px;
+  }
+
+  .app-running .workspace-main {
+    padding: 2px;
+  }
+
+  .app-running .output-card-focus {
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .app-running .output-focus-layout,
+  .app-running .output-focus-header-grid,
+  .app-running .output-focus-columns {
+    gap: 10px;
+  }
+
+  .app-running .output-focus-title {
+    margin: 6px 0 4px;
+    font-size: 1.45rem;
+  }
+
+  .app-running .output-focus-copy {
+    font-size: 0.92rem;
+    line-height: 1.4;
+  }
+
+  .app-running .output-focus-section {
+    padding: 10px;
+  }
+
+  .app-running .output-focus-target {
+    margin-top: 6px;
+    padding: 10px 11px;
+  }
+
+  .app-running .output-focus-path {
+    font-size: 0.8rem;
+  }
+
+  .app-running .output-config-grid {
+    margin-top: 6px;
+  }
+
+  .app-running .output-config-item {
+    padding: 8px 10px;
+    gap: 10px;
+  }
+
+  .app-running .output-focus-preview {
+    margin-top: 6px;
+    min-height: 36px;
+    padding: 7px 9px;
+  }
+
+  .app-running .output-focus-preview-meta {
+    margin-top: 4px;
+    font-size: 0.76rem;
+  }
+
+  .app-running .output-focus-actions {
+    margin-top: 6px;
+    gap: 8px;
+  }
+
+  .app-running .output-cancel-cta {
+    min-width: 126px;
+  }
+
+  .app-running .output-run-muted {
+    min-height: 34px;
+    padding: 0 8px;
+    font-size: 0.76rem;
+  }
+
+  .app-running .telemetry-focus {
+    padding: 9px 11px;
+  }
+
+  .app-running .telemetry-focus-shell {
+    gap: 8px;
+  }
+}
+
+@media (max-height: 820px) {
+  .app-running {
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .app-running .topbar {
+    gap: 8px;
+  }
+
+  .app-running h1 {
+    font-size: 1.45rem;
+  }
+
+  .app-running .subtitle {
+    font-size: 0.78rem;
+  }
+
+  .app-running .topbar-focus .topbar-btn,
+  .app-running .topbar-focus .update-pill,
+  .app-running .topbar-focus .status-chip {
+    padding: 6px 10px;
+    font-size: 0.76rem;
+  }
+
+  .app-running .topbar-focus .lang-control {
+    font-size: 0.78rem;
+  }
+
+  .app-running .topbar-focus .lang-control select {
+    min-width: 108px;
+    padding: 4px 8px;
+  }
+
+  .app-running .workspace {
+    gap: 8px;
+  }
+
+  .app-running .output-card-focus {
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .app-running .output-focus-layout,
+  .app-running .output-focus-header-grid,
+  .app-running .output-focus-columns {
+    gap: 8px;
+  }
+
+  .app-running .output-focus-header-grid {
+    grid-template-columns: minmax(0, 1.15fr) minmax(260px, 0.85fr);
+  }
+
+  .app-running .output-focus-columns {
+    grid-template-columns: minmax(0, 1.18fr) minmax(240px, 0.82fr);
+  }
+
+  .app-running .output-focus-hero {
+    padding-bottom: 10px;
+  }
+
+  .app-running .output-focus-kicker,
+  .app-running .output-focus-section-label,
+  .app-running .output-config-item span {
+    font-size: 0.7rem;
+  }
+
+  .app-running .output-focus-title {
+    margin: 5px 0 4px;
+    font-size: 1.28rem;
+  }
+
+  .app-running .output-focus-copy {
+    font-size: 0.85rem;
+    line-height: 1.32;
+  }
+
+  .app-running .output-focus-section {
+    padding: 9px;
+    border-radius: 12px;
+  }
+
+  .app-running .output-focus-target {
+    margin-top: 5px;
+    padding: 9px 10px;
+  }
+
+  .app-running .output-focus-path {
+    font-size: 0.76rem;
+  }
+
+  .app-running .output-focus-target-note,
+  .app-running .output-focus-note {
+    margin-top: 6px;
+    font-size: 0.76rem;
+    line-height: 1.28;
+  }
+
+  .app-running .output-config-grid {
+    margin-top: 5px;
+    gap: 6px;
+  }
+
+  .app-running .output-config-item {
+    padding: 7px 9px;
+    gap: 8px;
+  }
+
+  .app-running .output-config-item strong,
+  .app-running .output-config-item code {
+    font-size: 0.88rem;
+  }
+
+  .app-running .output-focus-preview {
+    margin-top: 5px;
+    min-height: 32px;
+    padding: 6px 8px;
+    font-size: 0.78rem;
+  }
+
+  .app-running .output-focus-preview-meta {
+    margin-top: 4px;
+    font-size: 0.72rem;
+    line-height: 1.2;
+  }
+
+  .app-running .output-focus-actions {
+    margin-top: 5px;
+    gap: 7px;
+  }
+
+  .app-running .output-cancel-cta {
+    min-width: 116px;
+    padding: 8px 12px;
+  }
+
+  .app-running .output-run-muted {
+    min-height: 30px;
+    padding: 0 8px;
+    font-size: 0.7rem;
+  }
+
+  .app-running .output-card-focus .meta-accordion summary {
+    padding: 5px 9px;
+    font-size: 0.74rem;
+  }
+
+  .app-running .output-card-focus .meta {
+    margin-top: 6px;
+    font-size: 0.74rem;
+  }
+
+  .app-running .telemetry-focus {
+    padding: 8px 10px;
+  }
+
+  .app-running .telemetry-focus-shell {
+    gap: 6px;
+  }
+
+  .app-running .telemetry-focus-shell h2 {
+    font-size: 0.86rem;
+  }
+
+  .app-running .telemetry-primary-grid,
+  .app-running .telemetry-secondary-grid {
+    gap: 5px;
+  }
+
+  .app-running .telemetry-metric-card {
+    padding: 5px 7px;
+  }
+
+  .app-running .telemetry-metric-card span {
+    font-size: 0.66rem;
+  }
+
+  .app-running .telemetry-metric-card strong {
+    font-size: 0.84rem;
+  }
+
+  .app-running .telemetry-metric-card-primary strong {
+    font-size: 0.9rem;
+  }
+
+  .app-running .telemetry-focus .bar-wrap {
+    height: 5px;
+  }
+
+  .app-running .telemetry-progress-meta {
+    margin-bottom: -1px;
+    font-size: 0.7rem;
+  }
+
+  .app-running .telemetry-current-input {
+    font-size: 0.74rem;
+    gap: 4px;
   }
 }
 

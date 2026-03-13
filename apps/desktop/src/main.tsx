@@ -136,7 +136,7 @@ const DEFAULT_FORM: FormState = {
   allowOverwrite: false,
   separator: "\\n",
   rawSeparator: false,
-  mode: "ram",
+  mode: "auto",
   ordering: "preserve_first_seen",
   diskAlphabeticalMode: "fast_bucket_local",
   trim: true,
@@ -1562,54 +1562,58 @@ const OutputSection = React.memo(function OutputSection({
   if (isFocusMode) {
     return (
       <section className="card output-card output-card-focus">
-        <div className="output-focus-hero">
-          <div className="output-focus-kicker">{tr("running.panel_status")}</div>
-          <h2 className="output-focus-title">{stageLabel}</h2>
-          <p className="output-focus-copy">{runningNarrative}</p>
-        </div>
+        <div className="output-focus-layout">
+          <div className="output-focus-header-grid">
+            <div className="output-focus-hero">
+              <div className="output-focus-kicker">{tr("running.panel_status")}</div>
+              <h2 className="output-focus-title">{stageLabel}</h2>
+              <p className="output-focus-copy">{runningNarrative}</p>
+            </div>
 
-        <section className="output-focus-section">
-          <div className="output-focus-section-label">{tr("field.output")}</div>
-          <div className="output-focus-target">
-            <code className="output-focus-path">{form.outputPath || "-"}</code>
-            <p className="output-focus-target-note">{tr("running.locked_hint")}</p>
+            <section className="output-focus-section output-focus-target-shell">
+              <div className="output-focus-section-label">{tr("field.output")}</div>
+              <div className="output-focus-target">
+                <code className="output-focus-path">{form.outputPath || "-"}</code>
+                <p className="output-focus-target-note">{tr("running.locked_hint")}</p>
+              </div>
+            </section>
           </div>
-        </section>
 
-        <div className="output-focus-columns">
-          <section className="output-focus-section">
-            <div className="output-focus-section-label">{tr("running.panel_config")}</div>
-            <div className="output-config-grid">
-              <div className="output-config-item">
-                <span>{tr("field.separator")}</span>
-                <code>{escapeControlChars(resolvedSeparator)}</code>
+          <div className="output-focus-columns">
+            <section className="output-focus-section output-focus-config-shell">
+              <div className="output-focus-section-label">{tr("running.panel_config")}</div>
+              <div className="output-config-grid">
+                <div className="output-config-item">
+                  <span>{tr("field.separator")}</span>
+                  <code>{escapeControlChars(resolvedSeparator)}</code>
+                </div>
+                <div className="output-config-item">
+                  <span>{tr("field.raw_separator")}</span>
+                  <strong>{configToggle(form.rawSeparator)}</strong>
+                </div>
+                <div className="output-config-item">
+                  <span>{tr("field.allow_overwrite")}</span>
+                  <strong>{configToggle(form.allowOverwrite)}</strong>
+                </div>
               </div>
-              <div className="output-config-item">
-                <span>{tr("field.raw_separator")}</span>
-                <strong>{configToggle(form.rawSeparator)}</strong>
+              <pre className="separator-preview output-focus-preview">{separatorPreview}</pre>
+              <div className="separator-preview-meta output-focus-preview-meta">
+                {tr("meta.effective_separator")}: <code>{escapeControlChars(resolvedSeparator)}</code>{" | "}
+                {tr("metric.preview_sample")}: <code>{separatorPreviewVisible}</code>
               </div>
-              <div className="output-config-item">
-                <span>{tr("field.allow_overwrite")}</span>
-                <strong>{configToggle(form.allowOverwrite)}</strong>
-              </div>
-            </div>
-            <pre className="separator-preview output-focus-preview">{separatorPreview}</pre>
-            <div className="separator-preview-meta">
-              {tr("meta.effective_separator")}: <code>{escapeControlChars(resolvedSeparator)}</code>{" | "}
-              {tr("metric.preview_sample")}: <code>{separatorPreviewVisible}</code>
-            </div>
-          </section>
+            </section>
 
-          <section className="output-focus-section">
-            <div className="output-focus-section-label">{tr("running.panel_actions")}</div>
-            <div className="output-focus-actions">
-              <button className="danger output-cancel-cta" disabled={!canCancel} onClick={onCancelJob}>
-                {tr("button.cancel")}
-              </button>
-              <span className="output-run-muted">{tr(runButtonKey(runStatus))}</span>
-            </div>
-            <p className="output-focus-note">{tr("running.cancel_hint")}</p>
-          </section>
+            <section className="output-focus-section output-focus-actions-shell">
+              <div className="output-focus-section-label">{tr("running.panel_actions")}</div>
+              <div className="output-focus-actions">
+                <button className="danger output-cancel-cta" disabled={!canCancel} onClick={onCancelJob}>
+                  {tr("button.cancel")}
+                </button>
+                <span className="output-run-muted">{tr(runButtonKey(runStatus))}</span>
+              </div>
+              <p className="output-focus-note">{tr("running.cancel_hint")}</p>
+            </section>
+          </div>
         </div>
 
         <details className="meta-accordion output-meta-accordion">
