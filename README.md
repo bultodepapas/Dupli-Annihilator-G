@@ -34,7 +34,7 @@ It is built entirely on **Rust**, which means it processes data at native speed 
 | **Handles any file size** | Small files run entirely in RAM. For massive datasets, switch to DISK mode: the engine partitions data into buckets or performs external merge sort, so you're never limited by available memory. |
 | **Deterministic results** | Choose your ordering: preserve first-seen order, sort alphabetically, or use unordered mode for maximum throughput. The output is always consistent and reproducible. |
 | **Real-time feedback** | Watch progress, throughput (tokens/sec), elapsed time, and ETA update live as the engine works. |
-| **Cross-platform** | Native installers for Windows (`.exe` / `.msi`), macOS (`.dmg` / `.app`), and Linux (`.AppImage` / `.deb`). No runtime dependencies. |
+| **Cross-platform** | Native installers for Windows (`-setup.exe`), macOS (`.dmg`), and Linux (`.AppImage` / `.deb`). Signed updater artifacts are published on supported release lanes. |
 | **10 languages** | UI available in English, Spanish, French, Portuguese, Chinese, Hindi, Arabic, Bengali, Russian, and Urdu. |
 
 ---
@@ -58,6 +58,8 @@ It is built entirely on **Rust**, which means it processes data at native speed 
 ## Quick Start
 
 1. Download the latest installer from the [**GitHub Releases**](../../releases) page.
+   Windows: prefer `-setup.exe`.
+   macOS: prefer `.dmg`.
 2. Install and open the app.
 3. Add one or more input files (file picker or drag & drop).
 4. Choose where to save the output.
@@ -171,10 +173,12 @@ Run tests:
 cargo test --workspace
 ```
 
+For manual validation, keep local sample files in `testfiles/`. This folder is intentionally gitignored so you can store different fixture types there without uploading them to GitHub, for example `.csv`, `.epub`, and `.txt` files used to exercise duplicate-detection scenarios.
+
 Run the desktop app in dev mode:
 ```bash
 npm ci --prefix apps/desktop
-cargo install tauri-cli --version "^2.0" --locked
+cargo install tauri-cli --version "2.10.1" --locked
 cd apps/desktop/src-tauri
 cargo tauri dev --ci
 ```
@@ -188,17 +192,17 @@ Use these commands when you want to validate a local desktop bundle before cutti
 **Windows** (run on Windows):
 ```bash
 npm ci --prefix apps/desktop
-cargo install tauri-cli --version "^2.0" --locked
+cargo install tauri-cli --version "2.10.1" --locked
 cd apps/desktop/src-tauri
-cargo tauri build --ci --no-sign
+cargo tauri build --ci --bundles nsis --no-sign
 ```
 
 **macOS** (run on macOS):
 ```bash
 npm ci --prefix apps/desktop
-cargo install tauri-cli --version "^2.0" --locked
+cargo install tauri-cli --version "2.10.1" --locked
 cd apps/desktop/src-tauri
-cargo tauri build --ci --no-sign
+cargo tauri build --ci --bundles dmg --no-sign
 ```
 
 **Linux** (run on Linux):
@@ -210,7 +214,7 @@ sudo apt-get install -y \
   librsvg2-dev \
   patchelf
 npm ci --prefix apps/desktop
-cargo install tauri-cli --version "^2.0" --locked
+cargo install tauri-cli --version "2.10.1" --locked
 cd apps/desktop/src-tauri
 cargo tauri build --ci --no-sign
 ```
@@ -250,6 +254,8 @@ Before any installer is built, CI verifies:
 - the release tag is strict semver in the form `vX.Y.Z`
 - every release-managed manifest has the same version
 - the tag points to a commit reachable from `origin/main`
+- tagged desktop releases include the signing credentials required for updater-capable bundles
+- tagged desktop releases emit the updater manifests and signatures required by the public release contract
 
 This protects against the two most common release mistakes:
 
@@ -615,6 +621,17 @@ If the tagged commit itself is wrong, cut a new version instead of reusing the o
 | `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Yes | Key password |
 | `TAURI_UPDATER_PUBKEY` | Yes | Public key for verification |
 | `TAURI_UPDATER_ENDPOINT` | No | Custom endpoint (defaults to GitHub Releases) |
+| `WINDOWS_CERTIFICATE` | Yes for Windows releases | Base64-encoded Authenticode `.pfx` |
+| `WINDOWS_CERTIFICATE_PASSWORD` | Yes for Windows releases | Password for the Windows signing certificate |
+| `WINDOWS_CERTIFICATE_THUMBPRINT` | Yes for Windows releases | Thumbprint used by the Tauri bundler signing pass |
+| `WINDOWS_TIMESTAMP_URL` | No | RFC3161 timestamp endpoint for Windows signing |
+| `APPLE_CERTIFICATE` | Yes for macOS releases | Base64-encoded Apple signing `.p12` |
+| `APPLE_CERTIFICATE_PASSWORD` | Yes for macOS releases | Password for the Apple signing certificate |
+| `APPLE_SIGNING_IDENTITY` | Yes for macOS releases | Developer ID Application signing identity |
+| `APPLE_API_ISSUER` | Yes for macOS releases | App Store Connect issuer ID for notarization |
+| `APPLE_API_KEY` | Yes for macOS releases | App Store Connect key ID for notarization |
+| `APPLE_API_KEY_CONTENT` | Yes for macOS releases | Private `.p8` content written to a temporary CI file |
+| `KEYCHAIN_PASSWORD` | Yes for macOS releases | Password for the temporary CI keychain |
 | `DUPLI_UPDATE_CHANNEL` | No | Channel label (default: `stable`) |
 
 ---

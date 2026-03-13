@@ -198,7 +198,7 @@ export const zhCn: Dictionary = {
   "message.update_major_manual_only": "Major update v{version} requires manual install from Releases.",
   "message.update_up_to_date": "You are on the latest version: v{version}",
   "message.update_check_failed": "Update check failed: {detail}",
-  "message.update_auto_unavailable": "In-app updater is not configured yet. Opening release page.",
+  "message.update_auto_unavailable": "In-app updater is unavailable for this release. Opening release page.",
   "message.update_install_blocked_running": "Finish or cancel the current job before installing the update.",
   "message.update_installing": "Installing update v{version}...",
   "message.update_ready_restart": "Update v{version} is ready. Restart to apply.",

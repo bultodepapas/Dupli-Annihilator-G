@@ -109,17 +109,100 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci --prefix apps/desktop
 
+      - name: Validate release signing inputs
+        if: ${{ needs.verify-release.outputs.release_tag != '' }}
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_UPDATER_PUBKEY: ${{ secrets.TAURI_UPDATER_PUBKEY }}
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+          WINDOWS_CERTIFICATE_THUMBPRINT: ${{ vars.WINDOWS_CERTIFICATE_THUMBPRINT }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ vars.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY_CONTENT }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          if [[ -z "${TAURI_SIGNING_PRIVATE_KEY}" || -z "${TAURI_UPDATER_PUBKEY}" ]]; then
+            echo "Tagged releases require TAURI_SIGNING_PRIVATE_KEY and TAURI_UPDATER_PUBKEY." >&2
+            exit 1
+          fi
+
+          if [[ "${RUNNER_OS}" == "Windows" ]]; then
+            if [[ -z "${WINDOWS_CERTIFICATE}" || -z "${WINDOWS_CERTIFICATE_PASSWORD}" || -z "${WINDOWS_CERTIFICATE_THUMBPRINT}" ]]; then
+              echo "Windows releases require WINDOWS_CERTIFICATE, WINDOWS_CERTIFICATE_PASSWORD, and WINDOWS_CERTIFICATE_THUMBPRINT." >&2
+              exit 1
+            fi
+          fi
+
+          if [[ "${RUNNER_OS}" == "macOS" ]]; then
+            if [[ -z "${APPLE_CERTIFICATE}" || -z "${APPLE_CERTIFICATE_PASSWORD}" || -z "${APPLE_SIGNING_IDENTITY}" || -z "${APPLE_API_ISSUER}" || -z "${APPLE_API_KEY}" || -z "${APPLE_API_KEY_CONTENT}" || -z "${KEYCHAIN_PASSWORD}" ]]; then
+              echo "macOS releases require Apple signing and notarization credentials." >&2
+              exit 1
+            fi
+          fi
+
+      - name: Import Windows code-signing certificate
+        if: ${{ runner.os == 'Windows' && needs.verify-release.outputs.release_tag != '' }}
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+          WINDOWS_CERTIFICATE_THUMBPRINT: ${{ vars.WINDOWS_CERTIFICATE_THUMBPRINT }}
+        run: |
+          $certPath = Join-Path $env:RUNNER_TEMP "windows-codesign.pfx"
+          [IO.File]::WriteAllBytes($certPath, [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE))
+          $securePassword = ConvertTo-SecureString -String $env:WINDOWS_CERTIFICATE_PASSWORD -AsPlainText -Force
+          Import-PfxCertificate -FilePath $certPath -CertStoreLocation Cert:\CurrentUser\My -Password $securePassword | Out-Null
+          $cert = Get-ChildItem Cert:\CurrentUser\My | Where-Object { $_.Thumbprint -eq $env:WINDOWS_CERTIFICATE_THUMBPRINT }
+          if (-not $cert) {
+            throw "Imported Windows signing certificate with thumbprint $env:WINDOWS_CERTIFICATE_THUMBPRINT was not found."
+          }
+
+      - name: Import Apple signing certificate
+        if: ${{ runner.os == 'macOS' && needs.verify-release.outputs.release_tag != '' }}
+        shell: bash
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          CERT_PATH="$RUNNER_TEMP/apple-certificate.p12"
+          echo "$APPLE_CERTIFICATE" | base64 --decode > "$CERT_PATH"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security set-keychain-settings -t 3600 -u build.keychain
+          security import "$CERT_PATH" -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+          security find-identity -v -p codesigning build.keychain
+
+      - name: Write Apple notarization API key
+        if: ${{ runner.os == 'macOS' && needs.verify-release.outputs.release_tag != '' }}
+        shell: bash
+        env:
+          APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY_CONTENT }}
+        run: |
+          API_KEY_PATH="$RUNNER_TEMP/AuthKey.p8"
+          printf '%s' "$APPLE_API_KEY_CONTENT" > "$API_KEY_PATH"
+          echo "APPLE_API_KEY_PATH=$API_KEY_PATH" >> "$GITHUB_ENV"
+
       - name: Configure updater for release build
         shell: bash
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_UPDATER_PUBKEY: ${{ secrets.TAURI_UPDATER_PUBKEY }}
           TAURI_UPDATER_ENDPOINT: ${{ vars.TAURI_UPDATER_ENDPOINT }}
+          WINDOWS_CERTIFICATE_THUMBPRINT: ${{ vars.WINDOWS_CERTIFICATE_THUMBPRINT }}
+          WINDOWS_TIMESTAMP_URL: ${{ vars.WINDOWS_TIMESTAMP_URL }}
         run: |
           node scripts/release/configure-updater.mjs
 
       - name: Install Tauri CLI
-        run: cargo install tauri-cli --version "^2.0" --locked
+        run: cargo install tauri-cli --version "2.10.1" --locked
 
       - name: Build desktop bundle
         working-directory: apps/desktop/src-tauri
@@ -127,14 +210,27 @@ jobs:
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ vars.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_PATH: ${{ env.APPLE_API_KEY_PATH }}
         run: |
-          if [[ -n "${TAURI_SIGNING_PRIVATE_KEY}" ]]; then
+          if [[ -n "${{ needs.verify-release.outputs.release_tag }}" ]]; then
+            echo "Tagged release detected. Building signed artifacts."
+            cargo tauri build --ci
+          elif [[ -n "${TAURI_SIGNING_PRIVATE_KEY}" ]]; then
             echo "Updater signing key detected. Building signed artifacts."
             cargo tauri build --ci
           else
             echo "No updater signing key configured. Building unsigned artifacts."
             cargo tauri build --ci --no-sign
           fi
+
+      - name: Verify desktop artifacts
+        if: ${{ needs.verify-release.outputs.release_tag != '' || secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
+        shell: bash
+        run: |
+          bash scripts/ci/verify-desktop-artifacts.sh "${RUNNER_OS}" "apps/desktop/src-tauri/target/release/bundle"
 
       - name: Upload desktop bundle artifacts
         uses: actions/upload-artifact@v4
@@ -180,7 +276,6 @@ jobs:
           generate_release_notes: false
           fail_on_unmatched_files: false
           files: |
-            release-assets/**/*.msi
             release-assets/**/*-setup.exe
             release-assets/**/*.dmg
             release-assets/**/*.app.tar.gz

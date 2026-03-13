@@ -28,8 +28,10 @@ The script (`scripts/release/prepare-release.mjs`) handles:
 The CI pipeline (`desktop-release.yml`) triggers on the tag and:
 1. Verifies version coherence across all files (`scripts/ci/verify-release-consistency.sh`)
 2. Runs `configure-updater.mjs` to write the correct `plugins.updater` block into `tauri.conf.json`
-3. Builds signed Windows and macOS installers
-4. Creates the GitHub Release and uploads artifacts
+3. Validates that the signing credentials required for the public desktop release lanes are present
+4. Builds signed Windows, macOS, and Linux bundles
+5. Verifies the updater artifacts required by each platform contract before upload
+6. Creates the GitHub Release and uploads artifacts
 
 ### Files that must all carry the same version
 
@@ -63,7 +65,57 @@ The CI script `scripts/release/configure-updater.mjs` rewrites `plugins.updater`
 
 ---
 
-## 3. Desktop Cargo.lock Policy
+## 3. Public Installer Policy
+
+The public desktop release lanes are now opinionated:
+
+- **Windows:** `NSIS -setup.exe` is the canonical end-user installer. It is built in `perUser` mode and is the bundle referenced by the updater lane.
+- **macOS:** `.dmg` is the canonical first-install artifact. The updater lane uses the generated `.app.tar.gz` plus `.sig`.
+- **Linux:** updater behavior is unchanged, but tagged releases are still expected to emit `latest.json` and signed updater artifacts.
+
+Do **not** treat `MSI` as the normal end-user Windows path. If an `MSI` is ever reintroduced, it must remain a separate manual/enterprise lane with its own explicit upgrade contract.
+
+---
+
+## 4. Signing and Notarization Inputs
+
+Tagged desktop releases now fail fast if any required signing input is missing.
+
+### Common updater signing
+
+| Secret / Variable | Purpose |
+|---|---|
+| `TAURI_SIGNING_PRIVATE_KEY` | Signs updater artifacts for all platforms |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Password for the updater signing key |
+| `TAURI_UPDATER_PUBKEY` | Public key embedded in the app for verification |
+| `TAURI_UPDATER_ENDPOINT` | Optional custom updater endpoint |
+
+### Windows Authenticode
+
+| Secret / Variable | Purpose |
+|---|---|
+| `WINDOWS_CERTIFICATE` | Base64-encoded `.pfx` imported into the runner |
+| `WINDOWS_CERTIFICATE_PASSWORD` | Password for the Windows code-signing certificate |
+| `WINDOWS_CERTIFICATE_THUMBPRINT` | Thumbprint used by the Tauri bundler signing pass |
+| `WINDOWS_TIMESTAMP_URL` | Optional timestamp service URL |
+
+### macOS signing and notarization
+
+| Secret / Variable | Purpose |
+|---|---|
+| `APPLE_CERTIFICATE` | Base64-encoded Apple signing `.p12` |
+| `APPLE_CERTIFICATE_PASSWORD` | Password for the Apple signing certificate |
+| `APPLE_SIGNING_IDENTITY` | Developer ID Application identity |
+| `APPLE_API_ISSUER` | App Store Connect issuer ID for notarization |
+| `APPLE_API_KEY` | App Store Connect key ID for notarization |
+| `APPLE_API_KEY_CONTENT` | Private `.p8` content written to a temporary file in CI |
+| `KEYCHAIN_PASSWORD` | Password for the temporary CI keychain |
+
+**Key custody rule:** back up the Tauri updater private key and Apple/Windows signing material outside GitHub Actions. Losing the updater private key prevents future in-app updates for already-installed builds.
+
+---
+
+## 5. Desktop Cargo.lock Policy
 
 `apps/desktop/src-tauri/Cargo.lock` **must be committed** and kept up-to-date.
 
@@ -88,7 +140,19 @@ git commit -m "chore(deps): refresh desktop Cargo.lock"
 
 ---
 
-## 4. Incident Log
+## 6. Operator Checklist
+
+Before calling a tagged desktop release complete, verify all of the following:
+
+1. Windows artifacts include `*-setup.exe`, `*-setup.exe.sig`, and `latest.json`.
+2. macOS artifacts include `.dmg`, `.app.tar.gz`, `.app.tar.gz.sig`, and `latest.json`.
+3. The GitHub Release upload contains the updater metadata files and not just the manual installers.
+4. The release notes explicitly recommend `-setup.exe` for Windows and `.dmg` for macOS first installs.
+5. Any Windows users previously on a non-canonical lane (`MSI`) are given one manual migration note in the release notes.
+
+---
+
+## 7. Incident Log
 
 ### INC-001 — v1.3.5 Startup Crash: Null Updater Config
 
@@ -177,7 +241,7 @@ Version mismatch: crates/job_runner/Cargo.toml=1.3.6, expected 1.3.7
 
 ---
 
-## 5. Diagnosing Silent Startup Crashes (Windows)
+## 8. Diagnosing Silent Startup Crashes (Windows)
 
 Because the release binary suppresses the console window, panics and startup errors are invisible when launching via a shortcut or the Start menu.
 
@@ -200,4 +264,4 @@ This technique was used to diagnose INC-001 and INC-002.
 
 ---
 
-*Document version: 1.0 — 2026-03-10*
+*Document version: 1.1 — 2026-03-13*

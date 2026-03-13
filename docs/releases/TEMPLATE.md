@@ -2,7 +2,7 @@
 
 ## Summary
 - Professional desktop deduplication workflow for very large text datasets.
-- Native installers for Windows and macOS.
+- Native installers for Windows, macOS, and Linux.
 - High-performance Rust engine with RAM and DISK execution strategies.
 
 ## Highlights
@@ -31,4 +31,6 @@
 
 ## Notes
 - No breaking changes expected for standard desktop usage.
+- Windows first installs should use `-setup.exe`; macOS first installs should use `.dmg`.
+- Patch/minor updates can flow through the in-app updater when the signed updater lane is healthy; major updates remain manual.
 - Refer to `README.md` and `docs/` for architecture and operational details.

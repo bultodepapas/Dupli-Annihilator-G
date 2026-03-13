@@ -200,7 +200,7 @@ export const pt: Dictionary = {
   "message.update_major_manual_only": "Atualizacao major v{version} exige instalacao manual pelas Releases.",
   "message.update_up_to_date": "Voce ja esta na versao mais recente: v{version}",
   "message.update_check_failed": "Falha ao verificar atualizacoes: {detail}",
-  "message.update_auto_unavailable": "Atualizador in-app ainda nao esta configurado. Abrindo pagina de release.",
+  "message.update_auto_unavailable": "Atualizador in-app indisponivel para esta release. Abrindo pagina de release.",
   "message.update_install_blocked_running": "Finalize ou cancele a tarefa atual antes de instalar a atualizacao.",
   "message.update_installing": "Instalando atualizacao v{version}...",
   "message.update_ready_restart": "Atualizacao v{version} pronta. Reinicie para aplicar.",

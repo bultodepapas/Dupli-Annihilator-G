@@ -9,6 +9,8 @@ const configPath = resolve(root, "apps/desktop/src-tauri/tauri.conf.json");
 const updaterPubkey = (process.env.TAURI_UPDATER_PUBKEY ?? "").trim();
 const updaterEndpoint = (process.env.TAURI_UPDATER_ENDPOINT ?? "").trim();
 const signingKey = (process.env.TAURI_SIGNING_PRIVATE_KEY ?? "").trim();
+const windowsCertificateThumbprint = (process.env.WINDOWS_CERTIFICATE_THUMBPRINT ?? "").trim();
+const windowsTimestampUrl = (process.env.WINDOWS_TIMESTAMP_URL ?? "http://timestamp.digicert.com").trim();
 const enableUpdater = updaterPubkey.length > 0 && signingKey.length > 0;
 
 const fallbackEndpoint =
@@ -21,6 +23,18 @@ const parsed = JSON.parse(raw);
 if (!parsed.bundle || typeof parsed.bundle !== "object") {
   parsed.bundle = {};
 }
+parsed.bundle.windows = parsed.bundle.windows ?? {};
+parsed.bundle.windows.nsis = parsed.bundle.windows.nsis ?? {};
+parsed.bundle.windows.nsis.installMode = "perUser";
+if (windowsCertificateThumbprint.length > 0) {
+  parsed.bundle.windows.certificateThumbprint = windowsCertificateThumbprint;
+  parsed.bundle.windows.digestAlgorithm = "sha256";
+  parsed.bundle.windows.timestampUrl = windowsTimestampUrl;
+} else {
+  delete parsed.bundle.windows.certificateThumbprint;
+  delete parsed.bundle.windows.digestAlgorithm;
+  delete parsed.bundle.windows.timestampUrl;
+}
 
 if (enableUpdater) {
   parsed.bundle.createUpdaterArtifacts = true;
@@ -29,6 +43,9 @@ if (enableUpdater) {
     active: true,
     endpoints: [endpoint],
     pubkey: updaterPubkey,
+    windows: {
+      installMode: "passive",
+    },
   };
   console.log(`Updater enabled with endpoint: ${endpoint}`);
 } else {
@@ -40,7 +57,13 @@ if (enableUpdater) {
   // even when the updater is inactive. Omitting pubkey causes a startup panic:
   // "Error deserializing 'plugins.updater': missing field `pubkey`".
   parsed.plugins = parsed.plugins ?? {};
-  parsed.plugins.updater = { active: false, pubkey: "" };
+  parsed.plugins.updater = {
+    active: false,
+    pubkey: "",
+    windows: {
+      installMode: "passive",
+    },
+  };
   console.log("Updater disabled (missing TAURI_UPDATER_PUBKEY and/or TAURI_SIGNING_PRIVATE_KEY).");
 }
 

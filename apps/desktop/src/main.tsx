@@ -14,6 +14,9 @@ type AppInfo = {
   updateChannel: string;
 };
 
+const GITHUB_LATEST_RELEASE_API = "https://api.github.com/repos/bultodepapas/Dupli-Annihilator-G/releases/latest";
+const GITHUB_LATEST_RELEASE_URL = "https://github.com/bultodepapas/Dupli-Annihilator-G/releases/latest";
+
 type GitHubRelease = {
   tag_name: string;
   html_url: string;
@@ -646,6 +649,39 @@ function isMajorUpgrade(
   current: { major: number; minor: number; patch: number },
 ): boolean {
   return latest.major > current.major;
+}
+
+async function resolveManualReleaseFallback(currentVersion: string): Promise<AvailableUpdate | null> {
+  const response = await fetch(GITHUB_LATEST_RELEASE_API, {
+    headers: {
+      Accept: "application/vnd.github+json",
+    },
+  });
+  if (!response.ok) {
+    throw new Error(`http_${response.status}`);
+  }
+
+  const release = (await response.json()) as GitHubRelease;
+  if (release.draft || release.prerelease) {
+    return null;
+  }
+
+  const latest = parseSemver(release.tag_name);
+  const current = parseSemver(currentVersion);
+  if (!latest || !current) {
+    throw new Error("invalid_semver");
+  }
+  if (compareSemver(latest, current) <= 0) {
+    return null;
+  }
+
+  const normalizedVersion = `${latest.major}.${latest.minor}.${latest.patch}`;
+  return {
+    version: normalizedVersion,
+    tag: `v${normalizedVersion}`,
+    url: release.html_url || GITHUB_LATEST_RELEASE_URL,
+    isMajor: isMajorUpgrade(latest, current),
+  };
 }
 
 function prettyMode(summary: RunSummary): string {
@@ -2730,57 +2766,33 @@ function App() {
     dispatch({ type: "set_message", message: t(localeRef.current, "message.update_checking") });
 
     try {
-      const response = await fetch("https://api.github.com/repos/bultodepapas/Dupli-Annihilator-G/releases/latest", {
-        headers: {
-          Accept: "application/vnd.github+json",
-        },
-      });
-      if (!response.ok) {
-        throw new Error(`http_${response.status}`);
-      }
-
-      const release = (await response.json()) as GitHubRelease;
-      if (release.draft || release.prerelease) {
-        setUpdateStatus("up_to_date");
-        setAvailableUpdate(null);
-        dispatch({
-          type: "set_message",
-          message: t(localeRef.current, "message.update_up_to_date", { version: appInfo.appVersion }),
-        });
-        return;
-      }
-
-      const latest = parseSemver(release.tag_name);
+      const update = await check();
       const current = parseSemver(appInfo.appVersion);
-      if (!latest || !current) {
+      if (!current) {
         throw new Error("invalid_semver");
       }
 
-      if (compareSemver(latest, current) > 0) {
+      if (update) {
+        const latest = parseSemver(update.version);
+        if (!latest) {
+          throw new Error("invalid_update_semver");
+        }
         const normalizedVersion = `${latest.major}.${latest.minor}.${latest.patch}`;
         const majorUpgrade = isMajorUpgrade(latest, current);
         setAvailableUpdate({
           version: normalizedVersion,
           tag: `v${normalizedVersion}`,
-          url: release.html_url,
+          url: GITHUB_LATEST_RELEASE_URL,
           isMajor: majorUpgrade,
         });
         setUpdateStatus("available");
-        setUpdaterInstallReady(false);
+        setUpdaterInstallReady(!majorUpgrade);
         if (majorUpgrade) {
           dispatch({
             type: "set_message",
             message: t(localeRef.current, "message.update_major_manual_only", { version: normalizedVersion }),
           });
         } else {
-          void (async () => {
-            try {
-              const update = await check();
-              setUpdaterInstallReady(Boolean(update));
-            } catch {
-              setUpdaterInstallReady(false);
-            }
-          })();
           dispatch({
             type: "set_message",
             message: t(localeRef.current, "message.update_available", { version: normalizedVersion }),
@@ -2796,8 +2808,26 @@ function App() {
         });
       }
     } catch (err) {
-      setUpdateStatus("error");
       setUpdaterInstallReady(false);
+      try {
+        const fallbackUpdate = await resolveManualReleaseFallback(appInfo.appVersion);
+        if (fallbackUpdate) {
+          setAvailableUpdate(fallbackUpdate);
+          setUpdateStatus("available");
+          dispatch({
+            type: "set_message",
+            message: fallbackUpdate.isMajor
+              ? t(localeRef.current, "message.update_major_manual_only", { version: fallbackUpdate.version })
+              : t(localeRef.current, "message.update_auto_unavailable"),
+          });
+          return;
+        }
+      } catch {
+        // Fall through to the generic error state below.
+      }
+
+      setUpdateStatus("error");
+      setAvailableUpdate(null);
       dispatch({
         type: "set_message",
         message: t(localeRef.current, "message.update_check_failed", { detail: String(err) }),
@@ -2806,11 +2836,9 @@ function App() {
   }, [appInfo?.appVersion, dispatch]);
 
   const openLatestReleasePage = React.useCallback(async () => {
-    if (!availableUpdate) {
-      return;
-    }
+    const targetUrl = availableUpdate?.url ?? GITHUB_LATEST_RELEASE_URL;
     try {
-      await invoke("open_external_url", { req: { url: availableUpdate.url } });
+      await invoke("open_external_url", { req: { url: targetUrl } });
     } catch (err) {
       dispatch({
         type: "set_message",
