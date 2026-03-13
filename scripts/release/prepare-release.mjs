@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { execSync } from "node:child_process";
+import { resolve } from "node:path";
 
 const args = process.argv.slice(2);
 const targetVersion = args[0];
