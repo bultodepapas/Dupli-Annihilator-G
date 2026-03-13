@@ -75,6 +75,8 @@ export const pt: Dictionary = {
 
   "metric.stage": "etapa",
   "metric.files": "arquivos",
+  "metric.stage_items": "extraindo",
+  "metric.current_input": "arquivo_atual",
   "metric.tokens": "tokens",
   "metric.unique": "unicos",
   "metric.duplicates": "duplicados",

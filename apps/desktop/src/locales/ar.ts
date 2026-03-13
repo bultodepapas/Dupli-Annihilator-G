@@ -73,6 +73,8 @@ export const ar: Dictionary = {
 
   "metric.stage": "المرحلة",
   "metric.files": "الملفات",
+  "metric.stage_items": "الاستخراج",
+  "metric.current_input": "الملف_الحالي",
   "metric.tokens": "الرموز",
   "metric.unique": "الفريد",
   "metric.duplicates": "المكرر",

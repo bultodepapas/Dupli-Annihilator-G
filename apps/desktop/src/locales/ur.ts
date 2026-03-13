@@ -73,6 +73,8 @@ export const ur: Dictionary = {
 
   "metric.stage": "مرحلہ",
   "metric.files": "فائلیں",
+  "metric.stage_items": "extracting",
+  "metric.current_input": "current_input",
   "metric.tokens": "ٹوکنز",
   "metric.unique": "منفرد",
   "metric.duplicates": "دہرائے گئے",

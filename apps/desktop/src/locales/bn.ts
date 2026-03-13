@@ -73,6 +73,8 @@ export const bn: Dictionary = {
 
   "metric.stage": "ধাপ",
   "metric.files": "ফাইল",
+  "metric.stage_items": "extracting",
+  "metric.current_input": "current_input",
   "metric.tokens": "টোকেন",
   "metric.unique": "অনন্য",
   "metric.duplicates": "ডুপ্লিকেট",

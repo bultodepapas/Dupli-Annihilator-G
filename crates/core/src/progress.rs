@@ -1,13 +1,19 @@
+use crate::config::Mode;
+use std::path::PathBuf;
+
 #[derive(Debug, Clone)]
 pub enum ProgressEvent {
     Stage(&'static str),
     FileStarted { index: usize, total: usize },
     FileFinished { index: usize, total: usize },
+    StageItemStarted { index: usize, total: usize, path: PathBuf },
+    StageItemFinished { index: usize, total: usize },
     TokensSeen(u64),
     UniqueTokens(u64),
     Duplicates(u64),
     /// Running total of tokens dropped by the length filter.
     FilteredByLength(u64),
+    ModeResolved(Mode),
 }
 
 pub trait ProgressSink: Send + Sync + 'static {

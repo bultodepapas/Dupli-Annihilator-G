@@ -1,3 +1,4 @@
+use crate::config::Mode;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -28,6 +29,7 @@ pub struct Stats {
     pub duplicates: u64,
     pub filtered_by_length: u64,
     pub elapsed: Duration,
+    pub mode_effective: Option<Mode>,
     /// PDFs that failed to extract, collected as `(path, error_message)`.
     /// The job continues without them; they are surfaced as warnings in the summary.
     pub failed_pdfs: Vec<(PathBuf, String)>,

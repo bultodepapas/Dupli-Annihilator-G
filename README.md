@@ -183,6 +183,8 @@ cargo tauri dev --ci
 
 ## Build Installers
 
+Use these commands when you want to validate a local desktop bundle before cutting a release.
+
 **Windows** (run on Windows):
 ```bash
 npm ci --prefix apps/desktop
@@ -193,6 +195,20 @@ cargo tauri build --ci --no-sign
 
 **macOS** (run on macOS):
 ```bash
+npm ci --prefix apps/desktop
+cargo install tauri-cli --version "^2.0" --locked
+cd apps/desktop/src-tauri
+cargo tauri build --ci --no-sign
+```
+
+**Linux** (run on Linux):
+```bash
+sudo apt-get update
+sudo apt-get install -y \
+  libwebkit2gtk-4.1-dev \
+  libayatana-appindicator3-dev \
+  librsvg2-dev \
+  patchelf
 npm ci --prefix apps/desktop
 cargo install tauri-cli --version "^2.0" --locked
 cd apps/desktop/src-tauri
@@ -210,12 +226,274 @@ GitHub Actions workflows handle continuous integration and release publishing:
 - **CI** — `.github/workflows/ci.yml`
 - **Release** — `.github/workflows/desktop-release.yml`
 
-### Release Process
+### Desktop Release Runbook
 
-- Push a tag matching `v*` (e.g., `v1.3.3`) to build installers and publish a GitHub Release.
-- Release tags must point to a commit reachable from `main`.
-- Manual runs supported via `workflow_dispatch`.
-- Signed updater artifacts are built automatically when `TAURI_SIGNING_PRIVATE_KEY` is configured.
+This repository publishes desktop releases through the `desktop-release` GitHub Actions workflow.
+
+The workflow is triggered by:
+
+- pushing a tag that matches `v*`
+- manually running `desktop-release` with `workflow_dispatch` and an existing tag
+
+The workflow performs these stages:
+
+1. `verify-release`
+2. `build-desktop` on `windows-latest`, `macos-latest`, and `ubuntu-22.04`
+3. `publish-release`
+
+The GitHub Release is only published if **all three platform builds succeed**.
+
+### What The Workflow Verifies
+
+Before any installer is built, CI verifies:
+
+- the release tag is strict semver in the form `vX.Y.Z`
+- every release-managed manifest has the same version
+- the tag points to a commit reachable from `origin/main`
+
+This protects against the two most common release mistakes:
+
+- tagging a version that does not match the repository manifests
+- tagging a commit that is not actually on the main release line
+
+### Release-Managed Version Files
+
+These files must stay version-aligned for every release:
+
+- `apps/desktop/package.json`
+- `apps/desktop/package-lock.json`
+- `apps/desktop/src-tauri/tauri.conf.json`
+- `apps/desktop/src-tauri/Cargo.toml`
+- `crates/core/Cargo.toml`
+- `crates/job_runner/Cargo.toml`
+- `crates/backend/Cargo.toml`
+- `apps/cli/Cargo.toml`
+
+In practice, also review:
+
+- `apps/desktop/src-tauri/Cargo.lock`
+- `docs/releases/vX.Y.Z.md`
+- `README.md`
+
+Do not assume the helper script staged every release-relevant file automatically. Always inspect `git status` before committing the release.
+
+### Recommended Release Procedure
+
+Use this procedure for normal releases. It is intentionally conservative and optimized for correctness over speed.
+
+#### 1. Start From A Clean `main`
+
+```bash
+git checkout main
+git pull origin main
+git status --short
+```
+
+Requirements before continuing:
+
+- working tree is clean
+- all intended feature/fix commits are already on `main`
+- no unreviewed local changes are mixed into the release
+
+#### 2. Choose The Next Version Carefully
+
+Use strict semver:
+
+- patch: small fixes, UI polish, internal corrections
+- minor: new user-facing capabilities without breaking compatibility
+- major: breaking changes or explicit release-line reset
+
+Never reuse or move an existing release tag.
+
+If a release fails after pushing a tag, do **not** retag the same version to a different commit. Fix the issue and publish the next patch version instead.
+
+#### 3. Dry-Run The Version Bump First
+
+```bash
+node scripts/release/bump-version.mjs X.Y.Z --dry-run
+```
+
+This confirms:
+
+- the version format is valid
+- the target files are the expected ones
+- you are about to bump the correct release line
+
+#### 4. Run The Real Version Bump
+
+```bash
+node scripts/release/bump-version.mjs X.Y.Z
+```
+
+This updates the managed manifest versions and keeps the repository version-coherent.
+
+#### 5. Refresh The Desktop Lockfile
+
+```bash
+npm --prefix apps/desktop install --package-lock-only
+```
+
+This ensures the frontend lockfile stays aligned with the new desktop app version metadata.
+
+#### 6. Add Release Notes
+
+Create:
+
+```text
+docs/releases/vX.Y.Z.md
+```
+
+Release notes should explain:
+
+- what changed
+- why it matters
+- compatibility expectations
+- any operational caveats
+
+If this file is missing, the workflow falls back to `docs/releases/TEMPLATE.md`, which is acceptable for emergency recovery but not for a polished release.
+
+#### 7. Run Local Preflight Checks
+
+Recommended minimum checks:
+
+```bash
+npm --prefix apps/desktop run build
+cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml
+```
+
+Recommended broader checks when the workspace is healthy:
+
+```bash
+cargo test --workspace --locked || cargo test --workspace
+```
+
+Important operational note:
+
+- the release workflow builds the desktop Tauri application on all three runners
+- a successful frontend build alone is **not** enough
+- `cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml` is the fastest useful local guard against stale Tauri/backend integration drift
+
+If workspace-wide tests are already failing for an unrelated, known reason, document that explicitly before releasing. Do not silently ignore red checks.
+
+#### 8. Review The Final Diff
+
+Before committing the release, inspect:
+
+```bash
+git status --short
+git diff --stat
+```
+
+Confirm that the release commit includes:
+
+- the version bumps
+- the release notes file
+- any lockfile updates required by the desktop/Tauri validation path
+
+#### 9. Create The Release Commit
+
+```bash
+git add -A
+git commit -m "chore(release): prepare vX.Y.Z"
+```
+
+#### 10. Tag The Release
+
+```bash
+git tag -a vX.Y.Z -m "Release vX.Y.Z"
+```
+
+#### 11. Push `main` First, Then Push The Tag
+
+```bash
+git push origin main
+git push origin vX.Y.Z
+```
+
+Pushing the tag triggers the release workflow and starts the cross-platform bundle build.
+
+### Release Helpers
+
+You may use the helper scripts to automate part of the process:
+
+```bash
+# Dry run version bump
+node scripts/release/bump-version.mjs X.Y.Z --dry-run
+
+# Release preparation helper
+node scripts/release/prepare-release.mjs X.Y.Z --commit --tag
+
+# Full helper-driven path
+node scripts/release/prepare-release.mjs X.Y.Z --commit --tag --push
+```
+
+Useful flags:
+
+- `--allow-dirty`
+- `--skip-build`
+- `--skip-tests`
+- `--push`
+
+Operational guidance:
+
+- prefer the manual runbook for important releases or when the repo state is unusual
+- use the helper when the repo is already clean and the release is routine
+- even when using the helper, still review `git status` before pushing
+- the helper does not replace operator judgment
+
+### Post-Tag Monitoring
+
+After pushing the tag, monitor the workflow instead of assuming success.
+
+Recommended with GitHub CLI:
+
+```bash
+gh run list --workflow desktop-release --limit 5
+gh run watch <run-id> --exit-status
+gh release view vX.Y.Z
+```
+
+What success looks like:
+
+- `verify-release` succeeds
+- `build-desktop (windows-latest)` succeeds
+- `build-desktop (macos-latest)` succeeds
+- `build-desktop (ubuntu-22.04)` succeeds
+- `publish-release` succeeds
+- the GitHub Release page contains the expected assets
+
+### Failure Handling
+
+If a release workflow fails:
+
+1. Inspect the failed job logs immediately.
+2. Identify whether the failure is:
+   - version/tag coherence
+   - desktop frontend build
+   - Tauri/Rust desktop build
+   - platform-specific packaging
+   - release publication
+3. Fix the underlying issue on `main`.
+4. Create a **new** patch version.
+5. Repeat the release process with the new version.
+
+Do not:
+
+- force-move an existing release tag
+- overwrite a published version with different contents
+- guess that a failure is “just CI noise” without reading the logs
+
+### Manual Rebuild Of An Existing Tag
+
+If the tag is already correct and you only need to rerun the workflow, use `workflow_dispatch` with the existing tag from GitHub Actions.
+
+This is appropriate only when:
+
+- the tagged commit is correct
+- the manifests are correct
+- the failure was transient or infrastructure-related
+
+If the tagged commit itself is wrong, cut a new version instead of reusing the old tag.
 
 ### Updater Secrets
 
@@ -226,18 +504,6 @@ GitHub Actions workflows handle continuous integration and release publishing:
 | `TAURI_UPDATER_PUBKEY` | Yes | Public key for verification |
 | `TAURI_UPDATER_ENDPOINT` | No | Custom endpoint (defaults to GitHub Releases) |
 | `DUPLI_UPDATE_CHANNEL` | No | Channel label (default: `stable`) |
-
-### Release Helpers
-
-```bash
-# Dry run version bump
-node scripts/release/bump-version.mjs 1.3.1 --dry-run
-
-# Full release preparation
-node scripts/release/prepare-release.mjs 1.3.1 --commit --tag
-
-# Useful flags: --allow-dirty, --skip-build, --skip-tests, --push
-```
 
 ---
 

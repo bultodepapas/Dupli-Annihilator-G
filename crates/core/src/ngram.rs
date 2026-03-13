@@ -302,27 +302,17 @@ mod tests {
 
     #[test]
     fn window_resets_when_token_is_dropped() {
-        // After trim, the whitespace-only "   " between "a" and "b" becomes "".
-        // Dropping it resets the window so "a b" is never formed.
-        // TokenIter skips whitespace tokens entirely (is_delim covers spaces)
-        // — use an explicitly empty token via a CSV-style line.
-        // "a,,b" → tokens: "a", "", "b" — but TokenIter skips empty tokens
-        // (it skips leading delimiters). Actually, "a,,b" with TokenIter
-        // which skips comma delimiters → tokens "a" and "b", no empty token.
-        //
-        // To trigger a window reset we need a line split into two groups by a
-        // dropped-by-length token.  Use drop_length_min=1/max=1 to drop
-        // single-char tokens: "x a b x c d x" → "x" dropped resets window.
-        let f = write_temp("x a b x c d\n");
+        // Use a 2-char separator token that gets dropped, while the grams we
+        // want to preserve are 3-char tokens.
+        let f = write_temp("xx ant bee xx cat dog\n");
         let out = NamedTempFile::new().unwrap();
         let mut c = cfg(vec![f.path().into()], out.path().into());
-        c.drop_length_min = Some(1);
-        c.drop_length_max = Some(1);
+        c.drop_length_min = Some(2);
+        c.drop_length_max = Some(2);
         ngram_extract(2, &c, &NoProgress, &NoCancel).unwrap();
         let mut lines = read_output(out.path());
         lines.sort();
-        // "a b" is valid; "b x" never formed (x resets); "x a" never formed.
-        assert_eq!(lines, vec!["a b", "c d"]);
+        assert_eq!(lines, vec!["ant bee", "cat dog"]);
     }
 
     // ── deduplication ─────────────────────────────────────────────────────────
@@ -429,7 +419,7 @@ mod tests {
         let f = write_temp(&content);
         let out = NamedTempFile::new().unwrap();
         let c = cfg(vec![f.path().into()], out.path().into());
-        let err = ngram_extract(2, &c, &tok, &NoProgress).unwrap_err();
+        let err = ngram_extract(2, &c, &NoProgress, &tok).unwrap_err();
         assert!(crate::cancel::is_canceled_error(&err));
     }
 }

@@ -1,8 +1,8 @@
 use anyhow::anyhow;
 use chrono::{SecondsFormat, Utc};
 use dedupe_core::{
-    effective_mode, is_canceled_error, run_with_control, CancellationToken, Config,
-    DiskAlphabeticalMode, FileStats, Mode, OutputOrdering, ProgressEvent, ProgressSink, Stats,
+    is_canceled_error, run_with_control, CancellationToken, Config, DiskAlphabeticalMode,
+    FileStats, Mode, OutputOrdering, ProgressEvent, ProgressSink, Stats,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -174,6 +174,9 @@ pub enum JobEvent {
         stage: Option<String>,
         files_done: usize,
         files_total: usize,
+        stage_items_done: usize,
+        stage_items_total: usize,
+        current_input_path: Option<String>,
         progress_ppm: Option<u32>,
         tokens_seen: u64,
         unique_tokens: u64,
@@ -279,9 +282,6 @@ impl JobManager {
 
         let tx = self.inner.tx.clone();
         let inner = Arc::clone(&self.inner);
-        // Resolve Auto mode before spawning so all terminal paths (success /
-        // cancel / error) report the same effective mode in the summary.
-        let chosen_mode = effective_mode(&config);
         std::thread::spawn(move || {
             let _ = tx.send(JobEvent::Started { job_id });
 
@@ -295,16 +295,23 @@ impl JobManager {
 
             // Resolve terminal status and build the event payload before
             // touching shared state, so the critical section stays minimal.
-            let (status, terminal_event, stats_for_summary, error_message) = match result {
+            let (status, terminal_event, stats_for_summary, error_message, mode_effective) =
+                match result {
                 Ok(stats) => {
+                    let mode_effective =
+                        stats.mode_effective.unwrap_or_else(|| fallback_mode_effective(config.mode));
                     let snap = StatsSnapshot::from_stats(stats);
                     let event = JobEvent::Done {
                         job_id,
                         stats: snap.clone(),
                     };
-                    (RunTerminalStatus::Success, event, snap, None)
+                    (RunTerminalStatus::Success, event, snap, None, mode_effective)
                 }
                 Err(err) => {
+                    let mode_effective = bridge
+                        .snapshot
+                        .mode_effective
+                        .unwrap_or_else(|| fallback_mode_effective(config.mode));
                     if is_canceled_error(&err) || cancel.is_canceled() {
                         let snap = bridge.snapshot.to_stats_snapshot();
                         (
@@ -312,6 +319,7 @@ impl JobManager {
                             JobEvent::Canceled { job_id },
                             snap,
                             None,
+                            mode_effective,
                         )
                     } else {
                         let message = format!("{err:#}");
@@ -320,7 +328,13 @@ impl JobManager {
                             job_id,
                             message: message.clone(),
                         };
-                        (RunTerminalStatus::Error, event, snap, Some(message))
+                        (
+                            RunTerminalStatus::Error,
+                            event,
+                            snap,
+                            Some(message),
+                            mode_effective,
+                        )
                     }
                 }
             };
@@ -344,7 +358,7 @@ impl JobManager {
                 started_at,
                 finished_at,
                 &config,
-                chosen_mode,
+                mode_effective,
                 &bridge,
                 &stats_for_summary,
                 input_bytes_total,
@@ -417,6 +431,9 @@ struct ProgressSnapshot {
     stage: Option<String>,
     files_done: usize,
     files_total: usize,
+    stage_items_done: usize,
+    stage_items_total: usize,
+    current_input_path: Option<String>,
     progress_ppm: Option<u32>,
     tokens_seen: u64,
     unique_tokens: u64,
@@ -425,6 +442,7 @@ struct ProgressSnapshot {
     throughput_tps: u64,
     elapsed_ms: u128,
     eta_ms: Option<u128>,
+    mode_effective: Option<Mode>,
 }
 
 impl ProgressSnapshot {
@@ -528,6 +546,9 @@ impl BridgeSink {
             stage: snapshot.stage.clone(),
             files_done: snapshot.files_done,
             files_total: snapshot.files_total,
+            stage_items_done: snapshot.stage_items_done,
+            stage_items_total: snapshot.stage_items_total,
+            current_input_path: snapshot.current_input_path.clone(),
             progress_ppm: snapshot.progress_ppm,
             tokens_seen: snapshot.tokens_seen,
             unique_tokens: snapshot.unique_tokens,
@@ -609,6 +630,9 @@ impl ProgressSink for BridgeSink {
                 state.current_stage = Some(stage.to_string());
                 state.current_stage_started_at = Some(now);
                 state.snapshot.stage = Some(stage.to_string());
+                state.snapshot.stage_items_done = 0;
+                state.snapshot.stage_items_total = 0;
+                state.snapshot.current_input_path = None;
                 let _ = self.tx.send(JobEvent::Stage {
                     job_id: self.job_id,
                     stage: stage.to_string(),
@@ -623,6 +647,17 @@ impl ProgressSink for BridgeSink {
                 state.snapshot.files_total = total;
                 force_emit = true;
             }
+            ProgressEvent::StageItemStarted { index, total, path } => {
+                state.snapshot.stage_items_done = index.saturating_sub(1);
+                state.snapshot.stage_items_total = total;
+                state.snapshot.current_input_path = Some(path.to_string_lossy().into_owned());
+                force_emit = true;
+            }
+            ProgressEvent::StageItemFinished { index, total } => {
+                state.snapshot.stage_items_done = index;
+                state.snapshot.stage_items_total = total;
+                force_emit = true;
+            }
             ProgressEvent::TokensSeen(v) => {
                 state.snapshot.tokens_seen = v;
             }
@@ -634,6 +669,9 @@ impl ProgressSink for BridgeSink {
             }
             ProgressEvent::FilteredByLength(v) => {
                 state.snapshot.filtered_by_length = v;
+            }
+            ProgressEvent::ModeResolved(mode) => {
+                state.snapshot.mode_effective = Some(mode);
             }
         }
 
@@ -655,7 +693,7 @@ fn build_run_summary(
     started_at: chrono::DateTime<Utc>,
     finished_at: chrono::DateTime<Utc>,
     config: &Config,
-    chosen_mode: Mode,
+    mode_effective: Mode,
     bridge: &BridgeReport,
     stats: &StatsSnapshot,
     input_bytes_total: u64,
@@ -671,8 +709,7 @@ fn build_run_summary(
         0
     };
     let mode = mode_name(config.mode).to_string();
-    // chosen_mode is the actual mode used (Auto has been resolved to Ram or Disk).
-    let mode_effective = mode_effective_name(chosen_mode).to_string();
+    let mode_effective_name = mode_effective_name(mode_effective).to_string();
     let ordering = ordering_name(config.ordering).to_string();
     let stage_durations_ms = if bridge.stage_durations_ms.is_empty() {
         None
@@ -697,19 +734,19 @@ fn build_run_summary(
         output_path: config.output.to_string_lossy().to_string(),
         output_bytes,
         mode,
-        mode_effective: mode_effective.clone(),
+        mode_effective: mode_effective_name.clone(),
         ordering: ordering.clone(),
-        disk_alphabetical_mode: if mode_effective == "disk" {
+        disk_alphabetical_mode: if mode_effective_name == "disk" {
             Some(disk_mode_name(config.disk_alphabetical_mode).to_string())
         } else {
             None
         },
-        disk_buckets: if mode_effective == "disk" {
+        disk_buckets: if mode_effective_name == "disk" {
             Some(config.disk_buckets)
         } else {
             None
         },
-        disk_run_bytes: if mode_effective == "disk" {
+        disk_run_bytes: if mode_effective_name == "disk" {
             Some(config.disk_run_bytes)
         } else {
             None
@@ -729,7 +766,7 @@ fn build_run_summary(
         },
         stage_durations_ms,
         warnings: {
-            let mut w = build_warnings(config, chosen_mode, status, reduction_pct, uniq_pct);
+            let mut w = build_warnings(config, mode_effective, status, reduction_pct, uniq_pct);
             w.extend(stats.failed_pdfs.iter().cloned());
             w
         },
@@ -822,6 +859,14 @@ fn mode_effective_name(mode: Mode) -> &'static str {
         Mode::Auto => "ram",
         Mode::Ram => "ram",
         Mode::Disk => "disk",
+    }
+}
+
+fn fallback_mode_effective(mode: Mode) -> Mode {
+    match mode {
+        Mode::Auto => Mode::Ram,
+        Mode::Ram => Mode::Ram,
+        Mode::Disk => Mode::Disk,
     }
 }
 

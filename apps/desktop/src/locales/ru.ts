@@ -74,6 +74,8 @@ export const ru: Dictionary = {
 
   "metric.stage": "этап",
   "metric.files": "файлы",
+  "metric.stage_items": "извлечение",
+  "metric.current_input": "текущий_файл",
   "metric.tokens": "токены",
   "metric.unique": "уникальные",
   "metric.duplicates": "дубликаты",

@@ -49,6 +49,9 @@ type ProgressSnapshot = {
   stage: string;
   filesDone: number;
   filesTotal: number;
+  stageItemsDone: number;
+  stageItemsTotal: number;
+  currentInputPath: string | null;
   tokensSeen: number;
   uniqueTokens: number;
   duplicates: number;
@@ -164,6 +167,9 @@ const EMPTY_PROGRESS: ProgressSnapshot = {
   stage: "-",
   filesDone: 0,
   filesTotal: 0,
+  stageItemsDone: 0,
+  stageItemsTotal: 0,
+  currentInputPath: null,
   tokensSeen: 0,
   uniqueTokens: 0,
   duplicates: 0,
@@ -252,7 +258,16 @@ function jobReducer(state: JobState, action: JobAction): JobState {
     case "event_progress":
       return { ...state, progress: { ...state.progress, ...action.snapshot } };
     case "event_stage":
-      return { ...state, progress: { ...state.progress, stage: action.stage } };
+      return {
+        ...state,
+        progress: {
+          ...state.progress,
+          stage: action.stage,
+          stageItemsDone: 0,
+          stageItemsTotal: 0,
+          currentInputPath: null,
+        },
+      };
     case "event_done":
       return { ...state, runStatus: "done", activeJobId: null, message: action.message };
     case "event_error":
@@ -673,8 +688,12 @@ const TelemetryFooter = React.memo(function TelemetryFooter({
   isFocusMode,
   tr,
 }: TelemetryFooterProps) {
-  const progressPercent =
-    progress.filesTotal > 0 ? Math.min(100, (progress.filesDone / progress.filesTotal) * 100) : 0;
+  const isExtracting = progress.stage === "ExtractingText" && progress.stageItemsTotal > 0;
+  const progressPercent = isExtracting
+    ? Math.min(100, (progress.stageItemsDone / progress.stageItemsTotal) * 100)
+    : progress.filesTotal > 0
+      ? Math.min(100, (progress.filesDone / progress.filesTotal) * 100)
+      : 0;
 
   return (
     <footer className={`telemetry card ${isFocusMode ? "telemetry-focus" : ""}`}>
@@ -696,6 +715,11 @@ const TelemetryFooter = React.memo(function TelemetryFooter({
         <div>
           {tr("metric.files")}: {progress.filesDone}/{progress.filesTotal}
         </div>
+        {progress.stageItemsTotal > 0 ? (
+          <div>
+            {tr("metric.stage_items")}: {progress.stageItemsDone}/{progress.stageItemsTotal}
+          </div>
+        ) : null}
         <div>
           {tr("metric.tokens")}: {progress.tokensSeen}
         </div>
@@ -715,6 +739,11 @@ const TelemetryFooter = React.memo(function TelemetryFooter({
           {tr("metric.eta_ms")}: {progress.etaMs ?? "-"}
         </div>
       </div>
+      {progress.currentInputPath ? (
+        <p className="message">
+          {tr("metric.current_input")}: {progress.currentInputPath}
+        </p>
+      ) : null}
       <p className="message">{message}</p>
     </footer>
   );
@@ -2128,6 +2157,12 @@ function App() {
             if (p.stage != null) snapshot.stage = String(p.stage);
             if (p.files_done != null) snapshot.filesDone = Number(p.files_done);
             if (p.files_total != null) snapshot.filesTotal = Number(p.files_total);
+            if (p.stage_items_done != null) snapshot.stageItemsDone = Number(p.stage_items_done);
+            if (p.stage_items_total != null) snapshot.stageItemsTotal = Number(p.stage_items_total);
+            snapshot.currentInputPath =
+              p.current_input_path === null || p.current_input_path === undefined
+                ? null
+                : String(p.current_input_path);
             if (p.tokens_seen != null) snapshot.tokensSeen = Number(p.tokens_seen);
             if (p.unique_tokens != null) snapshot.uniqueTokens = Number(p.unique_tokens);
             if (p.duplicates != null) snapshot.duplicates = Number(p.duplicates);
@@ -2259,13 +2294,14 @@ function App() {
       dispatch({ type: "job_starting", message: t(localeRef.current, "message.starting") });
       const res = await invoke<{ jobId: number }>("start_job", req);
       dispatch({ type: "job_invoke_ok", jobId: res.jobId });
+      void pollEvents();
     } catch (err) {
       dispatch({
         type: "job_invoke_err",
         message: t(localeRef.current, "message.start_failed", { detail: String(err) }),
       });
     }
-  }, [validationErrors, form, parsedInputs, dispatch]);
+  }, [validationErrors, form, parsedInputs, dispatch, pollEvents]);
 
   const cancelJob = React.useCallback(async () => {
     if (activeJobId === null) {

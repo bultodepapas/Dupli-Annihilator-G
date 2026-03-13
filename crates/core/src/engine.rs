@@ -37,13 +37,15 @@ pub fn run_with_control<P: ProgressSink, C: CancelCheck>(
     let (resolved, _temp_files, failed_pdfs, path_aliases) =
         resolve_rich_inputs(config, &progress, &cancel)?;
 
-    let chosen = effective_mode(config);
+    let chosen = effective_mode(&resolved);
+    progress.on_event(ProgressEvent::ModeResolved(chosen));
     let mut stats = match chosen {
         Mode::Ram => run_ram(&resolved, &progress, &cancel, &path_aliases),
         Mode::Disk => run_disk(&resolved, &progress, &cancel),
         Mode::Auto => unreachable!("effective_mode never returns Mode::Auto"),
     }?;
 
+    stats.mode_effective = Some(chosen);
     stats.failed_pdfs = failed_pdfs;
     Ok(stats)
 }
@@ -107,11 +109,12 @@ fn resolve_rich_inputs<P: ProgressSink, C: CancelCheck>(
     progress: &P,
     cancel: &C,
 ) -> anyhow::Result<(Config, Vec<NamedTempFile>, Vec<(PathBuf, String)>, HashMap<PathBuf, PathBuf>)> {
-    if !config
+    let total_rich = config
         .inputs
         .iter()
-        .any(|p| pdf_reader::is_pdf(p) || epub_reader::is_epub(p))
-    {
+        .filter(|p| pdf_reader::is_pdf(p) || epub_reader::is_epub(p))
+        .count();
+    if total_rich == 0 {
         return Ok((config.clone(), Vec::new(), Vec::new(), HashMap::new()));
     }
 
@@ -123,11 +126,18 @@ fn resolve_rich_inputs<P: ProgressSink, C: CancelCheck>(
     // Maps temp-file path → original input path so per-file stats show the
     // real file name instead of a system temp path like ".tmpXgIdbM".
     let mut path_aliases: HashMap<PathBuf, PathBuf> = HashMap::new();
+    let mut rich_done = 0usize;
 
     for path in &config.inputs {
         ensure_not_canceled(cancel)?;
 
         if pdf_reader::is_pdf(path) {
+            let rich_index = rich_done + 1;
+            progress.on_event(ProgressEvent::StageItemStarted {
+                index: rich_index,
+                total: total_rich,
+                path: path.clone(),
+            });
             match pdf_reader::pdf_to_temp_text(path) {
                 Ok(tmp) => {
                     let temp_path = tmp.path().to_path_buf();
@@ -139,8 +149,19 @@ fn resolve_rich_inputs<P: ProgressSink, C: CancelCheck>(
                     failures.push((path.clone(), format!("{err:#}")));
                 }
             }
+            rich_done = rich_index;
+            progress.on_event(ProgressEvent::StageItemFinished {
+                index: rich_done,
+                total: total_rich,
+            });
         } else if epub_reader::is_epub(path) {
-            match epub_reader::epub_to_temp_text(path) {
+            let rich_index = rich_done + 1;
+            progress.on_event(ProgressEvent::StageItemStarted {
+                index: rich_index,
+                total: total_rich,
+                path: path.clone(),
+            });
+            match epub_reader::epub_to_temp_text(path, cancel) {
                 Ok(tmp) => {
                     let temp_path = tmp.path().to_path_buf();
                     path_aliases.insert(temp_path.clone(), path.clone());
@@ -151,6 +172,11 @@ fn resolve_rich_inputs<P: ProgressSink, C: CancelCheck>(
                     failures.push((path.clone(), format!("{err:#}")));
                 }
             }
+            rich_done = rich_index;
+            progress.on_event(ProgressEvent::StageItemFinished {
+                index: rich_done,
+                total: total_rich,
+            });
         } else {
             resolved_inputs.push(path.clone());
         }

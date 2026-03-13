@@ -83,6 +83,8 @@ export const en = {
 
   "metric.stage": "stage",
   "metric.files": "files",
+  "metric.stage_items": "extracting",
+  "metric.current_input": "current_input",
   "metric.tokens": "tokens",
   "metric.unique": "unique",
   "metric.duplicates": "duplicates",

@@ -73,6 +73,8 @@ export const zhCn: Dictionary = {
 
   "metric.stage": "阶段",
   "metric.files": "文件",
+  "metric.stage_items": "提取中",
+  "metric.current_input": "当前文件",
   "metric.tokens": "Token 数",
   "metric.unique": "唯一数",
   "metric.duplicates": "重复数",
