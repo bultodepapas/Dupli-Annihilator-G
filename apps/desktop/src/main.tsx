@@ -540,6 +540,50 @@ function formatElapsed(elapsedMs: number): string {
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}.${tenths}`;
 }
 
+function computeProgressPercent(progress: ProgressSnapshot): number {
+  const isExtracting = progress.stage === "ExtractingText" && progress.stageItemsTotal > 0;
+  return isExtracting
+    ? Math.min(100, (progress.stageItemsDone / progress.stageItemsTotal) * 100)
+    : progress.filesTotal > 0
+      ? Math.min(100, (progress.filesDone / progress.filesTotal) * 100)
+      : 0;
+}
+
+function stageLabelKey(stage: string): I18nKey | null {
+  switch (stage) {
+    case "ExtractingText":
+      return "stage.extracting_text";
+    case "Tokenizing":
+      return "stage.tokenizing";
+    case "Sorting":
+      return "stage.sorting";
+    case "WritingOutput":
+      return "stage.writing_output";
+    case "Finalizing":
+      return "stage.finalizing";
+    default:
+      return null;
+  }
+}
+
+function humanizeStage(stage: string): string {
+  const trimmed = stage.trim();
+  if (!trimmed) {
+    return "-";
+  }
+  return trimmed
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[_-]+/g, " ");
+}
+
+function formatStageLabel(
+  stage: string,
+  tr: (key: I18nKey, params?: Record<string, string | number>) => string,
+): string {
+  const key = stageLabelKey(stage);
+  return key ? tr(key) : humanizeStage(stage);
+}
+
 function formatIsoLocal(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) {
@@ -689,14 +733,74 @@ const TelemetryFooter = React.memo(function TelemetryFooter({
   tr,
 }: TelemetryFooterProps) {
   const isExtracting = progress.stage === "ExtractingText" && progress.stageItemsTotal > 0;
-  const progressPercent = isExtracting
-    ? Math.min(100, (progress.stageItemsDone / progress.stageItemsTotal) * 100)
-    : progress.filesTotal > 0
-      ? Math.min(100, (progress.filesDone / progress.filesTotal) * 100)
-      : 0;
+  const progressPercent = computeProgressPercent(progress);
+  const stageLabel = formatStageLabel(progress.stage, tr);
+
+  if (isFocusMode) {
+    const primaryMetrics = [
+      { label: tr("metric.files"), value: `${formatInt(progress.filesDone)}/${formatInt(progress.filesTotal)}` },
+      { label: tr("metric.elapsed_ms"), value: formatElapsed(progress.elapsedMs) },
+      { label: tr("metric.eta_ms"), value: progress.etaMs === null ? "-" : formatElapsed(progress.etaMs) },
+    ];
+    const secondaryMetrics = [
+      ...(progress.stageItemsTotal > 0
+        ? [{
+            label: tr("metric.stage_items"),
+            value: `${formatInt(progress.stageItemsDone)}/${formatInt(progress.stageItemsTotal)}`,
+          }]
+        : []),
+      { label: tr("metric.tokens"), value: formatInt(progress.tokensSeen) },
+      { label: tr("metric.unique"), value: formatInt(progress.uniqueTokens) },
+      { label: tr("metric.duplicates"), value: formatInt(progress.duplicates) },
+      { label: tr("metric.tps"), value: formatInt(progress.throughputTps) },
+    ];
+
+    return (
+      <footer className="telemetry card telemetry-focus">
+        <div className="telemetry-focus-shell">
+          <div className="telemetry-focus-header">
+            <div>
+              <h2>{tr("section.telemetry")}</h2>
+              <p className="telemetry-focus-title">{stageLabel}</p>
+              <p className="telemetry-focus-copy">{tr("running.subline")}</p>
+            </div>
+            <div className={`telemetry-status-badge status-${runStatus}`}>{tr(statusKey(runStatus))}</div>
+          </div>
+
+          <div className="telemetry-primary-grid">
+            {primaryMetrics.map((metric) => (
+              <div key={metric.label} className="telemetry-metric-card telemetry-metric-card-primary">
+                <span>{metric.label}</span>
+                <strong>{metric.value}</strong>
+              </div>
+            ))}
+          </div>
+
+          <div className="bar-wrap telemetry-focus-bar">
+            <div className="bar" style={{ width: `${progressPercent}%` }} />
+          </div>
+
+          <div className="telemetry-secondary-grid">
+            {secondaryMetrics.map((metric) => (
+              <div key={metric.label} className="telemetry-metric-card">
+                <span>{metric.label}</span>
+                <strong>{metric.value}</strong>
+              </div>
+            ))}
+          </div>
+
+          {progress.currentInputPath ? (
+            <p className="telemetry-current-input">
+              {tr("metric.current_input")}: <code>{progress.currentInputPath}</code>
+            </p>
+          ) : null}
+        </div>
+      </footer>
+    );
+  }
 
   return (
-    <footer className={`telemetry card ${isFocusMode ? "telemetry-focus" : ""}`}>
+    <footer className="telemetry card">
       <h2>{tr("section.telemetry")}</h2>
       {validationErrors.length > 0 && runStatus !== "running" ? (
         <div className="errors">
@@ -1367,6 +1471,7 @@ type OutputSectionProps = {
   runStatus: RunStatus;
   activeJobId: number | null;
   appInfo: AppInfo | null;
+  progress: ProgressSnapshot;
   canRun: boolean;
   canCancel: boolean;
   separatorPreview: string;
@@ -1384,6 +1489,7 @@ const OutputSection = React.memo(function OutputSection({
   runStatus,
   activeJobId,
   appInfo,
+  progress,
   canRun,
   canCancel,
   separatorPreview,
@@ -1395,8 +1501,117 @@ const OutputSection = React.memo(function OutputSection({
   onStartJob,
   onCancelJob,
 }: OutputSectionProps) {
+  const stageLabel = formatStageLabel(progress.stage, tr);
+  const progressPercent = computeProgressPercent(progress);
+  const configToggle = (enabled: boolean) => tr(enabled ? "common.on" : "common.off");
+
+  if (isFocusMode) {
+    return (
+      <section className="card output-card output-card-focus">
+        <div className="output-focus-hero">
+          <div className="output-focus-kicker">{tr("running.panel_status")}</div>
+          <h2 className="output-focus-title">{stageLabel}</h2>
+          <p className="output-focus-copy">{tr("running.subline")}</p>
+          <div className="output-focus-meta">
+            <div className="output-focus-chip">
+              <span>{tr("meta.job_id")}</span>
+              <strong>{activeJobId ?? "-"}</strong>
+            </div>
+            <div className="output-focus-chip">
+              <span>{tr("metric.files")}</span>
+              <strong>{formatInt(progress.filesDone)}/{formatInt(progress.filesTotal)}</strong>
+            </div>
+            <div className="output-focus-chip">
+              <span>{tr("metric.elapsed_ms")}</span>
+              <strong>{formatElapsed(progress.elapsedMs)}</strong>
+            </div>
+          </div>
+        </div>
+
+        <section className="output-focus-section">
+          <div className="output-focus-section-label">{tr("field.output")}</div>
+          <div className="output-focus-target">
+            <code className="output-focus-path">{form.outputPath || "-"}</code>
+            <div className="output-focus-progress-meta">
+              <span>{tr("metric.stage")}: {stageLabel}</span>
+              <span>{Math.round(progressPercent)}%</span>
+            </div>
+            <div className="bar-wrap output-focus-progress-bar">
+              <div className="bar" style={{ width: `${progressPercent}%` }} />
+            </div>
+          </div>
+        </section>
+
+        <div className="output-focus-columns">
+          <section className="output-focus-section">
+            <div className="output-focus-section-label">{tr("running.panel_config")}</div>
+            <div className="output-config-grid">
+              <div className="output-config-item">
+                <span>{tr("field.separator")}</span>
+                <code>{escapeControlChars(resolvedSeparator)}</code>
+              </div>
+              <div className="output-config-item">
+                <span>{tr("field.raw_separator")}</span>
+                <strong>{configToggle(form.rawSeparator)}</strong>
+              </div>
+              <div className="output-config-item">
+                <span>{tr("field.allow_overwrite")}</span>
+                <strong>{configToggle(form.allowOverwrite)}</strong>
+              </div>
+            </div>
+            <pre className="separator-preview output-focus-preview">{separatorPreview}</pre>
+            <div className="separator-preview-meta">
+              {tr("meta.effective_separator")}: <code>{escapeControlChars(resolvedSeparator)}</code>{" | "}
+              {tr("metric.tokens")}: <code>{separatorPreviewVisible}</code>
+            </div>
+            <p className="output-focus-note">{tr("running.locked_hint")}</p>
+          </section>
+
+          <section className="output-focus-section">
+            <div className="output-focus-section-label">{tr("running.panel_actions")}</div>
+            <div className="output-focus-actions">
+              <button className="secondary output-run-muted" disabled onClick={onStartJob}>
+                {tr(runButtonKey(runStatus))}
+              </button>
+              <button className="danger output-cancel-cta" disabled={!canCancel} onClick={onCancelJob}>
+                {tr("button.cancel")}
+              </button>
+            </div>
+            <p className="output-focus-note">{tr("running.cancel_hint")}</p>
+            {progress.currentInputPath ? (
+              <p className="output-focus-current">
+                {tr("metric.current_input")}: <code>{progress.currentInputPath}</code>
+              </p>
+            ) : null}
+          </section>
+        </div>
+
+        <details className="meta-accordion output-meta-accordion">
+          <summary>{tr("meta.app")}</summary>
+          <div className="meta">
+            <div>
+              {tr("meta.app")}: {appInfo?.appName ?? "-"} {appInfo?.appVersion ?? ""}
+            </div>
+            <div>
+              {tr("meta.backend")}: {appInfo?.backendVersion ?? "-"}
+            </div>
+            <div>
+              {tr("meta.update_channel")}: {appInfo?.updateChannel ?? "stable"}
+            </div>
+            <div>
+              {tr("meta.job_id")}: {activeJobId ?? "-"}
+            </div>
+            <div className="license-notice">
+              {tr("meta.license")}
+            </div>
+          </div>
+        </details>
+      </section>
+    );
+  }
+
   return (
-    <section className={`card output-card ${isFocusMode ? "output-card-focus" : ""}`}>
+    <section className="card output-card">
       <h2>{tr("section.output")}</h2>
       <label className="field">
         <span>{tr("field.separator")}</span>
@@ -2055,6 +2270,14 @@ function App() {
   const canRun = runStatus !== "running" && validationErrors.length === 0;
   const canCancel = runStatus === "running" && activeJobId !== null;
   const isFocusMode = runStatus === "running";
+  const runningStageLabel = React.useMemo(() => formatStageLabel(progress.stage, tr), [progress.stage, tr]);
+  const runningProgressPercent = React.useMemo(() => computeProgressPercent(progress), [progress]);
+  const runningProgressMeta = React.useMemo(() => {
+    if (progress.stage === "ExtractingText" && progress.stageItemsTotal > 0) {
+      return `${formatInt(progress.stageItemsDone)}/${formatInt(progress.stageItemsTotal)}`;
+    }
+    return `${formatInt(progress.filesDone)}/${formatInt(progress.filesTotal)}`;
+  }, [progress]);
 
   const buildSummaryReport = React.useCallback(
     (summary: RunSummary): string => {
@@ -3084,12 +3307,25 @@ function App() {
               </div>
             </div>
 
+            {isFocusMode ? (
+              <div className="workspace-beacon" aria-hidden="true">
+                <div className="workspace-beacon-shell">
+                  <span className="workspace-beacon-label">{runningStageLabel}</span>
+                  <div className="workspace-beacon-track">
+                    <div className="workspace-beacon-fill" style={{ width: `${runningProgressPercent}%` }} />
+                  </div>
+                  <span className="workspace-beacon-meta">{runningProgressMeta}</span>
+                </div>
+              </div>
+            ) : null}
+
             <aside className={`workspace-focus ${isFocusMode ? "workspace-focus-active" : ""}`}>
               <OutputSection
                 form={form}
                 runStatus={runStatus}
                 activeJobId={activeJobId}
                 appInfo={appInfo}
+                progress={progress}
                 canRun={canRun}
                 canCancel={canCancel}
                 separatorPreview={separatorPreview}
