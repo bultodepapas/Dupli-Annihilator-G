@@ -2,8 +2,9 @@
 
 use dedupe_backend::{
     AppInfo, BackendService, CancelJobRequest, CancelJobResponse, CheckWordResponse, CommandError,
-    EmittedEvent, FrequencyRequest, FrequencyResponse, LoadCheckerResponse, RuntimeState,
-    SetOpRequest, SetOpResponse, StartJobRequest, StartJobResponse,
+    EmittedEvent, FrequencyRequest, FrequencyResponse, FuzzyClusterRequest, FuzzyClusterResponse,
+    LoadCheckerResponse, RuntimeState, SetOpRequest, SetOpResponse, StartJobRequest,
+    StartJobResponse,
 };
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -150,6 +151,14 @@ fn run_set_op(
 }
 
 #[tauri::command]
+fn run_fuzzy_cluster(
+    state: tauri::State<'_, AppState>,
+    req: FuzzyClusterRequest,
+) -> Result<FuzzyClusterResponse, CommandError> {
+    state.backend.run_fuzzy_cluster(req)
+}
+
+#[tauri::command]
 fn open_external_url(req: OpenExternalUrlRequest) -> Result<(), String> {
     let url = req.url.trim();
     const ALLOWED_PREFIX: &str = "https://github.com/bultodepapas/Dupli-Annihilator-G/releases";
@@ -188,7 +197,8 @@ fn main() {
             load_wordlist_for_checker,
             check_word,
             run_frequency_analysis,
-            run_set_op
+            run_set_op,
+            run_fuzzy_cluster
         ])
         .run(tauri::generate_context!())
         .expect("failed to run tauri app");

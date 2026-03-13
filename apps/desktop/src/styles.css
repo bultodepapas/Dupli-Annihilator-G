@@ -881,6 +881,52 @@ textarea:focus-visible {
   min-height: 1.4em;
 }
 
+/* ── Fuzzy Cluster panel ──────────────────────────────────────────── */
+
+.fuzzy-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin: 0 0 8px 0;
+  line-height: 1.5;
+}
+
+.fuzzy-inputs-area {
+  resize: vertical;
+  min-height: 60px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+}
+
+.fuzzy-edit-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.fuzzy-edit-input {
+  width: 64px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 13px;
+  padding: 4px 8px;
+  text-align: center;
+}
+
+.fuzzy-edit-input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.fuzzy-result-line {
+  font-size: 12px;
+  color: var(--accent);
+  margin-top: 6px;
+  min-height: 1.4em;
+}
+
 @keyframes rise {
   from {
     opacity: 0;

@@ -224,4 +224,13 @@ export const ar: Dictionary = {
   "setop.result": "{unique} فريد مكتوب · {seen} رمز إجمالاً · {ms} مللي ثانية",
   "setop.error": "فشلت العملية: {detail}",
   "setop.inputs_placeholder": "ملفات الإدخال (مسار مطلق واحد لكل سطر)...",
+
+  "section.fuzzy": "التجميع الضبابي",
+  "fuzzy.inputs_placeholder": "ملفات الإدخال (مسار مطلق واحد لكل سطر)...",
+  "fuzzy.max_edit_label": "الحد الأقصى لمسافة التحرير",
+  "fuzzy.run": "تشغيل التجميع الضبابي",
+  "fuzzy.running": "جارٍ التشغيل...",
+  "fuzzy.result": "{clusters} مجموعة · {exact} فريد دقيق · {seen} مفحوص · {ms} مللي ثانية",
+  "fuzzy.error": "فشل التجميع الضبابي: {detail}",
+  "fuzzy.hint": "يجمع الرموز المتشابهة (كالأخطاء الإملائية) في مجموعات مع الاحتفاظ بممثل واحد. تعقيد O(u²) — يُنصح بإبقاء عدد الرموز الفريدة ≤ 100 ألف.",
 };

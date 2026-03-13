@@ -1446,6 +1446,135 @@ const OutputSection = React.memo(function OutputSection({
   );
 });
 
+// ─── FuzzyClusterPanel ────────────────────────────────────────────────────────
+
+type FuzzyClusterResult = {
+  tokensSeen: number;
+  exactUnique: number;
+  clustersFound: number;
+  elapsedMs: number;
+  outputPath: string;
+};
+
+type FuzzyClusterPanelProps = {
+  inputs: string;
+  maxEdit: number;
+  outputPath: string;
+  status: "idle" | "running" | "done" | "error";
+  result: FuzzyClusterResult | null;
+  message: string;
+  tr: (key: I18nKey, params?: Record<string, string | number>) => string;
+  onInputsChange: (v: string) => void;
+  onMaxEditChange: (v: number) => void;
+  onOutputChange: (v: string) => void;
+  onPickFiles: () => void;
+  onPickOutput: () => void;
+  onRun: () => void;
+};
+
+const FuzzyClusterPanel = React.memo(function FuzzyClusterPanel({
+  inputs,
+  maxEdit,
+  outputPath,
+  status,
+  result,
+  message,
+  tr,
+  onInputsChange,
+  onMaxEditChange,
+  onOutputChange,
+  onPickFiles,
+  onPickOutput,
+  onRun,
+}: FuzzyClusterPanelProps) {
+  const busy = status === "running";
+  const canRun = inputs.trim().length > 0 && outputPath.trim().length > 0;
+
+  return (
+    <>
+      <p className="fuzzy-hint">{tr("fuzzy.hint")}</p>
+
+      <div className="button-row">
+        <textarea
+          className="path-input fuzzy-inputs-area"
+          value={inputs}
+          onChange={(e) => onInputsChange(e.target.value)}
+          placeholder={tr("fuzzy.inputs_placeholder")}
+          disabled={busy}
+          rows={3}
+        />
+        <button className="secondary" type="button" onClick={onPickFiles} disabled={busy}>
+          {tr("button.add_files")}
+        </button>
+      </div>
+
+      <div className="button-row" style={{ marginTop: 6 }}>
+        <label className="fuzzy-edit-label">{tr("fuzzy.max_edit_label")}</label>
+        <input
+          className="fuzzy-edit-input"
+          type="number"
+          min={1}
+          max={10}
+          value={maxEdit}
+          onChange={(e) => {
+            const v = parseInt(e.target.value, 10);
+            if (!isNaN(v) && v >= 1 && v <= 10) onMaxEditChange(v);
+          }}
+          disabled={busy}
+        />
+      </div>
+
+      <div className="button-row" style={{ marginTop: 6 }}>
+        <input
+          className="path-input"
+          value={outputPath}
+          onChange={(e) => onOutputChange(e.target.value)}
+          placeholder={tr("setop.output_label")}
+          disabled={busy}
+        />
+        <button className="secondary" type="button" onClick={onPickOutput} disabled={busy}>
+          {tr("button.pick_output")}
+        </button>
+        <button
+          className="primary"
+          type="button"
+          onClick={onRun}
+          disabled={busy || !canRun}
+        >
+          {busy ? tr("fuzzy.running") : tr("fuzzy.run")}
+        </button>
+      </div>
+
+      {message && (
+        <p
+          className="message"
+          style={{
+            color:
+              status === "error"
+                ? "var(--err, #ffd4d9)"
+                : status === "done"
+                  ? "var(--ok)"
+                  : undefined,
+          }}
+        >
+          {message}
+        </p>
+      )}
+
+      {result && status === "done" && (
+        <p className="message fuzzy-result-line">
+          {tr("fuzzy.result", {
+            clusters: result.clustersFound.toLocaleString(),
+            exact: result.exactUnique.toLocaleString(),
+            seen: result.tokensSeen.toLocaleString(),
+            ms: result.elapsedMs,
+          })}
+        </p>
+      )}
+    </>
+  );
+});
+
 // ─── SetOpPanel ───────────────────────────────────────────────────────────────
 
 type SetOpKind = "diff" | "intersect" | "union";
@@ -1836,6 +1965,13 @@ function App() {
   const [freqStatus, setFreqStatus] = React.useState<"idle" | "analyzing" | "done" | "error">("idle");
   const [freqResult, setFreqResult] = React.useState<FrequencyResponse | null>(null);
   const [freqMessage, setFreqMessage] = React.useState<string>("");
+
+  const [fuzzyInputs, setFuzzyInputs] = React.useState<string>("");
+  const [fuzzyMaxEdit, setFuzzyMaxEdit] = React.useState<number>(1);
+  const [fuzzyOutput, setFuzzyOutput] = React.useState<string>("");
+  const [fuzzyStatus, setFuzzyStatus] = React.useState<"idle" | "running" | "done" | "error">("idle");
+  const [fuzzyResult, setFuzzyResult] = React.useState<FuzzyClusterResult | null>(null);
+  const [fuzzyMessage, setFuzzyMessage] = React.useState<string>("");
 
   const [setopLeft, setSetopLeft] = React.useState<string>("");
   const [setopRight, setSetopRight] = React.useState<string>("");
@@ -2606,6 +2742,66 @@ function App() {
     }
   }, [freqInputs, freqTopN]);
 
+  const pickFuzzyFiles = React.useCallback(async () => {
+    try {
+      const selected = await open({
+        multiple: true,
+        directory: false,
+        filters: [{ name: "All supported", extensions: ["txt", "csv", "tsv", "log", "pdf", "epub"] }],
+      });
+      if (!selected) return;
+      const paths = Array.isArray(selected) ? selected : [selected];
+      if (paths.length === 0) return;
+      setFuzzyInputs((prev) => {
+        const existing = prev.trim();
+        const joined = paths.join("\n");
+        return existing ? `${existing}\n${joined}` : joined;
+      });
+    } catch (err) {
+      setFuzzyMessage(String(err));
+    }
+  }, []);
+
+  const pickFuzzyOutput = React.useCallback(async () => {
+    try {
+      const selected = await save({ filters: [{ name: "Text", extensions: ["txt", "csv"] }] });
+      if (selected) setFuzzyOutput(selected);
+    } catch (err) {
+      setFuzzyMessage(String(err));
+    }
+  }, []);
+
+  const runFuzzyCluster = React.useCallback(async () => {
+    const inputs = fuzzyInputs.split("\n").map((s) => s.trim()).filter(Boolean);
+    if (!inputs.length || !fuzzyOutput.trim()) return;
+    setFuzzyStatus("running");
+    setFuzzyResult(null);
+    setFuzzyMessage("");
+    try {
+      const res = await invoke<FuzzyClusterResult>("run_fuzzy_cluster", {
+        req: {
+          inputs,
+          output: fuzzyOutput.trim(),
+          allowOverwrite: true,
+          maxEditDistance: fuzzyMaxEdit,
+        },
+      });
+      setFuzzyResult(res);
+      setFuzzyStatus("done");
+      setFuzzyMessage(
+        t(localeRef.current, "fuzzy.result", {
+          clusters: res.clustersFound,
+          exact: res.exactUnique,
+          seen: res.tokensSeen,
+          ms: res.elapsedMs,
+        }),
+      );
+    } catch (err) {
+      setFuzzyStatus("error");
+      setFuzzyMessage(t(localeRef.current, "fuzzy.error", { detail: String(err) }));
+    }
+  }, [fuzzyInputs, fuzzyOutput, fuzzyMaxEdit]);
+
   const pickSetopFiles = React.useCallback(async (side: "left" | "right") => {
     try {
       const selected = await open({
@@ -2780,6 +2976,24 @@ function App() {
                   onTopNChange={setFreqTopN}
                   onPickFiles={() => void pickFreqFiles()}
                   onAnalyze={() => void runFrequencyAnalysis()}
+                />
+              </section>
+              <section className="card">
+                <h2>{tr("section.fuzzy")}</h2>
+                <FuzzyClusterPanel
+                  inputs={fuzzyInputs}
+                  maxEdit={fuzzyMaxEdit}
+                  outputPath={fuzzyOutput}
+                  status={fuzzyStatus}
+                  result={fuzzyResult}
+                  message={fuzzyMessage}
+                  tr={tr}
+                  onInputsChange={setFuzzyInputs}
+                  onMaxEditChange={setFuzzyMaxEdit}
+                  onOutputChange={setFuzzyOutput}
+                  onPickFiles={() => void pickFuzzyFiles()}
+                  onPickOutput={() => void pickFuzzyOutput()}
+                  onRun={() => void runFuzzyCluster()}
                 />
               </section>
               <section className="card">

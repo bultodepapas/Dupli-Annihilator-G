@@ -226,4 +226,13 @@ export const fr: Dictionary = {
   "setop.result": "{unique} uniques écrits · {seen} tokens au total · {ms} ms",
   "setop.error": "Opération échouée : {detail}",
   "setop.inputs_placeholder": "Fichiers d'entrée (un chemin absolu par ligne)...",
+
+  "section.fuzzy": "Clustering flou",
+  "fuzzy.inputs_placeholder": "Fichiers d'entrée (un chemin absolu par ligne)...",
+  "fuzzy.max_edit_label": "Distance d'édition max.",
+  "fuzzy.run": "LANCER LE CLUSTERING FLOU",
+  "fuzzy.running": "EN COURS...",
+  "fuzzy.result": "{clusters} clusters · {exact} uniques exacts · {seen} analysés · {ms} ms",
+  "fuzzy.error": "Clustering flou échoué : {detail}",
+  "fuzzy.hint": "Regroupe les tokens quasi-dupliqués (fautes de frappe…) en conservant un représentant par groupe. O(u²) — gardez les tokens uniques ≤ 100 000.",
 };

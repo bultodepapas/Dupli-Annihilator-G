@@ -224,4 +224,13 @@ export const hi: Dictionary = {
   "setop.result": "{unique} अद्वितीय लिखे · {seen} कुल टोकन · {ms} मिलीसेकंड",
   "setop.error": "संक्रिया विफल: {detail}",
   "setop.inputs_placeholder": "इनपुट फ़ाइलें (प्रति पंक्ति एक पूर्ण पथ)...",
+
+  "section.fuzzy": "फ़ज़ी क्लस्टर",
+  "fuzzy.inputs_placeholder": "इनपुट फ़ाइलें (प्रति पंक्ति एक पूर्ण पथ)...",
+  "fuzzy.max_edit_label": "अधिकतम संपादन दूरी",
+  "fuzzy.run": "फ़ज़ी क्लस्टर चलाएँ",
+  "fuzzy.running": "चल रहा है...",
+  "fuzzy.result": "{clusters} क्लस्टर · {exact} सटीक अद्वितीय · {seen} स्कैन किए · {ms} ms",
+  "fuzzy.error": "फ़ज़ी क्लस्टर विफल: {detail}",
+  "fuzzy.hint": "निकट-डुप्लिकेट टोकन (जैसे टाइपो) को समूहबद्ध करता है, प्रत्येक क्लस्टर से एक प्रतिनिधि रखता है। O(u²) — अद्वितीय टोकन संख्या ≤ 1 लाख रखें।",
 };

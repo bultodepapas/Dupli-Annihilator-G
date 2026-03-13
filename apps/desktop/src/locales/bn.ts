@@ -224,4 +224,13 @@ export const bn: Dictionary = {
   "setop.result": "{unique} অনন্য লেখা · {seen} মোট টোকেন · {ms} মিলিসেকেন্ড",
   "setop.error": "অপারেশন ব্যর্থ: {detail}",
   "setop.inputs_placeholder": "ইনপুট ফাইলসমূহ (প্রতি লাইনে একটি পূর্ণ পথ)...",
+
+  "section.fuzzy": "ফাজি ক্লাস্টার",
+  "fuzzy.inputs_placeholder": "ইনপুট ফাইলসমূহ (প্রতি লাইনে একটি পূর্ণ পথ)...",
+  "fuzzy.max_edit_label": "সর্বোচ্চ সম্পাদনা দূরত্ব",
+  "fuzzy.run": "ফাজি ক্লাস্টার চালান",
+  "fuzzy.running": "চলছে...",
+  "fuzzy.result": "{clusters} ক্লাস্টার · {exact} নির্ভুল অনন্য · {seen} স্ক্যান করা · {ms} মিলিসেকেন্ড",
+  "fuzzy.error": "ফাজি ক্লাস্টার ব্যর্থ: {detail}",
+  "fuzzy.hint": "কাছাকাছি-ডুপ্লিকেট টোকেন (যেমন টাইপো) গ্রুপ করে প্রতিটি থেকে একটি প্রতিনিধি রাখে। O(u²) — অনন্য টোকেন ≤ ১ লাখ রাখুন।",
 };

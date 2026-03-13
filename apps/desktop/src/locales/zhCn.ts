@@ -224,4 +224,13 @@ export const zhCn: Dictionary = {
   "setop.result": "{unique} 个唯一写入 · {seen} 个总计 · {ms} 毫秒",
   "setop.error": "运算失败：{detail}",
   "setop.inputs_placeholder": "输入文件（每行一个绝对路径）...",
+
+  "section.fuzzy": "模糊聚类",
+  "fuzzy.inputs_placeholder": "输入文件（每行一个绝对路径）...",
+  "fuzzy.max_edit_label": "最大编辑距离",
+  "fuzzy.run": "运行模糊聚类",
+  "fuzzy.running": "运行中...",
+  "fuzzy.result": "{clusters} 个聚类 · {exact} 个精确唯一 · {seen} 个已扫描 · {ms} 毫秒",
+  "fuzzy.error": "模糊聚类失败：{detail}",
+  "fuzzy.hint": "将相近重复 token（如拼写错误）分组，每组保留一个代表。复杂度 O(u²)——唯一 token 数建议 ≤ 10 万。",
 };

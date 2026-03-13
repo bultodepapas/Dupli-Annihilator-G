@@ -223,6 +223,15 @@ export const en = {
   "setop.result": "{unique} unique written · {seen} total tokens · {ms} ms",
   "setop.error": "Set op failed: {detail}",
   "setop.inputs_placeholder": "Input files (one absolute path per line)...",
+
+  "section.fuzzy": "Fuzzy Cluster",
+  "fuzzy.inputs_placeholder": "Input files (one absolute path per line)...",
+  "fuzzy.max_edit_label": "Max edit distance",
+  "fuzzy.run": "RUN FUZZY CLUSTER",
+  "fuzzy.running": "RUNNING...",
+  "fuzzy.result": "{clusters} clusters · {exact} exact-unique · {seen} scanned · {ms} ms",
+  "fuzzy.error": "Fuzzy cluster failed: {detail}",
+  "fuzzy.hint": "Groups near-duplicate tokens (e.g. typos) keeping one representative per cluster. O(u²) — keep unique-token count ≤ 100k.",
 } as const;
 
 export type TranslationKey = keyof typeof en;

@@ -6,6 +6,7 @@ pub mod disk_sort;
 pub mod engine;
 pub mod epub_reader;
 pub mod frequency;
+pub mod fuzzy;
 pub mod pdf_reader;
 pub mod progress;
 pub mod set_ops;
@@ -19,6 +20,7 @@ pub use cancel::{is_canceled_error, CancelCheck, Canceled, CancellationToken, No
 pub use config::{Config, ConfigError, DiskAlphabeticalMode, Mode, OutputOrdering};
 pub use engine::{effective_mode, run, run_with_control};
 pub use frequency::token_frequency;
+pub use fuzzy::{fuzzy_cluster, fuzzy_dedup_inputs, FuzzyStats};
 pub use progress::{NoProgress, ProgressEvent, ProgressSink};
 pub use set_ops::{set_op, SetOp};
 pub use stats::{FileStats, Stats};

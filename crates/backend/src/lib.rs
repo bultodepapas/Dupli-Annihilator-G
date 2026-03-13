@@ -1,7 +1,7 @@
 use anyhow::Context;
 use dedupe_core::{
-    set_op, token_frequency, Config, DiskAlphabeticalMode, Mode, NoCancel, NoProgress,
-    OutputOrdering, SetOp, WordChecker,
+    fuzzy_dedup_inputs, set_op, token_frequency, Config, DiskAlphabeticalMode, Mode, NoCancel,
+    NoProgress, OutputOrdering, SetOp, WordChecker,
 };
 use dedupe_job_runner::{JobError, JobEvent, JobId, JobManager};
 use serde::{Deserialize, Serialize};
@@ -305,6 +305,66 @@ pub struct SetOpResponse {
     pub output_path: String,
 }
 
+// ── Fuzzy-cluster types ───────────────────────────────────────────────────────
+
+/// Request payload for [`BackendService::run_fuzzy_cluster`].
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FuzzyClusterRequest {
+    /// Input file or directory paths (expanded with the same rules as
+    /// [`StartJobConfig`]).
+    pub inputs: Vec<String>,
+    /// Output file path (required — the clustered result is written to disk).
+    pub output: String,
+    /// Allow overwriting an existing output file without error.
+    #[serde(default)]
+    pub allow_overwrite: bool,
+    /// Maximum Levenshtein edit distance for two tokens to be considered
+    /// near-duplicates.  Valid range: 1–10.  Typical values: 1 or 2.
+    #[serde(default = "default_max_edit_distance")]
+    pub max_edit_distance: usize,
+    /// Output token ordering.
+    #[serde(default = "default_ordering")]
+    pub ordering: ApiOrdering,
+    /// Strip leading/trailing whitespace from each token (default: `true`).
+    #[serde(default = "default_trim")]
+    pub trim: bool,
+    /// Drop empty tokens after trimming (default: `true`).
+    #[serde(default = "default_drop_empty")]
+    pub drop_empty: bool,
+    /// Drop tokens whose character length is within `[min, max]` (inclusive).
+    #[serde(default)]
+    pub drop_length_min: Option<usize>,
+    #[serde(default)]
+    pub drop_length_max: Option<usize>,
+    /// Output separator string (default: `"\n"`).
+    #[serde(default = "default_separator")]
+    pub output_separator: String,
+    /// When `true`, interpret `\n`, `\t`, etc. in `output_separator`.
+    #[serde(default)]
+    pub interpret_separator_escapes: bool,
+}
+
+/// Response payload for [`BackendService::run_fuzzy_cluster`].
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FuzzyClusterResponse {
+    /// Total tokens seen across all input files (before exact dedup).
+    pub tokens_seen: u64,
+    /// Distinct tokens after exact dedup — size of the fuzzy-pass input.
+    pub exact_unique: u64,
+    /// Clusters produced (= tokens written to the output file).
+    pub clusters_found: u64,
+    /// Wall-clock milliseconds for the entire operation.
+    pub elapsed_ms: u64,
+    /// The resolved output path (echoed back for convenience).
+    pub output_path: String,
+}
+
+fn default_max_edit_distance() -> usize {
+    1
+}
+
 pub struct BackendService {
     manager: JobManager,
     checker: Mutex<Option<WordChecker>>,
@@ -528,6 +588,67 @@ impl BackendService {
         Ok(SetOpResponse {
             unique_tokens: stats.unique_tokens,
             tokens_seen: stats.tokens_seen,
+            elapsed_ms: stats.elapsed.as_millis() as u64,
+            output_path: output_path.to_string_lossy().into_owned(),
+        })
+    }
+
+    /// Run a synchronous fuzzy-cluster dedup over the given inputs.
+    ///
+    /// Phase 1 performs exact deduplication to reduce the token set; Phase 2
+    /// groups near-duplicates via Levenshtein + Union-Find and writes the result.
+    pub fn run_fuzzy_cluster(
+        &self,
+        req: FuzzyClusterRequest,
+    ) -> Result<FuzzyClusterResponse, CommandError> {
+        let mut inputs: Vec<PathBuf> = Vec::new();
+        for raw in req.inputs {
+            let files =
+                expand_path(PathBuf::from(raw)).map_err(map_anyhow_to_command_error)?;
+            inputs.extend(files);
+        }
+        if inputs.is_empty() {
+            return Err(CommandError {
+                category: "invalid_config".to_string(),
+                message: "no input files provided".to_string(),
+                detail: None,
+            });
+        }
+
+        let output_path = PathBuf::from(&req.output);
+        if !req.allow_overwrite && output_path.exists() {
+            return Err(CommandError {
+                category: "output_exists".to_string(),
+                message: format!("output file already exists: {}", output_path.display()),
+                detail: None,
+            });
+        }
+
+        let output_separator = if req.interpret_separator_escapes {
+            parse_escaped_separator(&req.output_separator)
+        } else {
+            req.output_separator
+        };
+
+        let config = Config {
+            inputs,
+            output: output_path.clone(),
+            output_separator,
+            ordering: map_ordering(req.ordering),
+            trim: req.trim,
+            drop_empty: req.drop_empty,
+            drop_length_min: req.drop_length_min,
+            drop_length_max: req.drop_length_max,
+            ..Config::default()
+        };
+
+        let stats = fuzzy_dedup_inputs(&config, req.max_edit_distance, &NoProgress, &NoCancel)
+            .map_err(map_anyhow_to_command_error)?;
+
+        Ok(FuzzyClusterResponse {
+            tokens_seen: stats.tokens_seen,
+            exact_unique: stats.exact_unique,
+            clusters_found: stats.clusters_found,
             elapsed_ms: stats.elapsed.as_millis() as u64,
             output_path: output_path.to_string_lossy().into_owned(),
         })

@@ -226,4 +226,13 @@ export const es: Dictionary = {
   "setop.result": "{unique} únicos escritos · {seen} tokens totales · {ms} ms",
   "setop.error": "Operación fallida: {detail}",
   "setop.inputs_placeholder": "Archivos de entrada (una ruta por línea)...",
+
+  "section.fuzzy": "Agrupación difusa",
+  "fuzzy.inputs_placeholder": "Archivos de entrada (una ruta por línea)...",
+  "fuzzy.max_edit_label": "Distancia de edición máx.",
+  "fuzzy.run": "EJECUTAR AGRUPACIÓN DIFUSA",
+  "fuzzy.running": "EJECUTANDO...",
+  "fuzzy.result": "{clusters} grupos · {exact} únicos exactos · {seen} escaneados · {ms} ms",
+  "fuzzy.error": "La agrupación difusa falló: {detail}",
+  "fuzzy.hint": "Agrupa tokens casi duplicados (p. ej. errores tipográficos) conservando un representante por grupo. O(u²) — mantenga los tokens únicos ≤ 100 000.",
 };

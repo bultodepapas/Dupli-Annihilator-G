@@ -224,4 +224,13 @@ export const ur: Dictionary = {
   "setop.result": "{unique} منفرد لکھے · {seen} کل ٹوکن · {ms} ملی سیکنڈ",
   "setop.error": "آپریشن ناکام: {detail}",
   "setop.inputs_placeholder": "ان پٹ فائلیں (فی لائن ایک مکمل راستہ)...",
+
+  "section.fuzzy": "فزی کلسٹر",
+  "fuzzy.inputs_placeholder": "ان پٹ فائلیں (فی لائن ایک مکمل راستہ)...",
+  "fuzzy.max_edit_label": "زیادہ سے زیادہ ترمیم فاصلہ",
+  "fuzzy.run": "فزی کلسٹر چلائیں",
+  "fuzzy.running": "چل رہا ہے...",
+  "fuzzy.result": "{clusters} کلسٹر · {exact} عین منفرد · {seen} اسکین کیے · {ms} ms",
+  "fuzzy.error": "فزی کلسٹر ناکام: {detail}",
+  "fuzzy.hint": "قریبی ڈپلیکیٹ ٹوکن (جیسے ٹائپو) کو گروپ کرتا ہے، ہر گروپ سے ایک نمائندہ رکھتا ہے۔ O(u²) — منفرد ٹوکن ≤ ایک لاکھ رکھیں۔",
 };
