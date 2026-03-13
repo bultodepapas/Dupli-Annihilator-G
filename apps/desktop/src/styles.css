@@ -35,6 +35,48 @@ body {
   grid-template-rows: auto 1fr auto;
   gap: 14px;
   overflow: hidden;
+  position: relative;
+  isolation: isolate;
+}
+
+.app > * {
+  position: relative;
+  z-index: 1;
+}
+
+.app::before,
+.app::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 220ms ease, transform 280ms ease;
+}
+
+.app::before {
+  inset: 15% 10% 16% 52%;
+  border-radius: 36px;
+  background:
+    radial-gradient(circle at 24% 24%, rgba(92, 199, 255, 0.28), transparent 42%),
+    radial-gradient(circle at 72% 78%, rgba(92, 255, 187, 0.22), transparent 40%);
+  filter: blur(28px);
+  transform: translateY(16px) scale(0.92);
+  z-index: 0;
+}
+
+.app::after {
+  inset: 0;
+  background: linear-gradient(135deg, rgba(5, 10, 20, 0.06), rgba(5, 10, 20, 0.24) 50%, rgba(8, 12, 24, 0.38));
+  z-index: 0;
+}
+
+.app-running::before,
+.app-running::after {
+  opacity: 1;
+}
+
+.app-running::before {
+  transform: translateY(0) scale(1);
 }
 
 .topbar {
@@ -42,6 +84,12 @@ body {
   justify-content: space-between;
   align-items: flex-start;
   gap: 12px;
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.topbar-focus {
+  opacity: 0.9;
+  transform: translateY(2px);
 }
 
 .topbar-actions {
@@ -197,12 +245,109 @@ h4 {
   min-height: 0;
 }
 
+.workspace {
+  min-height: 0;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(320px, 1fr);
+  overflow: hidden;
+  align-items: stretch;
+}
+
+.workspace-main {
+  grid-column: 1 / span 2;
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 14px;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px;
+  position: relative;
+  transition: filter 220ms ease, opacity 220ms ease, transform 220ms ease;
+}
+
+.workspace-main::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 24px;
+  background: linear-gradient(145deg, rgba(8, 12, 24, 0.08), rgba(8, 12, 24, 0.44));
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 220ms ease;
+}
+
+.workspace-main-muted {
+  filter: blur(10px) saturate(0.82) brightness(0.72);
+  opacity: 0.5;
+  pointer-events: none;
+  user-select: none;
+  transform: scale(0.985) translateY(10px);
+}
+
+.workspace-main-muted::after {
+  opacity: 1;
+}
+
+.workspace-focus {
+  min-width: 0;
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-self: stretch;
+  transition: transform 220ms ease;
+}
+
+.workspace-focus::before {
+  content: "";
+  position: absolute;
+  inset: 18px -18px -22px;
+  border-radius: 32px;
+  background:
+    radial-gradient(circle at 20% 18%, rgba(73, 194, 255, 0.32), transparent 34%),
+    radial-gradient(circle at 82% 82%, rgba(46, 230, 166, 0.22), transparent 36%);
+  filter: blur(24px);
+  opacity: 0;
+  transform: scale(0.94);
+  transition: opacity 220ms ease, transform 220ms ease;
+  z-index: -1;
+}
+
+.workspace-focus-active {
+  transform: translateY(-6px);
+}
+
+.workspace-focus-active::before {
+  opacity: 1;
+  transform: scale(1);
+}
+
 .card {
   border: 1px solid var(--line);
   border-radius: 14px;
   background: linear-gradient(180deg, var(--panel) 0%, var(--panel-2) 100%);
   padding: 14px;
   min-width: 0;
+  transition:
+    border-color 180ms ease,
+    box-shadow 220ms ease,
+    background 220ms ease,
+    transform 220ms ease;
+}
+
+.output-card {
+  width: 100%;
+  height: 100%;
+}
+
+.output-card-focus {
+  border-color: rgba(113, 212, 255, 0.62);
+  background:
+    linear-gradient(180deg, rgba(26, 40, 83, 0.96) 0%, rgba(15, 26, 58, 0.94) 100%);
+  box-shadow:
+    0 26px 70px rgba(1, 6, 18, 0.58),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(18px);
 }
 
 .field {
@@ -424,6 +569,36 @@ textarea:focus-visible {
 .telemetry {
   animation: rise 180ms ease-out;
   padding: 10px 14px;
+}
+
+.telemetry-dock {
+  position: relative;
+  z-index: 3;
+  transition: transform 220ms ease;
+}
+
+.telemetry-dock-active {
+  transform: translateY(-2px);
+}
+
+.telemetry-focus {
+  border-color: rgba(113, 212, 255, 0.44);
+  background:
+    linear-gradient(180deg, rgba(20, 31, 66, 0.94) 0%, rgba(14, 23, 49, 0.96) 100%);
+  box-shadow:
+    0 18px 44px rgba(1, 6, 18, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(16px);
+}
+
+.telemetry-focus .bar-wrap {
+  background: rgba(7, 13, 29, 0.88);
+  border-color: rgba(94, 151, 245, 0.36);
+}
+
+.telemetry-focus .metrics,
+.telemetry-focus .message {
+  color: #bfd4fb;
 }
 
 .bar-wrap {
@@ -945,14 +1120,37 @@ textarea:focus-visible {
 }
 
 @media (max-width: 1080px) {
-  .grid {
-    grid-template-columns: 1fr;
-  }
   .summary-grid {
     grid-template-columns: 1fr;
   }
   .summary-meta-grid {
     grid-template-columns: 1fr;
+  }
+  .workspace {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+  }
+  .workspace-main {
+    grid-column: auto;
+    grid-template-columns: 1fr;
+    overflow: visible;
+    padding: 0;
+  }
+  .workspace-main::after {
+    inset: 0;
+  }
+  .workspace-focus {
+    grid-column: auto;
+  }
+  .workspace-running {
+    display: flex;
+    flex-direction: column;
+  }
+  .workspace-running .workspace-focus {
+    order: -1;
+  }
+  .workspace-running .workspace-main {
+    order: 1;
   }
 }
 
@@ -983,5 +1181,30 @@ textarea:focus-visible {
   }
   .metrics {
     grid-template-columns: 1fr 1fr;
+  }
+  .workspace-focus-active {
+    transform: none;
+  }
+  .workspace-focus::before {
+    inset: 10px -8px -14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app::before,
+  .app::after,
+  .topbar,
+  .workspace-main,
+  .workspace-main::after,
+  .workspace-focus,
+  .workspace-focus::before,
+  .card,
+  .telemetry-dock,
+  button {
+    transition: none;
+  }
+
+  .telemetry {
+    animation: none;
   }
 }

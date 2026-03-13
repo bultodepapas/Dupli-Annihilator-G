@@ -661,6 +661,7 @@ type TelemetryFooterProps = {
   validationErrors: readonly string[];
   runStatus: RunStatus;
   message: string;
+  isFocusMode: boolean;
   tr: (key: I18nKey, params?: Record<string, string | number>) => string;
 };
 
@@ -669,13 +670,14 @@ const TelemetryFooter = React.memo(function TelemetryFooter({
   validationErrors,
   runStatus,
   message,
+  isFocusMode,
   tr,
 }: TelemetryFooterProps) {
   const progressPercent =
     progress.filesTotal > 0 ? Math.min(100, (progress.filesDone / progress.filesTotal) * 100) : 0;
 
   return (
-    <footer className="telemetry card">
+    <footer className={`telemetry card ${isFocusMode ? "telemetry-focus" : ""}`}>
       <h2>{tr("section.telemetry")}</h2>
       {validationErrors.length > 0 && runStatus !== "running" ? (
         <div className="errors">
@@ -725,6 +727,7 @@ type HeaderProps = {
   updateStatus: UpdateStatus;
   availableUpdate: AvailableUpdate | null;
   runStatus: RunStatus;
+  isFocusMode: boolean;
   tr: (key: I18nKey, params?: Record<string, string | number>) => string;
   onLocaleChange: (locale: Locale) => void;
   onCheckForUpdates: () => void;
@@ -735,12 +738,13 @@ const Header = React.memo(function Header({
   updateStatus,
   availableUpdate,
   runStatus,
+  isFocusMode,
   tr,
   onLocaleChange,
   onCheckForUpdates,
 }: HeaderProps) {
   return (
-    <header className="topbar">
+    <header className={`topbar ${isFocusMode ? "topbar-focus" : ""}`}>
       <div>
         <h1>Dupli-Annihilator-G</h1>
         <p className="subtitle">{tr("app.subtitle")}</p>
@@ -1339,6 +1343,7 @@ type OutputSectionProps = {
   separatorPreview: string;
   separatorPreviewVisible: string;
   resolvedSeparator: string;
+  isFocusMode: boolean;
   tr: (key: I18nKey, params?: Record<string, string | number>) => string;
   onFormChange: React.Dispatch<React.SetStateAction<FormState>>;
   onStartJob: () => void;
@@ -1355,13 +1360,14 @@ const OutputSection = React.memo(function OutputSection({
   separatorPreview,
   separatorPreviewVisible,
   resolvedSeparator,
+  isFocusMode,
   tr,
   onFormChange,
   onStartJob,
   onCancelJob,
 }: OutputSectionProps) {
   return (
-    <section className="card">
+    <section className={`card output-card ${isFocusMode ? "output-card-focus" : ""}`}>
       <h2>{tr("section.output")}</h2>
       <label className="field">
         <span>{tr("field.separator")}</span>
@@ -1985,6 +1991,7 @@ function App() {
 
   const pollingRef = React.useRef(false);
   const updateAutoCheckedRef = React.useRef(false);
+  const workspaceMainRef = React.useRef<HTMLDivElement | null>(null);
 
   // Destructure for convenience in derived values and callbacks.
   const { runStatus, activeJobId, progress, message, lastSummary } = jobState;
@@ -2018,6 +2025,7 @@ function App() {
 
   const canRun = runStatus !== "running" && validationErrors.length === 0;
   const canCancel = runStatus === "running" && activeJobId !== null;
+  const isFocusMode = runStatus === "running";
 
   const buildSummaryReport = React.useCallback(
     (summary: RunSummary): string => {
@@ -2877,15 +2885,28 @@ function App() {
     return () => window.clearTimeout(timer);
   }, [appInfo?.appVersion, checkForUpdates]);
 
+  React.useEffect(() => {
+    const node = workspaceMainRef.current;
+    if (!node) {
+      return;
+    }
+    if (isFocusMode) {
+      node.setAttribute("inert", "");
+    } else {
+      node.removeAttribute("inert");
+    }
+  }, [isFocusMode]);
+
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div className="app">
+    <div className={`app ${isFocusMode ? "app-running" : ""}`}>
       <Header
         locale={locale}
         updateStatus={updateStatus}
         availableUpdate={availableUpdate}
         runStatus={runStatus}
+        isFocusMode={isFocusMode}
         tr={tr}
         onLocaleChange={onLocaleChange}
         onCheckForUpdates={onCheckForUpdates}
@@ -2907,8 +2928,8 @@ function App() {
         />
       ) : null}
 
-      <main className={showSummaryScreen ? "summary-main" : "grid"}>
-        {showSummaryScreen && lastSummary && summaryBadge ? (
+      {showSummaryScreen && lastSummary && summaryBadge ? (
+        <main className="summary-main">
           <SummaryScreen
             summary={lastSummary}
             summaryBadge={summaryBadge}
@@ -2925,126 +2946,139 @@ function App() {
             onReset={resetApp}
             onRunAgain={() => void startJob()}
           />
-        ) : (
-          <>
-            <InputSection
-              form={form}
-              runStatus={runStatus}
-              inputsDragActive={inputsDragActive}
-              tr={tr}
-              onFormChange={setForm}
-              onPickInputFiles={() => void pickInputFiles()}
-              onPickInputFolder={() => void pickInputFolder()}
-              onPickOutputFile={() => void pickOutputFile()}
-              onDragOver={onInputsDragOver}
-              onDragLeave={onInputsDragLeave}
-              onDrop={onInputsDrop}
-            />
-            <div className="col-processing">
-              <ProcessingSection
+        </main>
+      ) : (
+        <>
+          <section className={`workspace ${isFocusMode ? "workspace-running" : ""}`}>
+            <div
+              ref={workspaceMainRef}
+              className={`workspace-main ${isFocusMode ? "workspace-main-muted" : ""}`}
+              aria-disabled={isFocusMode}
+            >
+              <InputSection
                 form={form}
+                runStatus={runStatus}
+                inputsDragActive={inputsDragActive}
                 tr={tr}
                 onFormChange={setForm}
+                onPickInputFiles={() => void pickInputFiles()}
+                onPickInputFolder={() => void pickInputFolder()}
+                onPickOutputFile={() => void pickOutputFile()}
+                onDragOver={onInputsDragOver}
+                onDragLeave={onInputsDragLeave}
+                onDrop={onInputsDrop}
               />
-              <section className="card">
-                <h2>{tr("section.checker")}</h2>
-                <WordCheckerPanel
-                  checkerPath={checkerPath}
-                  checkerStatus={checkerStatus}
-                  checkerWordCount={checkerWordCount}
-                  checkerWord={checkerWord}
-                  checkerResult={checkerResult}
-                  checkerMessage={checkerMessage}
+              <div className="col-processing">
+                <ProcessingSection
+                  form={form}
                   tr={tr}
-                  onPathChange={setCheckerPath}
-                  onPickFile={() => void pickCheckerFile()}
-                  onLoad={() => void loadWordlist()}
-                  onWordChange={setCheckerWord}
-                  onCheck={() => void checkWord()}
+                  onFormChange={setForm}
                 />
-              </section>
-              <section className="card">
-                <h2>{tr("section.frequency")}</h2>
-                <FrequencyPanel
-                  freqInputs={freqInputs}
-                  freqTopN={freqTopN}
-                  freqStatus={freqStatus}
-                  freqResult={freqResult}
-                  freqMessage={freqMessage}
-                  tr={tr}
-                  onInputsChange={setFreqInputs}
-                  onTopNChange={setFreqTopN}
-                  onPickFiles={() => void pickFreqFiles()}
-                  onAnalyze={() => void runFrequencyAnalysis()}
-                />
-              </section>
-              <section className="card">
-                <h2>{tr("section.fuzzy")}</h2>
-                <FuzzyClusterPanel
-                  inputs={fuzzyInputs}
-                  maxEdit={fuzzyMaxEdit}
-                  outputPath={fuzzyOutput}
-                  status={fuzzyStatus}
-                  result={fuzzyResult}
-                  message={fuzzyMessage}
-                  tr={tr}
-                  onInputsChange={setFuzzyInputs}
-                  onMaxEditChange={setFuzzyMaxEdit}
-                  onOutputChange={setFuzzyOutput}
-                  onPickFiles={() => void pickFuzzyFiles()}
-                  onPickOutput={() => void pickFuzzyOutput()}
-                  onRun={() => void runFuzzyCluster()}
-                />
-              </section>
-              <section className="card">
-                <h2>{tr("section.setop")}</h2>
-                <SetOpPanel
-                  leftInputs={setopLeft}
-                  rightInputs={setopRight}
-                  op={setopOp}
-                  outputPath={setopOutput}
-                  status={setopStatus}
-                  result={setopResult}
-                  message={setopMessage}
-                  tr={tr}
-                  onLeftChange={setSetopLeft}
-                  onRightChange={setSetopRight}
-                  onOpChange={setSetopOp}
-                  onOutputChange={setSetopOutput}
-                  onPickLeft={() => void pickSetopFiles("left")}
-                  onPickRight={() => void pickSetopFiles("right")}
-                  onPickOutput={() => void pickSetopOutput()}
-                  onRun={() => void runSetOp()}
-                />
-              </section>
+                <section className="card">
+                  <h2>{tr("section.checker")}</h2>
+                  <WordCheckerPanel
+                    checkerPath={checkerPath}
+                    checkerStatus={checkerStatus}
+                    checkerWordCount={checkerWordCount}
+                    checkerWord={checkerWord}
+                    checkerResult={checkerResult}
+                    checkerMessage={checkerMessage}
+                    tr={tr}
+                    onPathChange={setCheckerPath}
+                    onPickFile={() => void pickCheckerFile()}
+                    onLoad={() => void loadWordlist()}
+                    onWordChange={setCheckerWord}
+                    onCheck={() => void checkWord()}
+                  />
+                </section>
+                <section className="card">
+                  <h2>{tr("section.frequency")}</h2>
+                  <FrequencyPanel
+                    freqInputs={freqInputs}
+                    freqTopN={freqTopN}
+                    freqStatus={freqStatus}
+                    freqResult={freqResult}
+                    freqMessage={freqMessage}
+                    tr={tr}
+                    onInputsChange={setFreqInputs}
+                    onTopNChange={setFreqTopN}
+                    onPickFiles={() => void pickFreqFiles()}
+                    onAnalyze={() => void runFrequencyAnalysis()}
+                  />
+                </section>
+                <section className="card">
+                  <h2>{tr("section.fuzzy")}</h2>
+                  <FuzzyClusterPanel
+                    inputs={fuzzyInputs}
+                    maxEdit={fuzzyMaxEdit}
+                    outputPath={fuzzyOutput}
+                    status={fuzzyStatus}
+                    result={fuzzyResult}
+                    message={fuzzyMessage}
+                    tr={tr}
+                    onInputsChange={setFuzzyInputs}
+                    onMaxEditChange={setFuzzyMaxEdit}
+                    onOutputChange={setFuzzyOutput}
+                    onPickFiles={() => void pickFuzzyFiles()}
+                    onPickOutput={() => void pickFuzzyOutput()}
+                    onRun={() => void runFuzzyCluster()}
+                  />
+                </section>
+                <section className="card">
+                  <h2>{tr("section.setop")}</h2>
+                  <SetOpPanel
+                    leftInputs={setopLeft}
+                    rightInputs={setopRight}
+                    op={setopOp}
+                    outputPath={setopOutput}
+                    status={setopStatus}
+                    result={setopResult}
+                    message={setopMessage}
+                    tr={tr}
+                    onLeftChange={setSetopLeft}
+                    onRightChange={setSetopRight}
+                    onOpChange={setSetopOp}
+                    onOutputChange={setSetopOutput}
+                    onPickLeft={() => void pickSetopFiles("left")}
+                    onPickRight={() => void pickSetopFiles("right")}
+                    onPickOutput={() => void pickSetopOutput()}
+                    onRun={() => void runSetOp()}
+                  />
+                </section>
+              </div>
             </div>
-            <OutputSection
-              form={form}
-              runStatus={runStatus}
-              activeJobId={activeJobId}
-              appInfo={appInfo}
-              canRun={canRun}
-              canCancel={canCancel}
-              separatorPreview={separatorPreview}
-              separatorPreviewVisible={separatorPreviewVisible}
-              resolvedSeparator={resolvedSeparator}
-              tr={tr}
-              onFormChange={setForm}
-              onStartJob={() => void startJob()}
-              onCancelJob={() => void cancelJob()}
-            />
-          </>
-        )}
-      </main>
 
-      {showSummaryScreen ? null : (
-        <TelemetryFooter
-          progress={progress}
-          validationErrors={validationErrors}
-          runStatus={runStatus}
-          message={message}
-          tr={tr}
-        />
+            <aside className={`workspace-focus ${isFocusMode ? "workspace-focus-active" : ""}`}>
+              <OutputSection
+                form={form}
+                runStatus={runStatus}
+                activeJobId={activeJobId}
+                appInfo={appInfo}
+                canRun={canRun}
+                canCancel={canCancel}
+                separatorPreview={separatorPreview}
+                separatorPreviewVisible={separatorPreviewVisible}
+                resolvedSeparator={resolvedSeparator}
+                isFocusMode={isFocusMode}
+                tr={tr}
+                onFormChange={setForm}
+                onStartJob={() => void startJob()}
+                onCancelJob={() => void cancelJob()}
+              />
+            </aside>
+          </section>
+
+          <div className={`telemetry-dock ${isFocusMode ? "telemetry-dock-active" : ""}`}>
+            <TelemetryFooter
+              progress={progress}
+              validationErrors={validationErrors}
+              runStatus={runStatus}
+              message={message}
+              isFocusMode={isFocusMode}
+              tr={tr}
+            />
+          </div>
+        </>
       )}
     </div>
   );
