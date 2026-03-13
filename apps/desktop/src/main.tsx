@@ -584,6 +584,30 @@ function formatStageLabel(
   return key ? tr(key) : humanizeStage(stage);
 }
 
+function runningNarrativeKey(stage: string): I18nKey {
+  switch (stage) {
+    case "ExtractingText":
+      return "running.narrative.extracting_text";
+    case "Tokenizing":
+      return "running.narrative.tokenizing";
+    case "Sorting":
+      return "running.narrative.sorting";
+    case "WritingOutput":
+      return "running.narrative.writing_output";
+    case "Finalizing":
+      return "running.narrative.finalizing";
+    default:
+      return "running.subline";
+  }
+}
+
+function formatRunningNarrative(
+  stage: string,
+  tr: (key: I18nKey, params?: Record<string, string | number>) => string,
+): string {
+  return tr(runningNarrativeKey(stage));
+}
+
 function formatIsoLocal(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) {
@@ -732,15 +756,13 @@ const TelemetryFooter = React.memo(function TelemetryFooter({
   isFocusMode,
   tr,
 }: TelemetryFooterProps) {
-  const isExtracting = progress.stage === "ExtractingText" && progress.stageItemsTotal > 0;
   const progressPercent = computeProgressPercent(progress);
-  const stageLabel = formatStageLabel(progress.stage, tr);
 
   if (isFocusMode) {
     const primaryMetrics = [
       { label: tr("metric.files"), value: `${formatInt(progress.filesDone)}/${formatInt(progress.filesTotal)}` },
-      { label: tr("metric.elapsed_ms"), value: formatElapsed(progress.elapsedMs) },
-      { label: tr("metric.eta_ms"), value: progress.etaMs === null ? "-" : formatElapsed(progress.etaMs) },
+      { label: tr("metric.elapsed"), value: formatElapsed(progress.elapsedMs) },
+      { label: tr("metric.eta"), value: progress.etaMs === null ? "-" : formatElapsed(progress.etaMs) },
     ];
     const secondaryMetrics = [
       ...(progress.stageItemsTotal > 0
@@ -758,14 +780,7 @@ const TelemetryFooter = React.memo(function TelemetryFooter({
     return (
       <footer className="telemetry card telemetry-focus">
         <div className="telemetry-focus-shell">
-          <div className="telemetry-focus-header">
-            <div>
-              <h2>{tr("section.telemetry")}</h2>
-              <p className="telemetry-focus-title">{stageLabel}</p>
-              <p className="telemetry-focus-copy">{tr("running.subline")}</p>
-            </div>
-            <div className={`telemetry-status-badge status-${runStatus}`}>{tr(statusKey(runStatus))}</div>
-          </div>
+          <h2>{tr("section.telemetry")}</h2>
 
           <div className="telemetry-primary-grid">
             {primaryMetrics.map((metric) => (
@@ -776,6 +791,9 @@ const TelemetryFooter = React.memo(function TelemetryFooter({
             ))}
           </div>
 
+          <div className="telemetry-progress-meta">
+            <span>{Math.round(progressPercent)}%</span>
+          </div>
           <div className="bar-wrap telemetry-focus-bar">
             <div className="bar" style={{ width: `${progressPercent}%` }} />
           </div>
@@ -790,8 +808,8 @@ const TelemetryFooter = React.memo(function TelemetryFooter({
           </div>
 
           {progress.currentInputPath ? (
-            <p className="telemetry-current-input">
-              {tr("metric.current_input")}: <code>{progress.currentInputPath}</code>
+            <p className="telemetry-current-input" title={progress.currentInputPath}>
+              <span>{tr("metric.current_input")}:</span> <code>{progress.currentInputPath}</code>
             </p>
           ) : null}
         </div>
@@ -837,10 +855,10 @@ const TelemetryFooter = React.memo(function TelemetryFooter({
           {tr("metric.tps")}: {progress.throughputTps}
         </div>
         <div>
-          {tr("metric.elapsed_ms")}: {progress.elapsedMs}
+          {tr("metric.elapsed")}: {formatElapsed(progress.elapsedMs)}
         </div>
         <div>
-          {tr("metric.eta_ms")}: {progress.etaMs ?? "-"}
+          {tr("metric.eta")}: {progress.etaMs === null ? "-" : formatElapsed(progress.etaMs)}
         </div>
       </div>
       {progress.currentInputPath ? (
@@ -1502,7 +1520,7 @@ const OutputSection = React.memo(function OutputSection({
   onCancelJob,
 }: OutputSectionProps) {
   const stageLabel = formatStageLabel(progress.stage, tr);
-  const progressPercent = computeProgressPercent(progress);
+  const runningNarrative = formatRunningNarrative(progress.stage, tr);
   const configToggle = (enabled: boolean) => tr(enabled ? "common.on" : "common.off");
 
   if (isFocusMode) {
@@ -1511,34 +1529,14 @@ const OutputSection = React.memo(function OutputSection({
         <div className="output-focus-hero">
           <div className="output-focus-kicker">{tr("running.panel_status")}</div>
           <h2 className="output-focus-title">{stageLabel}</h2>
-          <p className="output-focus-copy">{tr("running.subline")}</p>
-          <div className="output-focus-meta">
-            <div className="output-focus-chip">
-              <span>{tr("meta.job_id")}</span>
-              <strong>{activeJobId ?? "-"}</strong>
-            </div>
-            <div className="output-focus-chip">
-              <span>{tr("metric.files")}</span>
-              <strong>{formatInt(progress.filesDone)}/{formatInt(progress.filesTotal)}</strong>
-            </div>
-            <div className="output-focus-chip">
-              <span>{tr("metric.elapsed_ms")}</span>
-              <strong>{formatElapsed(progress.elapsedMs)}</strong>
-            </div>
-          </div>
+          <p className="output-focus-copy">{runningNarrative}</p>
         </div>
 
         <section className="output-focus-section">
           <div className="output-focus-section-label">{tr("field.output")}</div>
           <div className="output-focus-target">
             <code className="output-focus-path">{form.outputPath || "-"}</code>
-            <div className="output-focus-progress-meta">
-              <span>{tr("metric.stage")}: {stageLabel}</span>
-              <span>{Math.round(progressPercent)}%</span>
-            </div>
-            <div className="bar-wrap output-focus-progress-bar">
-              <div className="bar" style={{ width: `${progressPercent}%` }} />
-            </div>
+            <p className="output-focus-target-note">{tr("running.locked_hint")}</p>
           </div>
         </section>
 
@@ -1562,27 +1560,19 @@ const OutputSection = React.memo(function OutputSection({
             <pre className="separator-preview output-focus-preview">{separatorPreview}</pre>
             <div className="separator-preview-meta">
               {tr("meta.effective_separator")}: <code>{escapeControlChars(resolvedSeparator)}</code>{" | "}
-              {tr("metric.tokens")}: <code>{separatorPreviewVisible}</code>
+              {tr("metric.preview_sample")}: <code>{separatorPreviewVisible}</code>
             </div>
-            <p className="output-focus-note">{tr("running.locked_hint")}</p>
           </section>
 
           <section className="output-focus-section">
             <div className="output-focus-section-label">{tr("running.panel_actions")}</div>
             <div className="output-focus-actions">
-              <button className="secondary output-run-muted" disabled onClick={onStartJob}>
-                {tr(runButtonKey(runStatus))}
-              </button>
               <button className="danger output-cancel-cta" disabled={!canCancel} onClick={onCancelJob}>
                 {tr("button.cancel")}
               </button>
+              <span className="output-run-muted">{tr(runButtonKey(runStatus))}</span>
             </div>
             <p className="output-focus-note">{tr("running.cancel_hint")}</p>
-            {progress.currentInputPath ? (
-              <p className="output-focus-current">
-                {tr("metric.current_input")}: <code>{progress.currentInputPath}</code>
-              </p>
-            ) : null}
           </section>
         </div>
 
@@ -2270,14 +2260,6 @@ function App() {
   const canRun = runStatus !== "running" && validationErrors.length === 0;
   const canCancel = runStatus === "running" && activeJobId !== null;
   const isFocusMode = runStatus === "running";
-  const runningStageLabel = React.useMemo(() => formatStageLabel(progress.stage, tr), [progress.stage, tr]);
-  const runningProgressPercent = React.useMemo(() => computeProgressPercent(progress), [progress]);
-  const runningProgressMeta = React.useMemo(() => {
-    if (progress.stage === "ExtractingText" && progress.stageItemsTotal > 0) {
-      return `${formatInt(progress.stageItemsDone)}/${formatInt(progress.stageItemsTotal)}`;
-    }
-    return `${formatInt(progress.filesDone)}/${formatInt(progress.filesTotal)}`;
-  }, [progress]);
 
   const buildSummaryReport = React.useCallback(
     (summary: RunSummary): string => {
@@ -3306,18 +3288,6 @@ function App() {
                 </section>
               </div>
             </div>
-
-            {isFocusMode ? (
-              <div className="workspace-beacon" aria-hidden="true">
-                <div className="workspace-beacon-shell">
-                  <span className="workspace-beacon-label">{runningStageLabel}</span>
-                  <div className="workspace-beacon-track">
-                    <div className="workspace-beacon-fill" style={{ width: `${runningProgressPercent}%` }} />
-                  </div>
-                  <span className="workspace-beacon-meta">{runningProgressMeta}</span>
-                </div>
-              </div>
-            ) : null}
 
             <aside className={`workspace-focus ${isFocusMode ? "workspace-focus-active" : ""}`}>
               <OutputSection
