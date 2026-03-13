@@ -3,8 +3,8 @@
 use dedupe_backend::{
     AppInfo, BackendService, CancelJobRequest, CancelJobResponse, CheckWordResponse, CommandError,
     EmittedEvent, FrequencyRequest, FrequencyResponse, FuzzyClusterRequest, FuzzyClusterResponse,
-    LoadCheckerResponse, RuntimeState, SetOpRequest, SetOpResponse, StartJobRequest,
-    StartJobResponse,
+    LoadCheckerResponse, NgramRequest, NgramResponse, RuntimeState, SetOpRequest, SetOpResponse,
+    StartJobRequest, StartJobResponse,
 };
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -151,6 +151,14 @@ fn run_set_op(
 }
 
 #[tauri::command]
+fn run_ngram_extract(
+    state: tauri::State<'_, AppState>,
+    req: NgramRequest,
+) -> Result<NgramResponse, CommandError> {
+    state.backend.run_ngram_extract(req)
+}
+
+#[tauri::command]
 fn run_fuzzy_cluster(
     state: tauri::State<'_, AppState>,
     req: FuzzyClusterRequest,
@@ -198,6 +206,7 @@ fn main() {
             check_word,
             run_frequency_analysis,
             run_set_op,
+            run_ngram_extract,
             run_fuzzy_cluster
         ])
         .run(tauri::generate_context!())
