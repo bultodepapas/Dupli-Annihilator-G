@@ -19,6 +19,7 @@ pub enum ProgressEvent {
     StageItemFinished {
         completed: usize,
         total: usize,
+        path: PathBuf,
     },
     TokensSeen(u64),
     UniqueTokens(u64),

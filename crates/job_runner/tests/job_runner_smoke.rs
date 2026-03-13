@@ -1,6 +1,10 @@
 use dedupe_core::{Config, DiskAlphabeticalMode, Mode, OutputOrdering};
 use dedupe_job_runner::{JobEvent, JobManager, RunTerminalStatus};
+use lopdf::content::{Content, Operation};
+use lopdf::dictionary;
+use lopdf::{Document, Object, Stream};
 use std::fs;
+use std::path::Path;
 use std::time::{Duration, Instant};
 
 fn make_ram_config(input: std::path::PathBuf, output: std::path::PathBuf) -> Config {
@@ -37,6 +41,62 @@ fn make_disk_config(input: std::path::PathBuf, output: std::path::PathBuf) -> Co
         disk_run_bytes: 1_000_000,
         per_file_stats: false,
     }
+}
+
+fn write_pdf(path: &Path, pages: &[&str]) {
+    let mut doc = Document::with_version("1.5");
+    let pages_id = doc.new_object_id();
+
+    let font_id = doc.add_object(lopdf::dictionary! {
+        "Type" => "Font",
+        "Subtype" => "Type1",
+        "BaseFont" => "Courier",
+    });
+    let resources_id = doc.add_object(lopdf::dictionary! {
+        "Font" => lopdf::dictionary! {
+            "F1" => font_id,
+        },
+    });
+
+    let mut kids = Vec::with_capacity(pages.len());
+    for page_text in pages {
+        let content = Content {
+            operations: vec![
+                Operation::new("BT", vec![]),
+                Operation::new("Tf", vec!["F1".into(), 24.into()]),
+                Operation::new("Td", vec![100.into(), 700.into()]),
+                Operation::new("Tj", vec![Object::string_literal(*page_text)]),
+                Operation::new("ET", vec![]),
+            ],
+        };
+        let content_id = doc.add_object(Stream::new(
+            lopdf::dictionary! {},
+            content.encode().expect("encode pdf content"),
+        ));
+        let page_id = doc.add_object(lopdf::dictionary! {
+            "Type" => "Page",
+            "Parent" => pages_id,
+            "Contents" => content_id,
+        });
+        kids.push(page_id.into());
+    }
+
+    let pages_dict = lopdf::dictionary! {
+        "Type" => "Pages",
+        "Kids" => kids,
+        "Count" => pages.len() as i64,
+        "Resources" => resources_id,
+        "MediaBox" => vec![0.into(), 0.into(), 595.into(), 842.into()],
+    };
+    doc.objects.insert(pages_id, Object::Dictionary(pages_dict));
+
+    let catalog_id = doc.add_object(lopdf::dictionary! {
+        "Type" => "Catalog",
+        "Pages" => pages_id,
+    });
+    doc.trailer.set("Root", catalog_id);
+    doc.compress();
+    doc.save(path).expect("save pdf");
 }
 
 #[test]
@@ -201,4 +261,94 @@ fn done_job_emits_summary_with_actionable_metrics() {
     }
 
     assert!(saw_summary, "missing summary event");
+}
+
+#[test]
+fn extracting_text_progress_is_monotonic_and_clears_current_path() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let output = dir.path().join("out.txt");
+
+    let mut inputs = Vec::new();
+    for idx in 0..3 {
+        let pdf = dir.path().join(format!("rich_{idx}.pdf"));
+        write_pdf(
+            &pdf,
+            &["alpha bravo", "charlie delta", "echo foxtrot", "golf hotel"],
+        );
+        inputs.push(pdf);
+    }
+
+    let mut cfg = make_ram_config(inputs[0].clone(), output);
+    cfg.inputs = inputs;
+
+    let manager = JobManager::new();
+    let job_id = manager.start_job(cfg).expect("start job");
+
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let mut last_done = 0usize;
+    let mut saw_extracting_progress = false;
+    let mut saw_active_path = false;
+    let mut saw_cleared_path = false;
+
+    while Instant::now() < deadline {
+        let Some(event) = manager.next_event_timeout(Duration::from_millis(200)) else {
+            continue;
+        };
+
+        match event {
+            JobEvent::Progress {
+                job_id: id,
+                stage,
+                stage_items_done,
+                stage_items_total,
+                current_input_path,
+                ..
+            } if id == job_id => {
+                if stage.as_deref() != Some("ExtractingText") {
+                    continue;
+                }
+
+                saw_extracting_progress = true;
+                assert!(
+                    stage_items_done <= stage_items_total,
+                    "stage_items_done exceeded total: {stage_items_done} > {stage_items_total}"
+                );
+                assert!(
+                    stage_items_done >= last_done,
+                    "stage_items_done regressed: {stage_items_done} < {last_done}"
+                );
+                last_done = stage_items_done;
+
+                if stage_items_done < stage_items_total && current_input_path.is_some() {
+                    saw_active_path = true;
+                }
+                if stage_items_done == stage_items_total && current_input_path.is_none() {
+                    saw_cleared_path = true;
+                }
+            }
+            JobEvent::Done { job_id: id, .. } if id == job_id => break,
+            JobEvent::Error {
+                job_id: id,
+                message,
+            } if id == job_id => panic!("unexpected error: {message}"),
+            JobEvent::Canceled { job_id: id } if id == job_id => {
+                panic!("unexpected canceled event")
+            }
+            _ => {}
+        }
+    }
+
+    assert!(saw_extracting_progress, "missing extracting-text progress");
+    assert_eq!(
+        last_done, 3,
+        "extracting-text completion count must reach total"
+    );
+    assert!(
+        saw_active_path,
+        "missing active current_input_path during extraction"
+    );
+    assert!(
+        saw_cleared_path,
+        "current_input_path should clear when extracting-text work completes"
+    );
 }

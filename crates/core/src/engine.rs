@@ -1,50 +1,21 @@
 use crate::{
-    cancel::{ensure_not_canceled, is_canceled_error, CancelCheck, NoCancel},
+    cancel::{ensure_not_canceled, CancelCheck, NoCancel},
     config::{Config, DiskAlphabeticalMode, Mode, OutputOrdering},
     dedupe_ram::RamStore,
     disk::WritableBuckets,
-    disk_sort, epub_reader, pdf_reader,
+    disk_sort,
     progress::{ProgressEvent, ProgressSink},
+    rich_input_resolver::{resolve_rich_inputs, RichInputResolution},
     stats::{FileStats, Stats},
     text_line_reader::LossyLineReader,
     token_iter::TokenIter,
     writer::OutputWriter,
 };
-use anyhow::anyhow;
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::PathBuf;
-use std::sync::{
-    atomic::{AtomicUsize, Ordering},
-    Mutex,
-};
-use std::thread;
 use std::time::Instant;
-use tempfile::NamedTempFile;
-
-const MAX_RICH_INPUT_WORKERS: usize = 8;
-
-#[derive(Debug, Clone, Copy)]
-enum RichInputKind {
-    Pdf,
-    Epub,
-}
-
-#[derive(Debug, Clone)]
-struct RichInputTask {
-    input_idx: usize,
-    path: PathBuf,
-    kind: RichInputKind,
-}
-
-#[derive(Debug)]
-struct RichInputOutcome {
-    input_idx: usize,
-    original_path: PathBuf,
-    temp_file: Option<NamedTempFile>,
-    failure: Option<String>,
-}
 
 pub fn run<P: ProgressSink>(config: &Config, progress: P) -> anyhow::Result<Stats> {
     run_with_control(config, progress, NoCancel)
@@ -61,19 +32,23 @@ pub fn run_with_control<P: ProgressSink, C: CancelCheck>(
     // Resolve any PDF/EPUB inputs to temporary plain-text files before the engine
     // loop runs.  The returned `_temp_files` vec keeps the NamedTempFiles alive
     // for the entire duration of the job; they are deleted when it drops.
-    let (resolved, _temp_files, failed_pdfs, path_aliases) =
-        resolve_rich_inputs(config, &progress, &cancel)?;
+    let RichInputResolution {
+        resolved_config,
+        temp_files: _temp_files,
+        failures,
+        path_aliases,
+    } = resolve_rich_inputs(config, &progress, &cancel)?;
 
-    let chosen = effective_mode(&resolved);
+    let chosen = effective_mode(&resolved_config);
     progress.on_event(ProgressEvent::ModeResolved(chosen));
     let mut stats = match chosen {
-        Mode::Ram => run_ram(&resolved, &progress, &cancel, &path_aliases),
-        Mode::Disk => run_disk(&resolved, &progress, &cancel),
+        Mode::Ram => run_ram(&resolved_config, &progress, &cancel, &path_aliases),
+        Mode::Disk => run_disk(&resolved_config, &progress, &cancel),
         Mode::Auto => unreachable!("effective_mode never returns Mode::Auto"),
     }?;
 
     stats.mode_effective = Some(chosen);
-    stats.failed_pdfs = failed_pdfs;
+    stats.failed_pdfs = failures;
     Ok(stats)
 }
 
@@ -120,197 +95,6 @@ fn resolve_auto_mode(config: &Config) -> Mode {
     } else {
         Mode::Ram
     }
-}
-
-/// Scans `config.inputs` for rich-format files (PDF, EPUB), extracts their
-/// text into temporary plain-text files, and returns a cloned `Config` whose
-/// `inputs` list replaces every rich-format path with the corresponding
-/// temp-file path.  Plain-text paths are forwarded unchanged.
-///
-/// Returns `(resolved_config, temp_files, failures)`.  The caller must hold
-/// `temp_files` alive for as long as the resolved config's paths are in use.
-/// Files that fail to extract are skipped; their `(path, error)` pairs are
-/// returned so the caller can surface them as warnings.
-fn resolve_rich_inputs<P: ProgressSink, C: CancelCheck>(
-    config: &Config,
-    progress: &P,
-    cancel: &C,
-) -> anyhow::Result<(
-    Config,
-    Vec<NamedTempFile>,
-    Vec<(PathBuf, String)>,
-    HashMap<PathBuf, PathBuf>,
-)> {
-    let mut resolved_inputs: Vec<Option<PathBuf>> = vec![None; config.inputs.len()];
-    let mut rich_tasks = Vec::new();
-
-    for (input_idx, path) in config.inputs.iter().enumerate() {
-        if pdf_reader::is_pdf(path) {
-            rich_tasks.push(RichInputTask {
-                input_idx,
-                path: path.clone(),
-                kind: RichInputKind::Pdf,
-            });
-        } else if epub_reader::is_epub(path) {
-            rich_tasks.push(RichInputTask {
-                input_idx,
-                path: path.clone(),
-                kind: RichInputKind::Epub,
-            });
-        } else {
-            resolved_inputs[input_idx] = Some(path.clone());
-        }
-    }
-
-    let total_rich = rich_tasks.len();
-    if total_rich == 0 {
-        return Ok((config.clone(), Vec::new(), Vec::new(), HashMap::new()));
-    }
-
-    progress.on_event(ProgressEvent::Stage("ExtractingText"));
-
-    let outcomes = extract_rich_inputs(&rich_tasks, total_rich, progress, cancel)?;
-    let mut temp_files: Vec<NamedTempFile> = Vec::with_capacity(total_rich);
-    let mut failures: Vec<(PathBuf, String)> = Vec::new();
-    let mut path_aliases: HashMap<PathBuf, PathBuf> = HashMap::new();
-
-    for outcome in outcomes {
-        if let Some(tmp) = outcome.temp_file {
-            let temp_path = tmp.path().to_path_buf();
-            path_aliases.insert(temp_path.clone(), outcome.original_path);
-            resolved_inputs[outcome.input_idx] = Some(temp_path);
-            temp_files.push(tmp);
-        } else if let Some(err) = outcome.failure {
-            failures.push((outcome.original_path, err));
-        }
-    }
-
-    let mut resolved = config.clone();
-    resolved.inputs = resolved_inputs.into_iter().flatten().collect();
-
-    Ok((resolved, temp_files, failures, path_aliases))
-}
-
-fn extract_rich_inputs<P: ProgressSink, C: CancelCheck>(
-    tasks: &[RichInputTask],
-    total_rich: usize,
-    progress: &P,
-    cancel: &C,
-) -> anyhow::Result<Vec<RichInputOutcome>> {
-    let workers = rich_input_worker_count(total_rich);
-    if workers <= 1 {
-        let completed = AtomicUsize::new(0);
-        let mut outcomes = Vec::with_capacity(tasks.len());
-        for task in tasks {
-            outcomes.push(process_rich_input_task(
-                task, total_rich, &completed, progress, cancel,
-            )?);
-        }
-        outcomes.sort_by_key(|outcome| outcome.input_idx);
-        return Ok(outcomes);
-    }
-
-    let queue = Mutex::new(VecDeque::from(tasks.to_vec()));
-    let results = Mutex::new(Vec::with_capacity(tasks.len()));
-    let completed = AtomicUsize::new(0);
-
-    thread::scope(|scope| -> anyhow::Result<()> {
-        let mut handles = Vec::with_capacity(workers);
-        for _ in 0..workers {
-            handles.push(scope.spawn(|| -> anyhow::Result<()> {
-                loop {
-                    ensure_not_canceled(cancel)?;
-                    let task = {
-                        let mut queue = queue
-                            .lock()
-                            .map_err(|_| anyhow!("rich input work queue lock poisoned"))?;
-                        queue.pop_front()
-                    };
-                    let Some(task) = task else {
-                        return Ok(());
-                    };
-
-                    let outcome =
-                        process_rich_input_task(&task, total_rich, &completed, progress, cancel)?;
-                    let mut results = results
-                        .lock()
-                        .map_err(|_| anyhow!("rich input result lock poisoned"))?;
-                    results.push(outcome);
-                }
-            }));
-        }
-
-        for handle in handles {
-            handle
-                .join()
-                .map_err(|_| anyhow!("rich input worker panicked"))??;
-        }
-        Ok(())
-    })?;
-
-    let mut outcomes = results
-        .into_inner()
-        .map_err(|_| anyhow!("rich input result lock poisoned"))?;
-    outcomes.sort_by_key(|outcome| outcome.input_idx);
-    Ok(outcomes)
-}
-
-fn process_rich_input_task<P: ProgressSink, C: CancelCheck>(
-    task: &RichInputTask,
-    total_rich: usize,
-    completed: &AtomicUsize,
-    progress: &P,
-    cancel: &C,
-) -> anyhow::Result<RichInputOutcome> {
-    ensure_not_canceled(cancel)?;
-    progress.on_event(ProgressEvent::StageItemStarted {
-        total: total_rich,
-        path: task.path.clone(),
-    });
-
-    let extraction = match task.kind {
-        RichInputKind::Pdf => pdf_reader::pdf_to_temp_text(&task.path, cancel),
-        RichInputKind::Epub => epub_reader::epub_to_temp_text(&task.path, cancel),
-    };
-
-    let outcome = match extraction {
-        Ok(temp_file) => RichInputOutcome {
-            input_idx: task.input_idx,
-            original_path: task.path.clone(),
-            temp_file: Some(temp_file),
-            failure: None,
-        },
-        Err(err) => {
-            if is_canceled_error(&err) {
-                return Err(err);
-            }
-            RichInputOutcome {
-                input_idx: task.input_idx,
-                original_path: task.path.clone(),
-                temp_file: None,
-                failure: Some(format!("{err:#}")),
-            }
-        }
-    };
-
-    let finished = completed.fetch_add(1, Ordering::Relaxed) + 1;
-    progress.on_event(ProgressEvent::StageItemFinished {
-        completed: finished,
-        total: total_rich,
-    });
-    Ok(outcome)
-}
-
-fn rich_input_worker_count(total_rich: usize) -> usize {
-    if total_rich <= 1 {
-        return total_rich;
-    }
-
-    let available = thread::available_parallelism()
-        .map(|count| count.get())
-        .unwrap_or(1);
-    let bounded = available.saturating_sub(1).clamp(1, MAX_RICH_INPUT_WORKERS);
-    total_rich.min(bounded)
 }
 
 fn run_ram<P: ProgressSink, C: CancelCheck>(

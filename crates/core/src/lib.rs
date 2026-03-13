@@ -10,6 +10,7 @@ pub mod fuzzy;
 pub mod ngram;
 pub mod pdf_reader;
 pub mod progress;
+mod rich_input_resolver;
 pub mod set_ops;
 pub mod stats;
 pub mod text_line_reader;

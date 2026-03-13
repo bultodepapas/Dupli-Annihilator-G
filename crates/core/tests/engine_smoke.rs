@@ -1,10 +1,17 @@
-use dedupe_core::{run, Config, DiskAlphabeticalMode, Mode, NoProgress, OutputOrdering};
+use dedupe_core::{
+    is_canceled_error, run, run_with_control, CancellationToken, Config, DiskAlphabeticalMode,
+    Mode, NoProgress, OutputOrdering, ProgressEvent, ProgressSink,
+};
 use lopdf::content::{Content, Operation};
 use lopdf::dictionary;
 use lopdf::{Document, Object, Stream};
 use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
+};
 
 fn make_cfg(
     input_path: PathBuf,
@@ -83,6 +90,34 @@ fn write_pdf(path: &Path, pages: &[&str]) {
     doc.trailer.set("Root", catalog_id);
     doc.compress();
     doc.save(path).expect("save pdf");
+}
+
+#[derive(Clone)]
+struct CancelOnRichStart {
+    cancel: CancellationToken,
+    cancel_after: usize,
+    starts_seen: Arc<AtomicUsize>,
+}
+
+impl CancelOnRichStart {
+    fn new(cancel: CancellationToken, cancel_after: usize) -> Self {
+        Self {
+            cancel,
+            cancel_after,
+            starts_seen: Arc::new(AtomicUsize::new(0)),
+        }
+    }
+}
+
+impl ProgressSink for CancelOnRichStart {
+    fn on_event(&self, event: ProgressEvent) {
+        if let ProgressEvent::StageItemStarted { .. } = event {
+            let seen = self.starts_seen.fetch_add(1, Ordering::SeqCst) + 1;
+            if seen >= self.cancel_after {
+                self.cancel.cancel();
+            }
+        }
+    }
 }
 
 #[test]
@@ -208,6 +243,87 @@ fn invalid_pdf_is_reported_and_skipped() {
     assert_eq!(out, "safe");
     assert_eq!(stats.failed_pdfs.len(), 1);
     assert_eq!(stats.failed_pdfs[0].0, broken_pdf);
+}
+
+#[test]
+fn mixed_plain_pdf_with_failed_rich_input_preserves_first_seen_order() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let input_a = dir.path().join("a.txt");
+    let input_pdf = dir.path().join("b.pdf");
+    let broken_pdf = dir.path().join("broken.pdf");
+    let input_d = dir.path().join("d.txt");
+    let output = dir.path().join("out.txt");
+
+    fs::write(&input_a, "alpha").expect("write input a");
+    write_pdf(&input_pdf, &["bravo"]);
+    fs::write(&broken_pdf, "not a pdf").expect("write broken pdf");
+    fs::write(&input_d, "delta").expect("write input d");
+
+    let mut cfg = make_cfg(
+        input_a.clone(),
+        output.clone(),
+        Mode::Ram,
+        OutputOrdering::PreserveFirstSeen,
+    );
+    cfg.inputs = vec![input_a, input_pdf, broken_pdf.clone(), input_d];
+
+    let stats = run(&cfg, NoProgress).expect("run");
+
+    let out = fs::read_to_string(output).expect("read output");
+    assert_eq!(out, "alpha,bravo,delta");
+    assert_eq!(stats.failed_pdfs.len(), 1);
+    assert_eq!(stats.failed_pdfs[0].0, broken_pdf);
+}
+
+#[test]
+fn pdf_multi_page_extraction_keeps_page_token_boundaries() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let input_pdf = dir.path().join("multi.pdf");
+    let output = dir.path().join("out.txt");
+
+    write_pdf(&input_pdf, &["alpha", "beta"]);
+
+    let cfg = make_cfg(
+        input_pdf,
+        output.clone(),
+        Mode::Ram,
+        OutputOrdering::PreserveFirstSeen,
+    );
+    run(&cfg, NoProgress).expect("run");
+
+    let out = fs::read_to_string(output).expect("read output");
+    assert_eq!(out, "alpha,beta");
+    assert!(!out.contains("alphabeta"));
+}
+
+#[test]
+fn cancel_during_parallel_rich_extraction_returns_canceled() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let output = dir.path().join("out.txt");
+
+    let mut inputs = Vec::new();
+    for idx in 0..3 {
+        let pdf = dir.path().join(format!("doc_{idx}.pdf"));
+        let pages: Vec<String> = (0..200)
+            .map(|page| format!("token_{idx}_{page} repeated repeated"))
+            .collect();
+        let page_refs: Vec<&str> = pages.iter().map(String::as_str).collect();
+        write_pdf(&pdf, &page_refs);
+        inputs.push(pdf);
+    }
+
+    let mut cfg = make_cfg(
+        inputs[0].clone(),
+        output,
+        Mode::Ram,
+        OutputOrdering::PreserveFirstSeen,
+    );
+    cfg.inputs = inputs;
+
+    let cancel = CancellationToken::new();
+    let progress = CancelOnRichStart::new(cancel.clone(), 1);
+    let err = run_with_control(&cfg, progress, cancel).expect_err("run should cancel");
+    assert!(is_canceled_error(&err), "unexpected error: {err:#}");
 }
 
 #[test]

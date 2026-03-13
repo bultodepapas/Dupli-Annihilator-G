@@ -5,7 +5,7 @@ use dedupe_core::{
     FileStats, Mode, OutputOrdering, ProgressEvent, ProgressSink, Stats,
 };
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 use std::fs;
 use std::path::Path;
 use std::sync::{
@@ -478,6 +478,7 @@ struct BridgeState {
     peak_tps: u64,
     current_stage: Option<String>,
     current_stage_started_at: Option<Instant>,
+    active_stage_item_paths: VecDeque<String>,
     stage_durations_ms: BTreeMap<String, u128>,
 }
 
@@ -507,6 +508,7 @@ impl BridgeSink {
                 peak_tps: 0,
                 current_stage: None,
                 current_stage_started_at: None,
+                active_stage_item_paths: VecDeque::new(),
                 stage_durations_ms: BTreeMap::new(),
             }),
         }
@@ -636,6 +638,7 @@ impl ProgressSink for BridgeSink {
                 Self::close_current_stage(&mut state, now);
                 state.current_stage = Some(stage.to_string());
                 state.current_stage_started_at = Some(now);
+                state.active_stage_item_paths.clear();
                 state.snapshot.stage = Some(stage.to_string());
                 state.snapshot.stage_items_done = 0;
                 state.snapshot.stage_items_total = 0;
@@ -656,12 +659,32 @@ impl ProgressSink for BridgeSink {
             }
             ProgressEvent::StageItemStarted { total, path } => {
                 state.snapshot.stage_items_total = total;
-                state.snapshot.current_input_path = Some(path.to_string_lossy().into_owned());
+                state
+                    .active_stage_item_paths
+                    .push_back(path.to_string_lossy().into_owned());
+                state.snapshot.current_input_path = state.active_stage_item_paths.front().cloned();
                 force_emit = true;
             }
-            ProgressEvent::StageItemFinished { completed, total } => {
+            ProgressEvent::StageItemFinished {
+                completed,
+                total,
+                path,
+            } => {
                 state.snapshot.stage_items_done = completed;
                 state.snapshot.stage_items_total = total;
+                let finished_path = path.to_string_lossy();
+                if let Some(idx) = state
+                    .active_stage_item_paths
+                    .iter()
+                    .position(|active_path| active_path == finished_path.as_ref())
+                {
+                    state.active_stage_item_paths.remove(idx);
+                }
+                state.snapshot.current_input_path = if completed >= total {
+                    None
+                } else {
+                    state.active_stage_item_paths.front().cloned()
+                };
                 force_emit = true;
             }
             ProgressEvent::TokensSeen(v) => {
