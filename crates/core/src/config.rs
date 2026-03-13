@@ -76,7 +76,7 @@ impl Default for Config {
             inputs: Vec::new(),
             output: PathBuf::new(),
             output_separator: "\n".to_string(),
-            mode: Mode::Ram,
+            mode: Mode::Auto,
             ordering: OutputOrdering::PreserveFirstSeen,
             trim: true,
             drop_empty: true,

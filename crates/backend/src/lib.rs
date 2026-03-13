@@ -833,7 +833,7 @@ fn parse_escaped_separator(input: &str) -> String {
 }
 
 fn default_mode() -> ApiMode {
-    ApiMode::Ram
+    ApiMode::Auto
 }
 
 fn default_ordering() -> ApiOrdering {

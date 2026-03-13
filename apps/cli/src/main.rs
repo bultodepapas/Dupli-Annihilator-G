@@ -50,7 +50,7 @@ struct Cli {
     #[arg(long, action = ArgAction::SetTrue)]
     overwrite: bool,
 
-    #[arg(long, value_enum, default_value_t = CliMode::Ram)]
+    #[arg(long, value_enum, default_value_t = CliMode::Auto)]
     mode: CliMode,
 
     #[arg(long, value_enum, default_value_t = CliOrdering::PreserveFirstSeen)]
