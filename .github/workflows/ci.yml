@@ -23,6 +23,10 @@ jobs:
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
 
+      - name: Verify real-corpus harness
+        shell: bash
+        run: bash scripts/ci/verify-real-corpus-harness.sh
+
       - name: Run workspace tests (with retry)
         shell: bash
         run: |

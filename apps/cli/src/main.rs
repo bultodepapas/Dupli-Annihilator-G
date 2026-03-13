@@ -11,6 +11,12 @@ use std::sync::{
 };
 use std::time::Duration;
 
+enum TerminalOutcome {
+    Success,
+    Error(String),
+    Canceled,
+}
+
 #[derive(Debug, Clone, Copy, ValueEnum)]
 enum CliMode {
     Auto,
@@ -81,6 +87,9 @@ struct Cli {
 
     #[arg(long, action = ArgAction::SetTrue)]
     quiet: bool,
+
+    #[arg(long, action = ArgAction::SetTrue)]
+    benchmark_json: bool,
 }
 
 fn main() -> Result<()> {
@@ -124,6 +133,7 @@ fn main() -> Result<()> {
     }
 
     let mut sent_cancel = false;
+    let mut terminal_outcome: Option<TerminalOutcome> = None;
     loop {
         if cancel_requested.load(AtomicOrdering::Acquire) && !sent_cancel {
             sent_cancel = backend.cancel_job(CancelJobRequest { job_id }).acknowledged;
@@ -166,32 +176,51 @@ fn main() -> Result<()> {
                 }
             }
             BackendJobEvent::Done { stats, .. } => {
-                println!(
-                    "done files={} tokens_seen={} unique={} duplicates={} filtered_by_length={} elapsed_ms={}",
-                    stats.files,
-                    stats.tokens_seen,
-                    stats.unique_tokens,
-                    stats.duplicates,
-                    stats.filtered_by_length,
-                    stats.elapsed_ms
-                );
-                break;
+                if !cli.benchmark_json {
+                    println!(
+                        "done files={} tokens_seen={} unique={} duplicates={} filtered_by_length={} elapsed_ms={}",
+                        stats.files,
+                        stats.tokens_seen,
+                        stats.unique_tokens,
+                        stats.duplicates,
+                        stats.filtered_by_length,
+                        stats.elapsed_ms
+                    );
+                }
+                terminal_outcome = Some(TerminalOutcome::Success);
             }
             BackendJobEvent::Error { message, .. } => {
-                return Err(anyhow!("engine run failed: {message}"));
+                terminal_outcome = Some(TerminalOutcome::Error(message));
             }
             BackendJobEvent::Canceled { .. } => {
-                return Err(anyhow!("job canceled"));
+                terminal_outcome = Some(TerminalOutcome::Canceled);
             }
             BackendJobEvent::Summary { summary, .. } => {
-                if !cli.quiet {
+                if cli.benchmark_json {
+                    println!(
+                        "{}",
+                        serde_json::to_string(&summary).context("failed to serialize summary")?
+                    );
+                } else if !cli.quiet {
                     eprintln!(
-                        "[summary] status={:?} reduction_pct={} uniq_pct={} output_bytes={}",
+                        "[summary] status={:?} mode_effective={} reduction_pct={} uniq_pct={} output_bytes={}",
                         summary.status,
+                        summary.mode_effective,
                         summary.reduction_pct,
                         summary.uniq_pct,
                         summary.output_bytes
                     );
+                }
+
+                match terminal_outcome.take() {
+                    Some(TerminalOutcome::Success) => break,
+                    Some(TerminalOutcome::Error(message)) => {
+                        return Err(anyhow!("engine run failed: {message}"));
+                    }
+                    Some(TerminalOutcome::Canceled) => {
+                        return Err(anyhow!("job canceled"));
+                    }
+                    None => {}
                 }
             }
         }
