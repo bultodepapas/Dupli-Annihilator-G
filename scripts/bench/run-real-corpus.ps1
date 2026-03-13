@@ -13,7 +13,11 @@ param(
 
     [switch]$ValidateCorpus,
 
-    [switch]$RequireCorpus
+    [switch]$RequireCorpus,
+
+    [switch]$AppendHistory,
+
+    [string]$HistoryPath = "docs/benchmark-history.md"
 )
 
 Set-StrictMode -Version Latest
@@ -396,7 +400,16 @@ function Invoke-BenchmarkRun {
         disk_buckets                   = [int]$Run.DiskBuckets
         disk_run_bytes                 = Convert-SizeToBytes -Size $Run.DiskRunSize
         extract_ms                     = $extractMs
-        core_pipeline_ms               = if ($null -ne $extractMs) { [int64]$summary.elapsed_ms - [int64]$extractMs } else { [int64]$summary.elapsed_ms }
+        core_pipeline_ms               = [int64]$summary.elapsed_ms
+        auto_available_memory_bytes    = if ($null -ne $summary.auto_available_memory_bytes) { [int64]$summary.auto_available_memory_bytes } else { $null }
+        auto_total_memory_bytes        = if ($null -ne $summary.auto_total_memory_bytes) { [int64]$summary.auto_total_memory_bytes } else { $null }
+        auto_usable_memory_bytes       = if ($null -ne $summary.auto_usable_memory_bytes) { [int64]$summary.auto_usable_memory_bytes } else { $null }
+        auto_safety_margin_bytes       = if ($null -ne $summary.auto_safety_margin_bytes) { [int64]$summary.auto_safety_margin_bytes } else { $null }
+        auto_estimated_ram_bytes       = if ($null -ne $summary.auto_estimated_ram_bytes) { [int64]$summary.auto_estimated_ram_bytes } else { $null }
+        auto_sample_tokens             = if ($null -ne $summary.auto_sample_tokens) { [int64]$summary.auto_sample_tokens } else { $null }
+        auto_sample_unique_ratio       = if ($null -ne $summary.auto_sample_unique_ratio) { [double]$summary.auto_sample_unique_ratio } else { $null }
+        auto_sample_duplicate_ratio    = if ($null -ne $summary.auto_sample_duplicate_ratio) { [double]$summary.auto_sample_duplicate_ratio } else { $null }
+        auto_decision_reason           = if ($null -ne $summary.auto_decision_reason) { [string]$summary.auto_decision_reason } else { "" }
         warnings                       = if ($summary.warnings) { ($summary.warnings -join " | ") } else { "" }
         status                         = [string]$summary.status
         output_path                    = [string]$summary.output_path
@@ -667,6 +680,39 @@ function Convert-ResultsToMarkdown {
     return ($lines -join [Environment]::NewLine) + [Environment]::NewLine
 }
 
+function Append-HistoryEntry {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$RepoRoot,
+
+        [Parameter(Mandatory = $true)]
+        [string]$HistoryFilePath,
+
+        [Parameter(Mandatory = $true)]
+        [string]$EntryMarkdown
+    )
+
+    $resolvedHistoryPath = if ([IO.Path]::IsPathRooted($HistoryFilePath)) {
+        $HistoryFilePath
+    }
+    else {
+        Join-Path $RepoRoot $HistoryFilePath
+    }
+
+    if (-not (Test-Path -LiteralPath $resolvedHistoryPath -PathType Leaf)) {
+        throw "History file not found: $resolvedHistoryPath"
+    }
+
+    $existing = Get-Content -LiteralPath $resolvedHistoryPath -Raw
+    $separator = [Environment]::NewLine + "---" + [Environment]::NewLine + [Environment]::NewLine
+    $trimmedExisting = $existing.TrimEnd()
+    $trimmedEntry = $EntryMarkdown.Trim()
+    $newContent = $trimmedExisting + $separator + $trimmedEntry + [Environment]::NewLine
+    Set-Content -LiteralPath $resolvedHistoryPath -Value $newContent -Encoding UTF8
+
+    return (Resolve-Path -LiteralPath $resolvedHistoryPath).Path
+}
+
 $repoRoot = Get-RepoRoot
 $allScenarios = Get-ScenarioDefinitions
 
@@ -751,6 +797,12 @@ if ($SkipBuild) {
 if ($RequireCorpus) {
     $commandParts += "-RequireCorpus"
 }
+if ($AppendHistory) {
+    $commandParts += "-AppendHistory"
+}
+if ($HistoryPath -ne "docs/benchmark-history.md") {
+    $commandParts += "-HistoryPath $HistoryPath"
+}
 $historyEntryMarkdown = Convert-ResultsToMarkdown `
     -RepoRoot $repoRoot `
     -SuiteName $Suite `
@@ -764,8 +816,19 @@ $historyEntryMarkdown = Convert-ResultsToMarkdown `
 $historyEntryMarkdown | Set-Content -LiteralPath $historyEntryPath -Encoding UTF8
 $historyEntryMarkdown | Set-Content -LiteralPath $latestHistoryEntryPath -Encoding UTF8
 
+$appendedHistoryPath = $null
+if ($AppendHistory) {
+    $appendedHistoryPath = Append-HistoryEntry `
+        -RepoRoot $repoRoot `
+        -HistoryFilePath $HistoryPath `
+        -EntryMarkdown $historyEntryMarkdown
+}
+
 Write-Output "results_json=$jsonPath"
 Write-Output "results_csv=$csvPath"
 Write-Output "validations_json=$validationJsonPath"
 Write-Output "validations_csv=$validationCsvPath"
 Write-Output "history_entry_md=$historyEntryPath"
+if ($AppendHistory) {
+    Write-Output "history_appended_to=$appendedHistoryPath"
+}

@@ -21,6 +21,19 @@ pub struct FileStats {
     pub filtered_by_length: u64,
 }
 
+#[derive(Debug, Default, Clone, PartialEq)]
+pub struct AutoDecisionTelemetry {
+    pub available_memory_bytes: u64,
+    pub total_memory_bytes: u64,
+    pub usable_memory_bytes: u64,
+    pub safety_margin_bytes: u64,
+    pub estimated_ram_bytes: u64,
+    pub sample_tokens: u64,
+    pub sample_unique_ratio: f64,
+    pub sample_duplicate_ratio: f64,
+    pub decision_reason: String,
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct Stats {
     pub files: usize,
@@ -36,4 +49,7 @@ pub struct Stats {
     /// Per-file breakdown. `None` when `Config::per_file_stats` is `false`
     /// or when running in Disk mode (not supported).
     pub per_file: Option<Vec<FileStats>>,
+    /// Additional telemetry emitted when `Mode::Auto` performs a host-aware
+    /// decision based on memory and workload sampling.
+    pub auto_telemetry: Option<AutoDecisionTelemetry>,
 }

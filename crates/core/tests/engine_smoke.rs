@@ -1,6 +1,6 @@
 use dedupe_core::{
-    is_canceled_error, run, run_with_control, CancellationToken, Config, DiskAlphabeticalMode,
-    Mode, NoProgress, OutputOrdering, ProgressEvent, ProgressSink,
+    effective_mode, is_canceled_error, run, run_with_control, CancellationToken, Config,
+    DiskAlphabeticalMode, Mode, NoProgress, OutputOrdering, ProgressEvent, ProgressSink,
 };
 use lopdf::content::{Content, Operation};
 use lopdf::dictionary;
@@ -162,20 +162,13 @@ fn ram_alphabetical_uses_utf8_byte_order() {
 }
 
 #[test]
-fn auto_mode_behaves_like_ram_in_v1() {
+fn auto_mode_exposes_decision_telemetry_for_small_single_file() {
     let dir = tempfile::tempdir().expect("tempdir");
     let input = dir.path().join("in.txt");
-    let out_ram = dir.path().join("out_ram.txt");
     let out_auto = dir.path().join("out_auto.txt");
 
     fs::write(&input, "x;z,y,x").expect("write input");
 
-    let ram_cfg = make_cfg(
-        input.clone(),
-        out_ram.clone(),
-        Mode::Ram,
-        OutputOrdering::PreserveFirstSeen,
-    );
     let auto_cfg = make_cfg(
         input,
         out_auto.clone(),
@@ -183,12 +176,13 @@ fn auto_mode_behaves_like_ram_in_v1() {
         OutputOrdering::PreserveFirstSeen,
     );
 
-    run(&ram_cfg, NoProgress).expect("run ram");
-    run(&auto_cfg, NoProgress).expect("run auto");
-
-    let ram_out = fs::read_to_string(out_ram).expect("read ram");
+    let stats = run(&auto_cfg, NoProgress).expect("run auto");
     let auto_out = fs::read_to_string(out_auto).expect("read auto");
-    assert_eq!(ram_out, auto_out);
+    assert_eq!(auto_out, "x,z,y");
+    let telemetry = stats.auto_telemetry.expect("auto telemetry");
+    assert!(telemetry.sample_tokens >= 3);
+    assert!(!telemetry.decision_reason.is_empty());
+    assert_eq!(stats.mode_effective, Some(effective_mode(&auto_cfg)));
 }
 
 #[test]

@@ -56,7 +56,7 @@ Deliver a single-screen desktop workflow that allows users to:
 
 ### 5.2 Processing Configuration
 - `Mode`: `AUTO`, `RAM`, `DISK`.
-- V1 `AUTO` behavior: explicit alias of `RAM` (must be explained by tooltip).
+- `AUTO` behavior: host-aware heuristic based on available memory and sampled workload shape.
 - `OutputOrdering`: `PreserveFirstSeen`, `Alphabetical`, `UnorderedFast`.
 - Conditional controls:
   - If `DISK + Alphabetical`: show `FastBucketLocal` vs `GlobalPerfect`.

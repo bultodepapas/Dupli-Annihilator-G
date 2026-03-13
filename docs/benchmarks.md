@@ -74,6 +74,18 @@ Use an existing CLI binary without rebuilding:
 pwsh -NoProfile -File scripts/bench/run-real-corpus.ps1 -Suite bench-real-rich -SkipBuild
 ```
 
+Append the generated Markdown entry directly to the history log:
+
+```powershell
+pwsh -NoProfile -File scripts/bench/run-real-corpus.ps1 -Suite smoke-real -SkipBuild -AppendHistory
+```
+
+To append into a different history file:
+
+```powershell
+pwsh -NoProfile -File scripts/bench/run-real-corpus.ps1 -Suite smoke-real -SkipBuild -AppendHistory -HistoryPath docs/benchmark-history.md
+```
+
 ## Output Artifacts
 
 Each run writes:
@@ -103,19 +115,21 @@ Each result record includes:
 - requested ordering and effective ordering
 - disk settings
 - `extract_ms` and `core_pipeline_ms`
+- `AUTO` decision telemetry (`auto_*` fields) when `mode=auto`
 - stage durations serialized as JSON
 
 ## Baseline Numbers
 
-These are the current local baselines gathered on `2026-03-13` from the current tree:
+These are the current local baselines gathered on `2026-03-13` from the latest full historical run:
 
 | Scenario | Variant | Baseline |
 |---|---|---|
-| `single_huge_unique` | `RAM + PreserveFirstSeen` | `2321 ms` |
-| `single_huge_unique` | `RAM + UnorderedFast` | `2951 ms` |
-| `single_huge_unique` | `DISK + PreserveFirstSeen` | `2076 ms` |
-| `two_huge_partial_overlap` | `RAM + PreserveFirstSeen` | `6997 ms` |
-| `two_huge_partial_overlap` | `DISK + PreserveFirstSeen` | `5213 ms` |
+| `single_huge_unique` | `AUTO + PreserveFirstSeen` | `1829 ms` |
+| `single_huge_unique` | `RAM + PreserveFirstSeen` | `1907 ms` |
+| `single_huge_unique` | `DISK + PreserveFirstSeen` | `1587 ms` |
+| `two_huge_partial_overlap` | `DISK + PreserveFirstSeen` | `3352 ms` |
+| `two_huge_partial_overlap` | `RAM + PreserveFirstSeen` | `6082 ms` |
+| `two_huge_partial_overlap` | `AUTO + PreserveFirstSeen` | `3496 ms` |
 | `rich_duplicate_pair` | pair of Biology PDFs | `644,158 tokens`, `33,058 unique`, `611,100 duplicates` |
 
 These are regression anchors, not portable universal benchmarks. Hardware, filesystem, antivirus, and OS effects still matter.
@@ -127,3 +141,4 @@ Phase-1 optimization work should be judged against the real corpus first:
 - `Test2.csv`: `RAM + PreserveFirstSeen` should not remain more than 10% slower than `DISK + PreserveFirstSeen`; otherwise `AUTO` should favor DISK for this profile.
 - `Test1.csv + Test3.csv`: DISK-path improvements should target at least 15% additional gain.
 - Rich-input analysis should track `ExtractingText` separately from the rest of the pipeline so extraction wins and dedupe wins are not conflated.
+- `AUTO` changes must be evaluated with the new `auto_*` decision telemetry, not only by `mode_effective`.

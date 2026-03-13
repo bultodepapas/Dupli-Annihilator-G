@@ -13,6 +13,8 @@ use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::{Path, PathBuf};
 
+const IO_BUFFER_BYTES: usize = 64 * 1024;
+
 #[derive(Debug)]
 struct RunFile {
     path: PathBuf,
@@ -52,7 +54,7 @@ fn generate_runs<P: ProgressSink, C: CancelCheck>(
         });
 
         let file = File::open(path)?;
-        let mut reader = LossyLineReader::new(BufReader::new(file));
+        let mut reader = LossyLineReader::new(BufReader::with_capacity(IO_BUFFER_BYTES, file));
         let mut line = String::new();
 
         loop {
@@ -121,7 +123,7 @@ fn flush_run(
     let run_idx = runs.len();
     let path = temp_dir.join(format!("run_{run_idx:05}.txt"));
     let file = File::create(&path)?;
-    let mut writer = BufWriter::new(file);
+    let mut writer = BufWriter::with_capacity(IO_BUFFER_BYTES, file);
 
     for t in buf.iter() {
         writer.write_all(t.as_bytes())?;
@@ -144,7 +146,10 @@ fn merge_runs_to_output<C: CancelCheck>(
 ) -> anyhow::Result<()> {
     let mut readers = Vec::with_capacity(runs.len());
     for run in runs {
-        readers.push(BufReader::new(File::open(&run.path)?));
+        readers.push(BufReader::with_capacity(
+            IO_BUFFER_BYTES,
+            File::open(&run.path)?,
+        ));
     }
 
     let mut heap: BinaryHeap<Reverse<(String, usize)>> = BinaryHeap::new();

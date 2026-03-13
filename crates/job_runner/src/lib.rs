@@ -65,7 +65,7 @@ impl FileStatsSnapshot {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct StatsSnapshot {
     pub files: usize,
     pub tokens_seen: u64,
@@ -77,6 +77,15 @@ pub struct StatsSnapshot {
     pub failed_pdfs: Vec<String>,
     /// Per-file breakdown, or `null` when not collected.
     pub per_file: Option<Vec<FileStatsSnapshot>>,
+    pub auto_available_memory_bytes: Option<u64>,
+    pub auto_total_memory_bytes: Option<u64>,
+    pub auto_usable_memory_bytes: Option<u64>,
+    pub auto_safety_margin_bytes: Option<u64>,
+    pub auto_estimated_ram_bytes: Option<u64>,
+    pub auto_sample_tokens: Option<u64>,
+    pub auto_sample_unique_ratio: Option<f64>,
+    pub auto_sample_duplicate_ratio: Option<f64>,
+    pub auto_decision_reason: Option<String>,
 }
 
 impl StatsSnapshot {
@@ -91,6 +100,7 @@ impl StatsSnapshot {
                 .map(FileStatsSnapshot::from_file_stats)
                 .collect()
         });
+        let auto = stats.auto_telemetry.as_ref();
         Self {
             files: stats.files,
             tokens_seen: stats.tokens_seen,
@@ -100,6 +110,15 @@ impl StatsSnapshot {
             elapsed_ms: stats.elapsed.as_millis(),
             failed_pdfs,
             per_file,
+            auto_available_memory_bytes: auto.map(|x| x.available_memory_bytes),
+            auto_total_memory_bytes: auto.map(|x| x.total_memory_bytes),
+            auto_usable_memory_bytes: auto.map(|x| x.usable_memory_bytes),
+            auto_safety_margin_bytes: auto.map(|x| x.safety_margin_bytes),
+            auto_estimated_ram_bytes: auto.map(|x| x.estimated_ram_bytes),
+            auto_sample_tokens: auto.map(|x| x.sample_tokens),
+            auto_sample_unique_ratio: auto.map(|x| x.sample_unique_ratio),
+            auto_sample_duplicate_ratio: auto.map(|x| x.sample_duplicate_ratio),
+            auto_decision_reason: auto.map(|x| x.decision_reason.clone()),
         }
     }
 }
@@ -145,6 +164,15 @@ pub struct RunSummary {
     pub avg_throughput_tps: u64,
     pub peak_throughput_tps: Option<u64>,
     pub stage_durations_ms: Option<BTreeMap<String, u128>>,
+    pub auto_available_memory_bytes: Option<u64>,
+    pub auto_total_memory_bytes: Option<u64>,
+    pub auto_usable_memory_bytes: Option<u64>,
+    pub auto_safety_margin_bytes: Option<u64>,
+    pub auto_estimated_ram_bytes: Option<u64>,
+    pub auto_sample_tokens: Option<u64>,
+    pub auto_sample_unique_ratio: Option<f64>,
+    pub auto_sample_duplicate_ratio: Option<f64>,
+    pub auto_decision_reason: Option<String>,
     pub warnings: Vec<String>,
     pub error_message: Option<String>,
     /// Per-file breakdown, or `null` when `Config::per_file_stats` is `false`
@@ -463,6 +491,15 @@ impl ProgressSnapshot {
             elapsed_ms: self.elapsed_ms,
             failed_pdfs: Vec::new(),
             per_file: None,
+            auto_available_memory_bytes: None,
+            auto_total_memory_bytes: None,
+            auto_usable_memory_bytes: None,
+            auto_safety_margin_bytes: None,
+            auto_estimated_ram_bytes: None,
+            auto_sample_tokens: None,
+            auto_sample_unique_ratio: None,
+            auto_sample_duplicate_ratio: None,
+            auto_decision_reason: None,
         }
     }
 }
@@ -793,6 +830,15 @@ fn build_run_summary(
             None
         },
         stage_durations_ms,
+        auto_available_memory_bytes: stats.auto_available_memory_bytes,
+        auto_total_memory_bytes: stats.auto_total_memory_bytes,
+        auto_usable_memory_bytes: stats.auto_usable_memory_bytes,
+        auto_safety_margin_bytes: stats.auto_safety_margin_bytes,
+        auto_estimated_ram_bytes: stats.auto_estimated_ram_bytes,
+        auto_sample_tokens: stats.auto_sample_tokens,
+        auto_sample_unique_ratio: stats.auto_sample_unique_ratio,
+        auto_sample_duplicate_ratio: stats.auto_sample_duplicate_ratio,
+        auto_decision_reason: stats.auto_decision_reason.clone(),
         warnings: {
             let mut w = build_warnings(config, mode_effective, status, reduction_pct, uniq_pct);
             w.extend(stats.failed_pdfs.iter().cloned());

@@ -89,7 +89,7 @@ Given one or more plain-text input files, the engine must:
 
 ### 5.3 V1 Defaults
 - `mode = Ram`
-- `mode_auto_behavior_v1 = RamAlias`
+- `mode_auto_behavior_v1 = HostAwareHeuristic`
 - `ordering = PreserveFirstSeen`
 - `output_separator_default = "\n"`
 - `trim = true`
@@ -103,7 +103,7 @@ Given one or more plain-text input files, the engine must:
 ### 6.1 Mode
 - `Ram`: in-memory dedupe path for memory-fit workloads.
 - `Disk`: temp-storage-backed path for large datasets.
-- `Auto` (V1): explicit alias to `Ram`.
+- `Auto` (V1): host-aware heuristic choosing between `Ram` and `Disk`.
 
 ### 6.2 Ordering
 - `PreserveFirstSeen`: preserve first accepted appearance order.
@@ -141,10 +141,11 @@ Given one or more plain-text input files, the engine must:
    - compute bucket index from token hash,
    - append token to bucket file (internal line format).
 3. Reduction phase per bucket:
-   - load one bucket,
-   - dedupe in RAM,
+   - reduce buckets independently with bounded parallelism,
+   - dedupe each bucket in RAM,
    - optional local alphabetical sort,
-   - append reduced output to final writer.
+   - materialize reduced bucket output,
+   - concatenate reduced buckets in bucket order into the final writer.
 4. Finalize output and release temp resources.
 
 ### 7.3 DISK GlobalPerfect Pipeline (`Alphabetical+GlobalPerfect`)
@@ -161,9 +162,13 @@ Given one or more plain-text input files, the engine must:
 3. Finalize and cleanup temporary run files.
 
 ### 7.4 AUTO Pipeline (V1)
-- `Auto` routes to `Ram` directly.
-- No runtime heuristic in V1.
-- API remains stable for future heuristic upgrade.
+- Resolve rich inputs first, then sample the resulting text inputs.
+- Read host memory telemetry (`available`, `free`, `total`).
+- Compute a safety margin and a usable-memory budget.
+- Estimate token density, uniqueness ratio, duplicate ratio, and projected RAM set size.
+- Choose `Disk` under memory pressure or large multi-file partial-overlap workloads.
+- Choose `Ram` when the projected set fits comfortably.
+- Emit decision telemetry with the final run summary.
 
 ## 8) Guarantees Matrix
 

@@ -26,20 +26,8 @@ impl RamStore {
 
     pub fn insert(&mut self, token: &str) -> bool {
         match self {
-            Self::Stable(set) => {
-                if set.contains(token) {
-                    false
-                } else {
-                    set.insert(token.into())
-                }
-            }
-            Self::Unordered(set) => {
-                if set.contains(token) {
-                    false
-                } else {
-                    set.insert(token.into())
-                }
-            }
+            Self::Stable(set) => set.insert_full(token.into()).1,
+            Self::Unordered(set) => set.insert(token.into()),
         }
     }
 

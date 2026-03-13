@@ -43,6 +43,13 @@ fn make_disk_config(input: std::path::PathBuf, output: std::path::PathBuf) -> Co
     }
 }
 
+fn make_auto_config(input: std::path::PathBuf, output: std::path::PathBuf) -> Config {
+    Config {
+        mode: Mode::Auto,
+        ..make_ram_config(input, output)
+    }
+}
+
 fn write_pdf(path: &Path, pages: &[&str]) {
     let mut doc = Document::with_version("1.5");
     let pages_id = doc.new_object_id();
@@ -256,11 +263,48 @@ fn done_job_emits_summary_with_actionable_metrics() {
             assert_eq!(summary.ordering, "preserve_first_seen");
             assert_eq!(summary.output_separator_raw, ",");
             assert_eq!(summary.output_separator_preview, ",");
+            assert_eq!(summary.auto_decision_reason, None);
             break;
         }
     }
 
     assert!(saw_summary, "missing summary event");
+}
+
+#[test]
+fn auto_summary_includes_decision_telemetry() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let input = dir.path().join("in.txt");
+    let output = dir.path().join("out.txt");
+    fs::write(&input, "a,b,b;c\na c").expect("write input");
+
+    let manager = JobManager::new();
+    let job_id = manager
+        .start_job(make_auto_config(input, output))
+        .expect("start job");
+
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while Instant::now() < deadline {
+        let Some(event) = manager.next_event_timeout(Duration::from_millis(200)) else {
+            continue;
+        };
+
+        if let JobEvent::Summary {
+            job_id: id,
+            summary,
+        } = event
+        {
+            if id != job_id {
+                continue;
+            }
+            assert_eq!(summary.mode, "auto");
+            assert!(summary.auto_sample_tokens.unwrap_or(0) > 0);
+            assert!(summary.auto_decision_reason.is_some());
+            return;
+        }
+    }
+
+    panic!("missing auto summary event");
 }
 
 #[test]

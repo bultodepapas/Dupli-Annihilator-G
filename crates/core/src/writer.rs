@@ -10,9 +10,13 @@ pub struct OutputWriter {
 
 impl OutputWriter {
     pub fn create(path: &Path, sep: String) -> std::io::Result<Self> {
+        Self::with_capacity(path, sep, 64 * 1024)
+    }
+
+    pub fn with_capacity(path: &Path, sep: String, capacity: usize) -> std::io::Result<Self> {
         let file = File::create(path)?;
         Ok(Self {
-            writer: BufWriter::new(file),
+            writer: BufWriter::with_capacity(capacity, file),
             sep: sep.into_bytes(),
             is_first: true,
         })

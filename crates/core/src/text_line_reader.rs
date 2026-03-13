@@ -8,9 +8,13 @@ pub struct LossyLineReader<R: BufRead> {
 
 impl<R: BufRead> LossyLineReader<R> {
     pub fn new(inner: R) -> Self {
+        Self::with_raw_capacity(inner, 64 * 1024)
+    }
+
+    pub fn with_raw_capacity(inner: R, raw_capacity: usize) -> Self {
         Self {
             inner,
-            raw: Vec::with_capacity(8 * 1024),
+            raw: Vec::with_capacity(raw_capacity),
             first_line: true,
         }
     }

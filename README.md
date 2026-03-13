@@ -106,7 +106,7 @@ Rich inputs are extracted into temporary text before tokenization. Recent engine
 - extraction progress is visible immediately,
 - `PDF` and `EPUB` extraction runs with bounded parallelism,
 - large PDFs are streamed page by page to reduce memory pressure,
-- `AUTO` mode chooses between `RAM` and `DISK` using the resolved extracted footprint instead of just the compressed container size.
+- `AUTO` mode chooses between `RAM` and `DISK` after extraction using host memory telemetry plus a corpus sample, not just the compressed container size.
 
 ### Folder inputs
 
@@ -141,7 +141,14 @@ For large workloads, the engine avoids memory blowups by switching to bounded on
 
 ### AUTO mode
 
-Lets the engine choose the effective mode based on the workload, including rich-input extraction size when `PDF`/`EPUB` files are involved.
+Lets the engine choose the effective mode based on:
+
+- the resolved post-extraction input footprint,
+- current available memory on the host,
+- a lightweight token sample that estimates uniqueness and duplicate pressure,
+- the workload shape (`1` file vs `2+` files with partial overlap).
+
+The same corpus may resolve to different effective modes on different machines if available memory differs.
 
 ### Runtime telemetry
 
