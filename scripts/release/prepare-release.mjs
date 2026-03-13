@@ -73,6 +73,7 @@ if (dryRun) {
 run(bumpArgs);
 
 run(["npm", "--prefix", "apps/desktop", "install", "--package-lock-only"]);
+run(["cargo", "generate-lockfile"], { cwd: resolve(process.cwd(), "apps/desktop/src-tauri") });
 
 if (!skipBuild) {
   run(["npm", "--prefix", "apps/desktop", "run", "build"]);
@@ -88,6 +89,7 @@ const releaseFiles = [
   "apps/desktop/package-lock.json",
   "apps/desktop/src-tauri/tauri.conf.json",
   "apps/desktop/src-tauri/Cargo.toml",
+  "apps/desktop/src-tauri/Cargo.lock",
   "crates/core/Cargo.toml",
   "crates/job_runner/Cargo.toml",
   "crates/backend/Cargo.toml",

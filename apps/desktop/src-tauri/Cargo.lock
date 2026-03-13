@@ -547,7 +547,7 @@ dependencies = [
 
 [[package]]
 name = "dedupe_backend"
-version = "2.9.7"
+version = "2.9.8"
 dependencies = [
  "anyhow",
  "dedupe_core",
@@ -559,7 +559,7 @@ dependencies = [
 
 [[package]]
 name = "dedupe_core"
-version = "2.9.7"
+version = "2.9.8"
 dependencies = [
  "ahash",
  "anyhow",
@@ -575,7 +575,7 @@ dependencies = [
 
 [[package]]
 name = "dedupe_desktop_tauri"
-version = "2.9.7"
+version = "2.9.8"
 dependencies = [
  "dedupe_backend",
  "open",
@@ -590,7 +590,7 @@ dependencies = [
 
 [[package]]
 name = "dedupe_job_runner"
-version = "2.9.7"
+version = "2.9.8"
 dependencies = [
  "anyhow",
  "chrono",
