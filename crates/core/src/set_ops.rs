@@ -92,14 +92,19 @@ pub fn set_op<P: ProgressSink, C: CancelCheck>(
 
     let mut left_store = match config.ordering {
         OutputOrdering::UnorderedFast => RamStore::new_unordered(),
-        OutputOrdering::PreserveFirstSeen | OutputOrdering::Alphabetical => {
-            RamStore::new_stable()
-        }
+        OutputOrdering::PreserveFirstSeen | OutputOrdering::Alphabetical => RamStore::new_stable(),
     };
     left_store.reserve(16 * 1024);
 
-    let (ls, ld, lf) =
-        scan_into_store(left, 0, total_files, config, &mut left_store, progress, cancel)?;
+    let (ls, ld, lf) = scan_into_store(
+        left,
+        0,
+        total_files,
+        config,
+        &mut left_store,
+        progress,
+        cancel,
+    )?;
     stats.tokens_seen += ls;
     stats.duplicates += ld;
     stats.filtered_by_length += lf;
@@ -136,14 +141,8 @@ pub fn set_op<P: ProgressSink, C: CancelCheck>(
         SetOp::Diff | SetOp::Intersect => {
             // Build a membership-only HashSet for the right side — O(1) lookup,
             // ordering irrelevant.
-            let (membership, rs, rd, rf) = scan_into_membership_set(
-                right,
-                left.len(),
-                total_files,
-                config,
-                progress,
-                cancel,
-            )?;
+            let (membership, rs, rd, rf) =
+                scan_into_membership_set(right, left.len(), total_files, config, progress, cancel)?;
             stats.tokens_seen += rs;
             stats.duplicates += rd;
             stats.filtered_by_length += rf;
@@ -380,10 +379,16 @@ mod tests {
     /// Runs `set_op` with one left file and one right file, returns a **sorted**
     /// Vec of output tokens for order-independent comparison.
     fn run_sorted(left: &str, right: &str, op: SetOp) -> Vec<String> {
-        run_ordered(left, right, op, OutputOrdering::PreserveFirstSeen, |mut v| {
-            v.sort();
-            v
-        })
+        run_ordered(
+            left,
+            right,
+            op,
+            OutputOrdering::PreserveFirstSeen,
+            |mut v| {
+                v.sort();
+                v
+            },
+        )
     }
 
     /// Runs `set_op` and applies `post` to the result tokens before returning.
@@ -467,21 +472,39 @@ mod tests {
     #[test]
     fn diff_preserve_first_seen_order() {
         // left = c b a (insertion order), right removes b → result = c, a (left order)
-        let result = run_ordered("c b a", "b", SetOp::Diff, OutputOrdering::PreserveFirstSeen, |v| v);
+        let result = run_ordered(
+            "c b a",
+            "b",
+            SetOp::Diff,
+            OutputOrdering::PreserveFirstSeen,
+            |v| v,
+        );
         assert_eq!(result, vec!["c", "a"]);
     }
 
     #[test]
     fn intersect_preserve_first_seen_order() {
         // left = c b a; intersect with {a,b} → b, a (in left insertion order)
-        let result = run_ordered("c b a", "a b", SetOp::Intersect, OutputOrdering::PreserveFirstSeen, |v| v);
+        let result = run_ordered(
+            "c b a",
+            "a b",
+            SetOp::Intersect,
+            OutputOrdering::PreserveFirstSeen,
+            |v| v,
+        );
         assert_eq!(result, vec!["b", "a"]);
     }
 
     #[test]
     fn alphabetical_ordering_applied_to_diff() {
         // c b a minus nothing = c b a; sorted = a b c
-        let result = run_ordered("c b a", "", SetOp::Diff, OutputOrdering::Alphabetical, |v| v);
+        let result = run_ordered(
+            "c b a",
+            "",
+            SetOp::Diff,
+            OutputOrdering::Alphabetical,
+            |v| v,
+        );
         assert_eq!(result, vec!["a", "b", "c"]);
     }
 

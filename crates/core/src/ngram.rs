@@ -67,10 +67,7 @@ pub fn ngram_extract<P: ProgressSink, C: CancelCheck>(
     progress: &P,
     cancel: &C,
 ) -> anyhow::Result<NgramStats> {
-    anyhow::ensure!(
-        n >= 2 && n <= 20,
-        "n must be between 2 and 20, got {n}"
-    );
+    anyhow::ensure!(n >= 2 && n <= 20, "n must be between 2 and 20, got {n}");
     config.validate()?;
 
     let started = Instant::now();

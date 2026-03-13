@@ -11,10 +11,10 @@ pub mod ngram;
 pub mod pdf_reader;
 pub mod progress;
 pub mod set_ops;
-pub mod word_checker;
 pub mod stats;
 pub mod text_line_reader;
 pub mod token_iter;
+pub mod word_checker;
 pub mod writer;
 
 pub use cancel::{is_canceled_error, CancelCheck, Canceled, CancellationToken, NoCancel};

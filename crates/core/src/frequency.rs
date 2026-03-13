@@ -40,8 +40,7 @@ pub fn token_frequency<P: ProgressSink, C: CancelCheck>(
     progress.on_event(ProgressEvent::Stage("FrequencyAnalysis"));
 
     // Same hasher strategy as RamStore / WordChecker: AHash via RandomState.
-    let mut counts: HashMap<Box<str>, u64, RandomState> =
-        HashMap::with_hasher(RandomState::new());
+    let mut counts: HashMap<Box<str>, u64, RandomState> = HashMap::with_hasher(RandomState::new());
     // Pre-allocate roughly the same initial capacity as RamStore (engine.rs:179).
     counts.reserve(16 * 1024);
 
@@ -119,7 +118,7 @@ pub fn token_frequency<P: ProgressSink, C: CancelCheck>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{config::Config, progress::NoProgress, cancel::NoCancel};
+    use crate::{cancel::NoCancel, config::Config, progress::NoProgress};
     use std::io::Write;
     use tempfile::NamedTempFile;
 
@@ -277,8 +276,7 @@ mod tests {
         f.write_all(&bytes).unwrap();
         f.flush().unwrap();
 
-        let result =
-            token_frequency(&cfg(vec![f.path().into()]), &NoProgress, &NoCancel).unwrap();
+        let result = token_frequency(&cfg(vec![f.path().into()]), &NoProgress, &NoCancel).unwrap();
         let map: std::collections::HashMap<&str, u64> =
             result.iter().map(|(k, v)| (k.as_ref(), *v)).collect();
         assert_eq!(map["a"], 2);
@@ -298,9 +296,11 @@ mod tests {
         let f = write_temp(&content);
         let token = CancellationToken::new();
         token.cancel();
-        let err = token_frequency(&cfg(vec![f.path().into()]), &NoProgress, &token)
-            .unwrap_err();
-        assert!(err.downcast_ref::<Canceled>().is_some(), "expected Canceled, got: {err}");
+        let err = token_frequency(&cfg(vec![f.path().into()]), &NoProgress, &token).unwrap_err();
+        assert!(
+            err.downcast_ref::<Canceled>().is_some(),
+            "expected Canceled, got: {err}"
+        );
     }
 
     #[test]

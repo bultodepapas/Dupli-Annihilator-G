@@ -297,47 +297,54 @@ impl JobManager {
             // touching shared state, so the critical section stays minimal.
             let (status, terminal_event, stats_for_summary, error_message, mode_effective) =
                 match result {
-                Ok(stats) => {
-                    let mode_effective =
-                        stats.mode_effective.unwrap_or_else(|| fallback_mode_effective(config.mode));
-                    let snap = StatsSnapshot::from_stats(stats);
-                    let event = JobEvent::Done {
-                        job_id,
-                        stats: snap.clone(),
-                    };
-                    (RunTerminalStatus::Success, event, snap, None, mode_effective)
-                }
-                Err(err) => {
-                    let mode_effective = bridge
-                        .snapshot
-                        .mode_effective
-                        .unwrap_or_else(|| fallback_mode_effective(config.mode));
-                    if is_canceled_error(&err) || cancel.is_canceled() {
-                        let snap = bridge.snapshot.to_stats_snapshot();
+                    Ok(stats) => {
+                        let mode_effective = stats
+                            .mode_effective
+                            .unwrap_or_else(|| fallback_mode_effective(config.mode));
+                        let snap = StatsSnapshot::from_stats(stats);
+                        let event = JobEvent::Done {
+                            job_id,
+                            stats: snap.clone(),
+                        };
                         (
-                            RunTerminalStatus::Canceled,
-                            JobEvent::Canceled { job_id },
+                            RunTerminalStatus::Success,
+                            event,
                             snap,
                             None,
                             mode_effective,
                         )
-                    } else {
-                        let message = format!("{err:#}");
-                        let snap = bridge.snapshot.to_stats_snapshot();
-                        let event = JobEvent::Error {
-                            job_id,
-                            message: message.clone(),
-                        };
-                        (
-                            RunTerminalStatus::Error,
-                            event,
-                            snap,
-                            Some(message),
-                            mode_effective,
-                        )
                     }
-                }
-            };
+                    Err(err) => {
+                        let mode_effective = bridge
+                            .snapshot
+                            .mode_effective
+                            .unwrap_or_else(|| fallback_mode_effective(config.mode));
+                        if is_canceled_error(&err) || cancel.is_canceled() {
+                            let snap = bridge.snapshot.to_stats_snapshot();
+                            (
+                                RunTerminalStatus::Canceled,
+                                JobEvent::Canceled { job_id },
+                                snap,
+                                None,
+                                mode_effective,
+                            )
+                        } else {
+                            let message = format!("{err:#}");
+                            let snap = bridge.snapshot.to_stats_snapshot();
+                            let event = JobEvent::Error {
+                                job_id,
+                                message: message.clone(),
+                            };
+                            (
+                                RunTerminalStatus::Error,
+                                event,
+                                snap,
+                                Some(message),
+                                mode_effective,
+                            )
+                        }
+                    }
+                };
 
             // Mark the job as done and clear the active slot BEFORE sending
             // the terminal event.  Consumers that call is_running() immediately
@@ -647,14 +654,13 @@ impl ProgressSink for BridgeSink {
                 state.snapshot.files_total = total;
                 force_emit = true;
             }
-            ProgressEvent::StageItemStarted { index, total, path } => {
-                state.snapshot.stage_items_done = index.saturating_sub(1);
+            ProgressEvent::StageItemStarted { total, path } => {
                 state.snapshot.stage_items_total = total;
                 state.snapshot.current_input_path = Some(path.to_string_lossy().into_owned());
                 force_emit = true;
             }
-            ProgressEvent::StageItemFinished { index, total } => {
-                state.snapshot.stage_items_done = index;
+            ProgressEvent::StageItemFinished { completed, total } => {
+                state.snapshot.stage_items_done = completed;
                 state.snapshot.stage_items_total = total;
                 force_emit = true;
             }
@@ -685,7 +691,6 @@ impl ProgressSink for BridgeSink {
         }
     }
 }
-
 
 fn build_run_summary(
     job_id: JobId,

@@ -434,8 +434,8 @@ impl BackendService {
         &self,
         path: String,
     ) -> Result<LoadCheckerResponse, CommandError> {
-        let wc = WordChecker::load(std::path::Path::new(&path))
-            .map_err(map_anyhow_to_command_error)?;
+        let wc =
+            WordChecker::load(std::path::Path::new(&path)).map_err(map_anyhow_to_command_error)?;
         let word_count = wc.len();
         *self.checker.lock().map_err(|_| CommandError {
             category: "internal_error".to_string(),
@@ -501,8 +501,8 @@ impl BackendService {
             ..Config::default()
         };
 
-        let raw =
-            token_frequency(&config, &NoProgress, &NoCancel).map_err(map_anyhow_to_command_error)?;
+        let raw = token_frequency(&config, &NoProgress, &NoCancel)
+            .map_err(map_anyhow_to_command_error)?;
 
         // Derive aggregate stats before consuming the vec.
         let unique_tokens = raw.len() as u64;
@@ -581,9 +581,8 @@ impl BackendService {
             ApiSetOp::Union => SetOp::Union,
         };
 
-        let stats =
-            set_op(&right, op, &config, &NoProgress, &NoCancel)
-                .map_err(map_anyhow_to_command_error)?;
+        let stats = set_op(&right, op, &config, &NoProgress, &NoCancel)
+            .map_err(map_anyhow_to_command_error)?;
 
         Ok(SetOpResponse {
             unique_tokens: stats.unique_tokens,
@@ -603,8 +602,7 @@ impl BackendService {
     ) -> Result<FuzzyClusterResponse, CommandError> {
         let mut inputs: Vec<PathBuf> = Vec::new();
         for raw in req.inputs {
-            let files =
-                expand_path(PathBuf::from(raw)).map_err(map_anyhow_to_command_error)?;
+            let files = expand_path(PathBuf::from(raw)).map_err(map_anyhow_to_command_error)?;
             inputs.extend(files);
         }
         if inputs.is_empty() {

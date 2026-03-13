@@ -1,7 +1,10 @@
 use dedupe_core::{run, Config, DiskAlphabeticalMode, Mode, NoProgress, OutputOrdering};
+use lopdf::content::{Content, Operation};
+use lopdf::dictionary;
+use lopdf::{Document, Object, Stream};
 use std::collections::BTreeSet;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 fn make_cfg(
     input_path: PathBuf,
@@ -24,6 +27,62 @@ fn make_cfg(
         disk_run_bytes: 2 * 1024 * 1024,
         per_file_stats: false,
     }
+}
+
+fn write_pdf(path: &Path, pages: &[&str]) {
+    let mut doc = Document::with_version("1.5");
+    let pages_id = doc.new_object_id();
+
+    let font_id = doc.add_object(lopdf::dictionary! {
+        "Type" => "Font",
+        "Subtype" => "Type1",
+        "BaseFont" => "Courier",
+    });
+    let resources_id = doc.add_object(lopdf::dictionary! {
+        "Font" => lopdf::dictionary! {
+            "F1" => font_id,
+        },
+    });
+
+    let mut kids = Vec::with_capacity(pages.len());
+    for page_text in pages {
+        let content = Content {
+            operations: vec![
+                Operation::new("BT", vec![]),
+                Operation::new("Tf", vec!["F1".into(), 24.into()]),
+                Operation::new("Td", vec![100.into(), 700.into()]),
+                Operation::new("Tj", vec![Object::string_literal(*page_text)]),
+                Operation::new("ET", vec![]),
+            ],
+        };
+        let content_id = doc.add_object(Stream::new(
+            lopdf::dictionary! {},
+            content.encode().expect("encode pdf content"),
+        ));
+        let page_id = doc.add_object(lopdf::dictionary! {
+            "Type" => "Page",
+            "Parent" => pages_id,
+            "Contents" => content_id,
+        });
+        kids.push(page_id.into());
+    }
+
+    let pages_dict = lopdf::dictionary! {
+        "Type" => "Pages",
+        "Kids" => kids,
+        "Count" => pages.len() as i64,
+        "Resources" => resources_id,
+        "MediaBox" => vec![0.into(), 0.into(), 595.into(), 842.into()],
+    };
+    doc.objects.insert(pages_id, Object::Dictionary(pages_dict));
+
+    let catalog_id = doc.add_object(lopdf::dictionary! {
+        "Type" => "Catalog",
+        "Pages" => pages_id,
+    });
+    doc.trailer.set("Root", catalog_id);
+    doc.compress();
+    doc.save(path).expect("save pdf");
 }
 
 #[test]
@@ -95,6 +154,60 @@ fn auto_mode_behaves_like_ram_in_v1() {
     let ram_out = fs::read_to_string(out_ram).expect("read ram");
     let auto_out = fs::read_to_string(out_auto).expect("read auto");
     assert_eq!(ram_out, auto_out);
+}
+
+#[test]
+fn ram_preserve_first_seen_keeps_mixed_plain_and_pdf_order() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let input_a = dir.path().join("a.txt");
+    let input_pdf_1 = dir.path().join("b.pdf");
+    let input_pdf_2 = dir.path().join("c.pdf");
+    let input_d = dir.path().join("d.txt");
+    let output = dir.path().join("out.txt");
+
+    fs::write(&input_a, "alpha").expect("write input a");
+    write_pdf(&input_pdf_1, &["bravo"]);
+    write_pdf(&input_pdf_2, &["charlie"]);
+    fs::write(&input_d, "delta").expect("write input d");
+
+    let mut cfg = make_cfg(
+        input_a.clone(),
+        output.clone(),
+        Mode::Ram,
+        OutputOrdering::PreserveFirstSeen,
+    );
+    cfg.inputs = vec![input_a, input_pdf_1, input_pdf_2, input_d];
+
+    run(&cfg, NoProgress).expect("run");
+
+    let out = fs::read_to_string(output).expect("read output");
+    assert_eq!(out, "alpha,bravo,charlie,delta");
+}
+
+#[test]
+fn invalid_pdf_is_reported_and_skipped() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let plain = dir.path().join("ok.txt");
+    let broken_pdf = dir.path().join("broken.pdf");
+    let output = dir.path().join("out.txt");
+
+    fs::write(&plain, "safe").expect("write plain input");
+    fs::write(&broken_pdf, "definitely not a real pdf").expect("write fake pdf");
+
+    let mut cfg = make_cfg(
+        plain.clone(),
+        output.clone(),
+        Mode::Ram,
+        OutputOrdering::PreserveFirstSeen,
+    );
+    cfg.inputs = vec![plain, broken_pdf.clone()];
+
+    let stats = run(&cfg, NoProgress).expect("run");
+
+    let out = fs::read_to_string(output).expect("read output");
+    assert_eq!(out, "safe");
+    assert_eq!(stats.failed_pdfs.len(), 1);
+    assert_eq!(stats.failed_pdfs[0].0, broken_pdf);
 }
 
 #[test]

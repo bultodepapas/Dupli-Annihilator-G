@@ -111,7 +111,8 @@ impl WritableBuckets {
                         continue;
                     }
 
-                    let bi = Self::bucket_index(token, self.bucket_writers.len(), &self.hasher_state);
+                    let bi =
+                        Self::bucket_index(token, self.bucket_writers.len(), &self.hasher_state);
                     let writer = &mut self.bucket_writers[bi];
                     writer.write_all(token.as_bytes())?;
                     writer.write_all(b"\n")?;

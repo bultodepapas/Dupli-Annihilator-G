@@ -4,6 +4,8 @@ use std::io::{BufWriter, Write};
 use std::path::Path;
 use tempfile::NamedTempFile;
 
+const EPUB_WRITE_BUFFER_CAPACITY: usize = 256 * 1024;
+
 /// Returns `true` if the path has an `.epub` extension (case-insensitive).
 pub fn is_epub(path: &Path) -> bool {
     path.extension()
@@ -26,7 +28,7 @@ pub fn epub_to_temp_text<C: CancelCheck>(path: &Path, cancel: &C) -> anyhow::Res
 
     let mut tmp =
         NamedTempFile::new().context("failed to create temporary file for EPUB text extraction")?;
-    let mut writer = BufWriter::new(tmp.as_file_mut());
+    let mut writer = BufWriter::with_capacity(EPUB_WRITE_BUFFER_CAPACITY, tmp.as_file_mut());
 
     // Clone spine idrefs so we can call mutable methods on `doc` inside the loop.
     // epub crate v2 exposes spine as Vec<SpineItem>; each item has an `idref` field.

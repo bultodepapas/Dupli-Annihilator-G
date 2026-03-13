@@ -16,8 +16,7 @@ impl WordChecker {
         let file = std::fs::File::open(path)
             .with_context(|| format!("cannot open wordlist: {}", path.display()))?;
         let mut reader = LossyLineReader::new(BufReader::new(file));
-        let mut words: HashSet<Box<str>, RandomState> =
-            HashSet::with_hasher(RandomState::new());
+        let mut words: HashSet<Box<str>, RandomState> = HashSet::with_hasher(RandomState::new());
         let mut line = String::new();
         while reader.read_line(&mut line)? > 0 {
             for token in TokenIter::new(&line) {

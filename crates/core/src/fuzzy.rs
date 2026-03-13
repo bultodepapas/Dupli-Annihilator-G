@@ -113,9 +113,7 @@ fn levenshtein_bounded(a: &str, b: &str, max: usize) -> usize {
 
         for (j, &cb) in b_chars.iter().enumerate() {
             let sub = usize::from(ca != cb);
-            curr[j + 1] = (prev[j + 1] + 1)
-                .min(curr[j] + 1)
-                .min(prev[j] + sub);
+            curr[j + 1] = (prev[j + 1] + 1).min(curr[j] + 1).min(prev[j] + sub);
             if curr[j + 1] < row_min {
                 row_min = curr[j + 1];
             }
@@ -193,7 +191,10 @@ pub fn fuzzy_cluster<C: CancelCheck>(
             .or_insert(idx);
     }
 
-    Ok(cluster_min.into_values().map(|idx| tokens[idx].clone()).collect())
+    Ok(cluster_min
+        .into_values()
+        .map(|idx| tokens[idx].clone())
+        .collect())
 }
 
 /// Full pipeline: reads `config.inputs`, performs exact deduplication, runs
@@ -309,9 +310,8 @@ pub fn fuzzy_dedup_inputs<P: ProgressSink, C: CancelCheck>(
             for (i, t) in exact_tokens.iter().enumerate() {
                 pos.insert(t.as_ref(), i);
             }
-            representatives.sort_unstable_by_key(|t| {
-                pos.get(t.as_ref()).copied().unwrap_or(usize::MAX)
-            });
+            representatives
+                .sort_unstable_by_key(|t| pos.get(t.as_ref()).copied().unwrap_or(usize::MAX));
         }
         OutputOrdering::UnorderedFast => {
             // No ordering guarantee required.
@@ -502,10 +502,7 @@ mod tests {
     fn pipeline_clusters_typos_and_writes_output() {
         let input = write_temp("colour\ncolor\napple\n");
         let out = NamedTempFile::new().unwrap();
-        let cfg = cfg_with_output(
-            vec![input.path().into()],
-            out.path().to_path_buf(),
-        );
+        let cfg = cfg_with_output(vec![input.path().into()], out.path().to_path_buf());
         let stats = fuzzy_dedup_inputs(&cfg, 1, &NoProgress, &NoCancel).unwrap();
         assert_eq!(stats.tokens_seen, 3);
         assert_eq!(stats.exact_unique, 3); // all three distinct
