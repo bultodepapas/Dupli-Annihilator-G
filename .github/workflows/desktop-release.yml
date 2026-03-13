@@ -227,7 +227,7 @@ jobs:
           fi
 
       - name: Verify desktop artifacts
-        if: ${{ needs.verify-release.outputs.release_tag != '' || secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
+        if: ${{ needs.verify-release.outputs.release_tag != '' }}
         shell: bash
         run: |
           bash scripts/ci/verify-desktop-artifacts.sh "${RUNNER_OS}" "apps/desktop/src-tauri/target/release/bundle"
