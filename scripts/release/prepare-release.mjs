@@ -73,6 +73,7 @@ if (dryRun) {
 }
 run(bumpArgs);
 
+run(["node", "scripts/release/configure-updater.mjs"]);
 run(["npm", "--prefix", "apps/desktop", "install", "--package-lock-only"]);
 run(["cargo", "generate-lockfile"], { cwd: resolve(process.cwd(), "apps/desktop/src-tauri") });
 
