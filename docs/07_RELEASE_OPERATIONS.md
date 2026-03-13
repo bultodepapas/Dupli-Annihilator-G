@@ -69,7 +69,7 @@ The CI script `scripts/release/configure-updater.mjs` rewrites `plugins.updater`
 
 The public desktop release lanes are now opinionated:
 
-- **Windows:** `NSIS -setup.exe` is the canonical end-user installer. It is built in `perUser` mode and is the bundle referenced by the updater lane.
+- **Windows:** `NSIS -setup.exe` is the canonical end-user installer. It is built in `currentUser` mode and is the bundle referenced by the updater lane.
 - **macOS:** `.dmg` is the canonical first-install artifact. The updater lane uses the generated `.app.tar.gz` plus `.sig`.
 - **Linux:** updater behavior is unchanged, but tagged releases are still expected to emit `latest.json` and signed updater artifacts.
 

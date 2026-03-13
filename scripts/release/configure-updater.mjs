@@ -25,7 +25,7 @@ if (!parsed.bundle || typeof parsed.bundle !== "object") {
 }
 parsed.bundle.windows = parsed.bundle.windows ?? {};
 parsed.bundle.windows.nsis = parsed.bundle.windows.nsis ?? {};
-parsed.bundle.windows.nsis.installMode = "perUser";
+parsed.bundle.windows.nsis.installMode = "currentUser";
 if (windowsCertificateThumbprint.length > 0) {
   parsed.bundle.windows.certificateThumbprint = windowsCertificateThumbprint;
   parsed.bundle.windows.digestAlgorithm = "sha256";
