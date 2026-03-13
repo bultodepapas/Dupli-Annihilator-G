@@ -210,4 +210,18 @@ export const ar: Dictionary = {
   "freq.col_count": "العدد",
   "freq.no_results": "لا توجد نتائج.",
   "freq.error": "فشل التحليل: {detail}",
+
+  "section.setop": "عمليات المجموعات",
+  "setop.left_label": "يسار (A)",
+  "setop.right_label": "يمين (B)",
+  "setop.op_label": "العملية",
+  "setop.output_label": "ملف الإخراج",
+  "setop.op.diff": "فرق  A − B",
+  "setop.op.intersect": "تقاطع  A ∩ B",
+  "setop.op.union": "اتحاد  A ∪ B",
+  "setop.run": "تشغيل",
+  "setop.running": "جارٍ التشغيل...",
+  "setop.result": "{unique} فريد مكتوب · {seen} رمز إجمالاً · {ms} مللي ثانية",
+  "setop.error": "فشلت العملية: {detail}",
+  "setop.inputs_placeholder": "ملفات الإدخال (مسار مطلق واحد لكل سطر)...",
 };

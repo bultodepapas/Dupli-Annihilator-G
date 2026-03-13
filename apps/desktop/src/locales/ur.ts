@@ -210,4 +210,18 @@ export const ur: Dictionary = {
   "freq.col_count": "تعداد",
   "freq.no_results": "کوئی نتیجہ نہیں۔",
   "freq.error": "تجزیہ ناکام: {detail}",
+
+  "section.setop": "سیٹ آپریشنز",
+  "setop.left_label": "بائیں (A)",
+  "setop.right_label": "دائیں (B)",
+  "setop.op_label": "آپریشن",
+  "setop.output_label": "آؤٹ پٹ فائل",
+  "setop.op.diff": "فرق  A − B",
+  "setop.op.intersect": "مشترک  A ∩ B",
+  "setop.op.union": "ملاپ  A ∪ B",
+  "setop.run": "چلائیں",
+  "setop.running": "چل رہا ہے...",
+  "setop.result": "{unique} منفرد لکھے · {seen} کل ٹوکن · {ms} ملی سیکنڈ",
+  "setop.error": "آپریشن ناکام: {detail}",
+  "setop.inputs_placeholder": "ان پٹ فائلیں (فی لائن ایک مکمل راستہ)...",
 };

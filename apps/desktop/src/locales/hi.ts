@@ -210,4 +210,18 @@ export const hi: Dictionary = {
   "freq.col_count": "गिनती",
   "freq.no_results": "कोई परिणाम नहीं।",
   "freq.error": "विश्लेषण विफल: {detail}",
+
+  "section.setop": "सेट संक्रियाएँ",
+  "setop.left_label": "बाएँ (A)",
+  "setop.right_label": "दाएँ (B)",
+  "setop.op_label": "संक्रिया",
+  "setop.output_label": "आउटपुट फ़ाइल",
+  "setop.op.diff": "अंतर  A − B",
+  "setop.op.intersect": "प्रतिच्छेदन  A ∩ B",
+  "setop.op.union": "संघ  A ∪ B",
+  "setop.run": "चलाएँ",
+  "setop.running": "चल रहा है...",
+  "setop.result": "{unique} अद्वितीय लिखे · {seen} कुल टोकन · {ms} मिलीसेकंड",
+  "setop.error": "संक्रिया विफल: {detail}",
+  "setop.inputs_placeholder": "इनपुट फ़ाइलें (प्रति पंक्ति एक पूर्ण पथ)...",
 };

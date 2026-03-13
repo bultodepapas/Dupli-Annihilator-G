@@ -212,4 +212,18 @@ export const es: Dictionary = {
   "freq.col_count": "Cantidad",
   "freq.no_results": "Sin resultados.",
   "freq.error": "Análisis fallido: {detail}",
+
+  "section.setop": "Operaciones de conjunto",
+  "setop.left_label": "Izquierda (A)",
+  "setop.right_label": "Derecha (B)",
+  "setop.op_label": "Operación",
+  "setop.output_label": "Archivo de salida",
+  "setop.op.diff": "Diferencia  A − B",
+  "setop.op.intersect": "Intersección  A ∩ B",
+  "setop.op.union": "Unión  A ∪ B",
+  "setop.run": "EJECUTAR",
+  "setop.running": "EJECUTANDO...",
+  "setop.result": "{unique} únicos escritos · {seen} tokens totales · {ms} ms",
+  "setop.error": "Operación fallida: {detail}",
+  "setop.inputs_placeholder": "Archivos de entrada (una ruta por línea)...",
 };

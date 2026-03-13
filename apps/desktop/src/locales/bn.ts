@@ -210,4 +210,18 @@ export const bn: Dictionary = {
   "freq.col_count": "গণনা",
   "freq.no_results": "কোনো ফলাফল নেই।",
   "freq.error": "বিশ্লেষণ ব্যর্থ: {detail}",
+
+  "section.setop": "সেট অপারেশন",
+  "setop.left_label": "বাম (A)",
+  "setop.right_label": "ডান (B)",
+  "setop.op_label": "অপারেশন",
+  "setop.output_label": "আউটপুট ফাইল",
+  "setop.op.diff": "পার্থক্য  A − B",
+  "setop.op.intersect": "ছেদ  A ∩ B",
+  "setop.op.union": "সংযোজন  A ∪ B",
+  "setop.run": "চালান",
+  "setop.running": "চলছে...",
+  "setop.result": "{unique} অনন্য লেখা · {seen} মোট টোকেন · {ms} মিলিসেকেন্ড",
+  "setop.error": "অপারেশন ব্যর্থ: {detail}",
+  "setop.inputs_placeholder": "ইনপুট ফাইলসমূহ (প্রতি লাইনে একটি পূর্ণ পথ)...",
 };

@@ -210,4 +210,18 @@ export const zhCn: Dictionary = {
   "freq.col_count": "次数",
   "freq.no_results": "无结果。",
   "freq.error": "分析失败：{detail}",
+
+  "section.setop": "集合运算",
+  "setop.left_label": "左侧 (A)",
+  "setop.right_label": "右侧 (B)",
+  "setop.op_label": "运算",
+  "setop.output_label": "输出文件",
+  "setop.op.diff": "差集  A − B",
+  "setop.op.intersect": "交集  A ∩ B",
+  "setop.op.union": "并集  A ∪ B",
+  "setop.run": "执行",
+  "setop.running": "执行中...",
+  "setop.result": "{unique} 个唯一写入 · {seen} 个总计 · {ms} 毫秒",
+  "setop.error": "运算失败：{detail}",
+  "setop.inputs_placeholder": "输入文件（每行一个绝对路径）...",
 };

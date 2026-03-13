@@ -8,6 +8,7 @@ pub mod epub_reader;
 pub mod frequency;
 pub mod pdf_reader;
 pub mod progress;
+pub mod set_ops;
 pub mod word_checker;
 pub mod stats;
 pub mod text_line_reader;
@@ -19,5 +20,6 @@ pub use config::{Config, ConfigError, DiskAlphabeticalMode, Mode, OutputOrdering
 pub use engine::{effective_mode, run, run_with_control};
 pub use frequency::token_frequency;
 pub use progress::{NoProgress, ProgressEvent, ProgressSink};
+pub use set_ops::{set_op, SetOp};
 pub use stats::{FileStats, Stats};
 pub use word_checker::WordChecker;

@@ -1,7 +1,7 @@
 use anyhow::Context;
 use dedupe_core::{
-    token_frequency, Config, DiskAlphabeticalMode, Mode, NoCancel, NoProgress, OutputOrdering,
-    WordChecker,
+    set_op, token_frequency, Config, DiskAlphabeticalMode, Mode, NoCancel, NoProgress,
+    OutputOrdering, SetOp, WordChecker,
 };
 use dedupe_job_runner::{JobError, JobEvent, JobId, JobManager};
 use serde::{Deserialize, Serialize};
@@ -240,6 +240,71 @@ pub struct FrequencyResponse {
     pub unique_tokens: u64,
 }
 
+// ── Set-operation types ───────────────────────────────────────────────────────
+
+/// Which relational set operation to perform.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ApiSetOp {
+    /// Tokens in the left group not present in the right.
+    Diff,
+    /// Tokens present in both groups.
+    Intersect,
+    /// All unique tokens across both groups.
+    Union,
+}
+
+/// Request payload for [`BackendService::run_set_op`].
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SetOpRequest {
+    /// Left-side input file or directory paths.
+    pub left: Vec<String>,
+    /// Right-side input file or directory paths.
+    pub right: Vec<String>,
+    /// Which operation to compute.
+    pub op: ApiSetOp,
+    /// Output file path (required — the result is written to disk).
+    pub output: String,
+    /// Allow overwriting an existing output file without error.
+    #[serde(default)]
+    pub allow_overwrite: bool,
+    /// Output token ordering.
+    #[serde(default = "default_ordering")]
+    pub ordering: ApiOrdering,
+    /// Strip leading/trailing whitespace from each token (default: `true`).
+    #[serde(default = "default_trim")]
+    pub trim: bool,
+    /// Drop empty tokens after trimming (default: `true`).
+    #[serde(default = "default_drop_empty")]
+    pub drop_empty: bool,
+    /// Drop tokens whose character length is within `[min, max]` (inclusive).
+    #[serde(default)]
+    pub drop_length_min: Option<usize>,
+    #[serde(default)]
+    pub drop_length_max: Option<usize>,
+    /// Output separator string (default: `"\n"`).
+    #[serde(default = "default_separator")]
+    pub output_separator: String,
+    /// When `true`, interpret `\n`, `\t`, etc. in `output_separator`.
+    #[serde(default)]
+    pub interpret_separator_escapes: bool,
+}
+
+/// Response payload for [`BackendService::run_set_op`].
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SetOpResponse {
+    /// Number of unique tokens written to the output file.
+    pub unique_tokens: u64,
+    /// Total tokens read from both left and right inputs (before filters).
+    pub tokens_seen: u64,
+    /// Wall-clock milliseconds spent on the operation.
+    pub elapsed_ms: u64,
+    /// The resolved output path (echoed back for convenience).
+    pub output_path: String,
+}
+
 pub struct BackendService {
     manager: JobManager,
     checker: Mutex<Option<WordChecker>>,
@@ -398,6 +463,73 @@ impl BackendService {
             entries,
             tokens_seen,
             unique_tokens,
+        })
+    }
+
+    pub fn run_set_op(&self, req: SetOpRequest) -> Result<SetOpResponse, CommandError> {
+        // Expand left inputs.
+        let mut left: Vec<PathBuf> = Vec::new();
+        for raw in req.left {
+            let files = expand_path(PathBuf::from(raw)).map_err(map_anyhow_to_command_error)?;
+            left.extend(files);
+        }
+        if left.is_empty() {
+            return Err(CommandError {
+                category: "invalid_config".to_string(),
+                message: "left: no input files provided".to_string(),
+                detail: None,
+            });
+        }
+
+        // Expand right inputs (allowed to be empty — Diff with empty right = identity).
+        let mut right: Vec<PathBuf> = Vec::new();
+        for raw in req.right {
+            let files = expand_path(PathBuf::from(raw)).map_err(map_anyhow_to_command_error)?;
+            right.extend(files);
+        }
+
+        let output_path = PathBuf::from(&req.output);
+        if !req.allow_overwrite && output_path.exists() {
+            return Err(CommandError {
+                category: "output_exists".to_string(),
+                message: format!("output file already exists: {}", output_path.display()),
+                detail: None,
+            });
+        }
+
+        let output_separator = if req.interpret_separator_escapes {
+            parse_escaped_separator(&req.output_separator)
+        } else {
+            req.output_separator
+        };
+
+        let config = Config {
+            inputs: left,
+            output: output_path.clone(),
+            output_separator,
+            ordering: map_ordering(req.ordering),
+            trim: req.trim,
+            drop_empty: req.drop_empty,
+            drop_length_min: req.drop_length_min,
+            drop_length_max: req.drop_length_max,
+            ..Config::default()
+        };
+
+        let op = match req.op {
+            ApiSetOp::Diff => SetOp::Diff,
+            ApiSetOp::Intersect => SetOp::Intersect,
+            ApiSetOp::Union => SetOp::Union,
+        };
+
+        let stats =
+            set_op(&right, op, &config, &NoProgress, &NoCancel)
+                .map_err(map_anyhow_to_command_error)?;
+
+        Ok(SetOpResponse {
+            unique_tokens: stats.unique_tokens,
+            tokens_seen: stats.tokens_seen,
+            elapsed_ms: stats.elapsed.as_millis() as u64,
+            output_path: output_path.to_string_lossy().into_owned(),
         })
     }
 

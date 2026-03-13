@@ -1446,6 +1446,146 @@ const OutputSection = React.memo(function OutputSection({
   );
 });
 
+// ─── SetOpPanel ───────────────────────────────────────────────────────────────
+
+type SetOpKind = "diff" | "intersect" | "union";
+
+type SetOpResult = {
+  uniqueTokens: number;
+  tokensSeen: number;
+  elapsedMs: number;
+  outputPath: string;
+};
+
+type SetOpPanelProps = {
+  leftInputs: string;
+  rightInputs: string;
+  op: SetOpKind;
+  outputPath: string;
+  status: "idle" | "running" | "done" | "error";
+  result: SetOpResult | null;
+  message: string;
+  tr: (key: I18nKey, params?: Record<string, string | number>) => string;
+  onLeftChange: (v: string) => void;
+  onRightChange: (v: string) => void;
+  onOpChange: (v: SetOpKind) => void;
+  onOutputChange: (v: string) => void;
+  onPickLeft: () => void;
+  onPickRight: () => void;
+  onPickOutput: () => void;
+  onRun: () => void;
+};
+
+const SetOpPanel = React.memo(function SetOpPanel({
+  leftInputs,
+  rightInputs,
+  op,
+  outputPath,
+  status,
+  result,
+  message,
+  tr,
+  onLeftChange,
+  onRightChange,
+  onOpChange,
+  onOutputChange,
+  onPickLeft,
+  onPickRight,
+  onPickOutput,
+  onRun,
+}: SetOpPanelProps) {
+  const busy = status === "running";
+  const canRun = leftInputs.trim().length > 0 && outputPath.trim().length > 0;
+
+  return (
+    <>
+      <div className="setop-sides">
+        <div className="setop-side">
+          <span className="setop-side-label">{tr("setop.left_label")}</span>
+          <div className="button-row">
+            <input
+              className="path-input"
+              value={leftInputs}
+              onChange={(e) => onLeftChange(e.target.value)}
+              placeholder={tr("setop.inputs_placeholder")}
+              disabled={busy}
+            />
+            <button className="secondary" type="button" onClick={onPickLeft} disabled={busy}>
+              {tr("button.add_files")}
+            </button>
+          </div>
+        </div>
+        <div className="setop-side">
+          <span className="setop-side-label">{tr("setop.right_label")}</span>
+          <div className="button-row">
+            <input
+              className="path-input"
+              value={rightInputs}
+              onChange={(e) => onRightChange(e.target.value)}
+              placeholder={tr("setop.inputs_placeholder")}
+              disabled={busy}
+            />
+            <button className="secondary" type="button" onClick={onPickRight} disabled={busy}>
+              {tr("button.add_files")}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="button-row" style={{ marginTop: 8 }}>
+        <label className="setop-op-label">{tr("setop.op_label")}</label>
+        <select
+          className="setop-op-select"
+          value={op}
+          onChange={(e) => onOpChange(e.target.value as SetOpKind)}
+          disabled={busy}
+        >
+          <option value="diff">{tr("setop.op.diff")}</option>
+          <option value="intersect">{tr("setop.op.intersect")}</option>
+          <option value="union">{tr("setop.op.union")}</option>
+        </select>
+      </div>
+
+      <div className="button-row" style={{ marginTop: 6 }}>
+        <input
+          className="path-input"
+          value={outputPath}
+          onChange={(e) => onOutputChange(e.target.value)}
+          placeholder={tr("setop.output_label")}
+          disabled={busy}
+        />
+        <button className="secondary" type="button" onClick={onPickOutput} disabled={busy}>
+          {tr("button.pick_output")}
+        </button>
+        <button
+          className="primary"
+          type="button"
+          onClick={onRun}
+          disabled={busy || !canRun}
+        >
+          {busy ? tr("setop.running") : tr("setop.run")}
+        </button>
+      </div>
+
+      {message && (
+        <p className="message" style={{ color: status === "error" ? "var(--err, #ffd4d9)" : status === "done" ? "var(--ok)" : undefined }}>
+          {message}
+        </p>
+      )}
+
+      {result && status === "done" && (
+        <p className="message setop-result-line">
+          {tr("setop.result", {
+            unique: result.uniqueTokens.toLocaleString(),
+            seen: result.tokensSeen.toLocaleString(),
+            ms: result.elapsedMs,
+          })}
+        </p>
+      )}
+    </>
+  );
+});
+
 // ─── FrequencyPanel ───────────────────────────────────────────────────────────
 
 type FrequencyEntry = { token: string; count: number };
@@ -1696,6 +1836,14 @@ function App() {
   const [freqStatus, setFreqStatus] = React.useState<"idle" | "analyzing" | "done" | "error">("idle");
   const [freqResult, setFreqResult] = React.useState<FrequencyResponse | null>(null);
   const [freqMessage, setFreqMessage] = React.useState<string>("");
+
+  const [setopLeft, setSetopLeft] = React.useState<string>("");
+  const [setopRight, setSetopRight] = React.useState<string>("");
+  const [setopOp, setSetopOp] = React.useState<SetOpKind>("diff");
+  const [setopOutput, setSetopOutput] = React.useState<string>("");
+  const [setopStatus, setSetopStatus] = React.useState<"idle" | "running" | "done" | "error">("idle");
+  const [setopResult, setSetopResult] = React.useState<SetOpResult | null>(null);
+  const [setopMessage, setSetopMessage] = React.useState<string>("");
 
   const [bannerDismissed, setBannerDismissed] = React.useState(false);
 
@@ -2458,6 +2606,62 @@ function App() {
     }
   }, [freqInputs, freqTopN]);
 
+  const pickSetopFiles = React.useCallback(async (side: "left" | "right") => {
+    try {
+      const selected = await open({
+        multiple: true,
+        directory: false,
+        filters: [{ name: "All supported", extensions: ["txt", "csv", "tsv", "log", "pdf", "epub"] }],
+      });
+      if (!selected) return;
+      const paths = Array.isArray(selected) ? selected : [selected];
+      if (paths.length === 0) return;
+      const setter = side === "left" ? setSetopLeft : setSetopRight;
+      setter((prev) => {
+        const existing = prev.trim();
+        const joined = paths.join("\n");
+        return existing ? `${existing}\n${joined}` : joined;
+      });
+    } catch (err) {
+      setSetopMessage(String(err));
+    }
+  }, []);
+
+  const pickSetopOutput = React.useCallback(async () => {
+    try {
+      const selected = await save({ filters: [{ name: "Text", extensions: ["txt", "csv"] }] });
+      if (selected) setSetopOutput(selected);
+    } catch (err) {
+      setSetopMessage(String(err));
+    }
+  }, []);
+
+  const runSetOp = React.useCallback(async () => {
+    const left = setopLeft.split("\n").map((s) => s.trim()).filter(Boolean);
+    const right = setopRight.split("\n").map((s) => s.trim()).filter(Boolean);
+    if (!left.length || !setopOutput.trim()) return;
+    setSetopStatus("running");
+    setSetopResult(null);
+    setSetopMessage("");
+    try {
+      const res = await invoke<SetOpResult>("run_set_op", {
+        req: { left, right, op: setopOp, output: setopOutput.trim(), allowOverwrite: true },
+      });
+      setSetopResult(res);
+      setSetopStatus("done");
+      setSetopMessage(
+        t(localeRef.current, "setop.result", {
+          unique: res.uniqueTokens,
+          seen: res.tokensSeen,
+          ms: res.elapsedMs,
+        }),
+      );
+    } catch (err) {
+      setSetopStatus("error");
+      setSetopMessage(t(localeRef.current, "setop.error", { detail: String(err) }));
+    }
+  }, [setopLeft, setopRight, setopOp, setopOutput]);
+
   const onLocaleChange = React.useCallback((l: Locale) => {
     setLocale(l);
   }, []);
@@ -2576,6 +2780,27 @@ function App() {
                   onTopNChange={setFreqTopN}
                   onPickFiles={() => void pickFreqFiles()}
                   onAnalyze={() => void runFrequencyAnalysis()}
+                />
+              </section>
+              <section className="card">
+                <h2>{tr("section.setop")}</h2>
+                <SetOpPanel
+                  leftInputs={setopLeft}
+                  rightInputs={setopRight}
+                  op={setopOp}
+                  outputPath={setopOutput}
+                  status={setopStatus}
+                  result={setopResult}
+                  message={setopMessage}
+                  tr={tr}
+                  onLeftChange={setSetopLeft}
+                  onRightChange={setSetopRight}
+                  onOpChange={setSetopOp}
+                  onOutputChange={setSetopOutput}
+                  onPickLeft={() => void pickSetopFiles("left")}
+                  onPickRight={() => void pickSetopFiles("right")}
+                  onPickOutput={() => void pickSetopOutput()}
+                  onRun={() => void runSetOp()}
                 />
               </section>
             </div>

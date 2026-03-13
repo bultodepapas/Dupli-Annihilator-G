@@ -211,4 +211,18 @@ export const ru: Dictionary = {
   "freq.col_count": "Кол-во",
   "freq.no_results": "Нет результатов.",
   "freq.error": "Анализ не выполнен: {detail}",
+
+  "section.setop": "Операции над множествами",
+  "setop.left_label": "Левое (A)",
+  "setop.right_label": "Правое (B)",
+  "setop.op_label": "Операция",
+  "setop.output_label": "Файл вывода",
+  "setop.op.diff": "Разность  A − B",
+  "setop.op.intersect": "Пересечение  A ∩ B",
+  "setop.op.union": "Объединение  A ∪ B",
+  "setop.run": "ВЫПОЛНИТЬ",
+  "setop.running": "ВЫПОЛНЯЕТСЯ...",
+  "setop.result": "{unique} уникальных записано · {seen} токенов всего · {ms} мс",
+  "setop.error": "Операция не выполнена: {detail}",
+  "setop.inputs_placeholder": "Входные файлы (один абсолютный путь в строке)...",
 };

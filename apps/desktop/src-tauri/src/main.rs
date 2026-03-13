@@ -3,7 +3,7 @@
 use dedupe_backend::{
     AppInfo, BackendService, CancelJobRequest, CancelJobResponse, CheckWordResponse, CommandError,
     EmittedEvent, FrequencyRequest, FrequencyResponse, LoadCheckerResponse, RuntimeState,
-    StartJobRequest, StartJobResponse,
+    SetOpRequest, SetOpResponse, StartJobRequest, StartJobResponse,
 };
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -142,6 +142,14 @@ fn run_frequency_analysis(
 }
 
 #[tauri::command]
+fn run_set_op(
+    state: tauri::State<'_, AppState>,
+    req: SetOpRequest,
+) -> Result<SetOpResponse, CommandError> {
+    state.backend.run_set_op(req)
+}
+
+#[tauri::command]
 fn open_external_url(req: OpenExternalUrlRequest) -> Result<(), String> {
     let url = req.url.trim();
     const ALLOWED_PREFIX: &str = "https://github.com/bultodepapas/Dupli-Annihilator-G/releases";
@@ -179,7 +187,8 @@ fn main() {
             open_external_url,
             load_wordlist_for_checker,
             check_word,
-            run_frequency_analysis
+            run_frequency_analysis,
+            run_set_op
         ])
         .run(tauri::generate_context!())
         .expect("failed to run tauri app");

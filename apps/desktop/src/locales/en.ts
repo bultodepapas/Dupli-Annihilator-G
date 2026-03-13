@@ -209,6 +209,20 @@ export const en = {
   "freq.col_count": "Count",
   "freq.no_results": "No results.",
   "freq.error": "Analysis failed: {detail}",
+
+  "section.setop": "Set Operations",
+  "setop.left_label": "Left (A)",
+  "setop.right_label": "Right (B)",
+  "setop.op_label": "Operation",
+  "setop.output_label": "Output file",
+  "setop.op.diff": "Diff  A − B",
+  "setop.op.intersect": "Intersect  A ∩ B",
+  "setop.op.union": "Union  A ∪ B",
+  "setop.run": "RUN SET OP",
+  "setop.running": "RUNNING...",
+  "setop.result": "{unique} unique written · {seen} total tokens · {ms} ms",
+  "setop.error": "Set op failed: {detail}",
+  "setop.inputs_placeholder": "Input files (one absolute path per line)...",
 } as const;
 
 export type TranslationKey = keyof typeof en;
