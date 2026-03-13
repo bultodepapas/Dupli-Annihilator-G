@@ -397,9 +397,33 @@ git add -A
 git commit -m "chore(release): prepare vX.Y.Z"
 ```
 
+Operational rule:
+
+- create the release commit **before** doing anything with the tag
+- do not create the tag in parallel with the commit
+- if the tag is created before the final release commit exists locally, it can point to the previous release commit and CI will fail with `Tag/version mismatch`
+
 #### 10. Tag The Release
 
 ```bash
+git tag -a vX.Y.Z -m "Release vX.Y.Z"
+```
+
+Immediately verify the tag target before pushing it:
+
+```bash
+git show --no-patch --pretty=fuller vX.Y.Z
+```
+
+The tag must point to the exact `chore(release): prepare vX.Y.Z` commit you just created.
+
+If it points anywhere else:
+
+- do **not** push the tag
+- delete the local tag and recreate it correctly:
+
+```bash
+git tag -d vX.Y.Z
 git tag -a vX.Y.Z -m "Release vX.Y.Z"
 ```
 
@@ -411,6 +435,94 @@ git push origin vX.Y.Z
 ```
 
 Pushing the tag triggers the release workflow and starts the cross-platform bundle build.
+
+Operational rule:
+
+- never push the tag first
+- never assume the tag points to `HEAD` without checking
+- `main` and the tag must reference the same release commit
+
+### Release Mistakes We Already Made
+
+These are real failure modes that already happened during release prep and should be treated as hard rules, not suggestions.
+
+#### Mistake 1: Tag Created Before The Final Release Commit
+
+What happened:
+
+- the tag was created while the new release commit had not been finalized yet
+- the pushed tag pointed to the previous release commit
+- CI failed immediately in `verify-release` with:
+
+```text
+Tag/version mismatch: tag=vX.Y.Z, expected=vA.B.C
+```
+
+How to avoid it:
+
+- always commit first, tag second
+- always run `git show --no-patch --pretty=fuller vX.Y.Z` before pushing the tag
+- if CI fails this way after the tag is already pushed, cut the **next patch version**; do not move the old tag
+
+#### Mistake 2: Commit And Tag Were Effectively Done In Parallel
+
+What happened:
+
+- release steps were executed out of order
+- even though both commit and tag existed locally, the tag still captured the old commit
+
+How to avoid it:
+
+- treat release prep as a strict sequence:
+  1. version bump
+  2. lockfile refresh
+  3. release notes
+  4. local checks
+  5. `git add -A`
+  6. `git commit`
+  7. `git tag`
+  8. verify tag target
+  9. push `main`
+  10. push tag
+
+#### Mistake 3: Assuming Local Validation Was The Same As CI Validation
+
+What happened:
+
+- local build/test checks passed
+- release still failed because CI also validates tag/version coherence against the exact tagged commit
+
+How to avoid it:
+
+- do not stop at `cargo test` / `npm build`
+- explicitly verify:
+  - manifest versions are aligned
+  - the tag matches the manifest version
+  - the tag points to the intended release commit
+  - the tagged commit is already on `origin/main`
+
+#### Mistake 4: Reusing A Broken Release Version
+
+What happened:
+
+- once a bad tag was pushed, that version was no longer safe to reuse
+
+How to avoid it:
+
+- if a pushed release tag is wrong, do **not** retag that same version to a different commit
+- fix the issue and publish the next patch version instead
+
+#### Mistake 5: Running Bash Release Checks From The Wrong Shell Path
+
+What happened:
+
+- a bash-based verification command was invoked with a path that did not exist in the current shell environment
+
+How to avoid it:
+
+- run shell-script checks from the repository root
+- do not guess path translations between PowerShell, Git Bash, and WSL
+- verify the current working directory and shell path semantics before relying on local script output
 
 ### Release Helpers
 
